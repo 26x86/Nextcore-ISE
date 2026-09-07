@@ -1,0 +1,60 @@
+{
+  "schema": "26x86.repository-files/1",
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 30,
+      "sha256": "9319637ee361d94b77df3b8f63b650075d6933135e97a0e9b7fdf4240fe7b95c"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "bytes": 284,
+      "sha256": "630fdd492ea0a0590953605efa917908436059d0f0591fcce6a3cfb45eb38438"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 22,
+      "sha256": "2a58829f54c2e8f11df2f4f4e94b1c06962eee8a1bd17bab47a9f2221eac95c9"
+    },
+    {
+      "path": "Cargo.toml",
+      "bytes": 192,
+      "sha256": "e1ba08d68de6849d401d8608d056cc8ae141471e4f2a5066793d7b807b5b61e4"
+    },
+    {
+      "path": "LICENSE.txt",
+      "bytes": 1865,
+      "sha256": "64d8c31222df29cfd8327944815b8d6b3c202a45540d49524a4617f50825a5c4"
+    },
+    {
+      "path": "README.md",
+      "bytes": 317,
+      "sha256": "ce658a5b6c9cb6b74b82941f53d91611bc681c483e3634db336c49bf7f4230e6"
+    },
+    {
+      "path": "src/cpu_features.rs",
+      "bytes": 5109,
+      "sha256": "c4517ec467939ed6397b2bf8ebd4203c8a6987aa67f98bffbc30591a80e68558"
+    },
+    {
+      "path": "src/decoder.rs",
+      "bytes": 22210,
+      "sha256": "2cc0ce6db0b7be116166d57738eae9b0b5292bef4b2ca593365c7170f82538c9"
+    },
+    {
+      "path": "src/emulator.rs",
+      "bytes": 15219,
+      "sha256": "6fca3656d2c2cb3a5ba16ed9192087da1a4b5b086b6d6b3fe6581164e8a36fcf"
+    },
+    {
+      "path": "src/lib.rs",
+      "bytes": 71,
+      "sha256": "145f9b74ed68d8914466b7d3f549ecc6bf78b794ae48e26a13c6290a719c7386"
+    },
+    {
+      "path": "src/trap.rs",
+      "bytes": 2571,
+      "sha256": "d6d278cfb7005e041b0fbaf130e7a4e6983797c65c496ee6e5dabd4af543212a"
+    }
+  ]
+}

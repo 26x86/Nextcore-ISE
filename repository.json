@@ -1,0 +1,14 @@
+{
+  "schema": "26x86.repository/1",
+  "name": "Nextcore-ISE",
+  "owner": "26x86",
+  "public": true,
+  "role": "nextcore-module",
+  "crate": "nextcore-ise",
+  "description": "instruction-set emulation and CPU feature policy",
+  "source_path": "nextcore/crates/nextcore-ise",
+  "source_commit": "3acb61b5c60e3519debb5a65cf47629c387e12cf",
+  "depends_on": [],
+  "initial_tag": "26x86-Nextcore-ISE-v0.1.0",
+  "generated_utc": "2026-09-07T12:43:21.243061+00:00"
+}
