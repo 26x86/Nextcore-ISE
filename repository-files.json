@@ -3,18 +3,18 @@
   "files": [
     {
       "path": ".gitattributes",
-      "bytes": 28,
-      "sha256": "4b0f1fc438f30f25abe421b7542e9f3803b8b5c15ca3695614222e2bc547a9fe"
+      "bytes": 141,
+      "sha256": "ad8e80256ed5d796222583c41f5b874b0d22afe2030df8883ce4002f0588f19e"
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 1727,
-      "sha256": "06fb430d9adeacdfb4742edf6fb6419609dcd3dcba409250eee84031266d0d68"
+      "bytes": 2297,
+      "sha256": "b85c39c63998a3cabdb7545e20849ef4dbee9c0deccf673364ddcbc918b8857e"
     },
     {
       "path": ".gitignore",
-      "bytes": 96,
-      "sha256": "a1fcc8ce567becadc74ded3ef57f32d6774c219e94da8ff788ea2cde0c95de5f"
+      "bytes": 179,
+      "sha256": "3727ba1f604c1ffdd38e6208925a9e98c085f715a9b29f58d4ab0595159d82dc"
     },
     {
       "path": "Cargo.toml",
@@ -58,8 +58,8 @@
     },
     {
       "path": "docs/AARCH64_SCALAR_MEMORY.md",
-      "bytes": 5193,
-      "sha256": "6911b68eaaa864ef103c641c3beeffffff0916a154e5cd5a1f77f826283bad26"
+      "bytes": 5307,
+      "sha256": "5eee3d3c4d6babbbf2b3108fc4dec4b16ff0bde84d8461a9bbb6bbe3beae4f0c"
     },
     {
       "path": "docs/EFI_PLATFORM_IRQ_V2.md",
@@ -70,6 +70,11 @@
       "path": "docs/EFI_THREAD_REGISTERS.md",
       "bytes": 3528,
       "sha256": "a1b5e8669d3fb624a4e99738fd04cf0cb31538dd888fb272616b68ecf6cfd650"
+    },
+    {
+      "path": "docs/MMU_FAULT_METADATA.md",
+      "bytes": 4668,
+      "sha256": "ff7107620b7c31755392cd5e0ffd3b81e03463c12550775f03f7610af7ecf72b"
     },
     {
       "path": "docs/MMU_OUTPUT_WIDTH.md",
@@ -84,7 +89,7 @@
     {
       "path": "repository.json",
       "bytes": 1310,
-      "sha256": "c985113d5fdaf4cb978489c518636bec57ba4c3765dd6a0a27d30e308beb9a5c"
+      "sha256": "82eba319efa56defaa33bf358fe27ebb566c82aafbb52fa8038479b6206b049d"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -157,11 +162,6 @@
       "sha256": "e2a00f7ed51e353c645234325ce3cbd86a9b2082f0887a656f2ba61b621c0726"
     },
     {
-      "path": "runtime/memory-service/target/CACHEDIR.TAG",
-      "bytes": 177,
-      "sha256": "6d9d1d216e0f83abc5e5662ca62c92b4f23009466b54fa27321a69acdb778bb2"
-    },
-    {
       "path": "runtime/memory_abi.h",
       "bytes": 1097,
       "sha256": "0ef6a89d512ef2d1fd0f92d0a25018536fa9c45106372e6c27f749b427b1f515"
@@ -228,8 +228,8 @@
     },
     {
       "path": "runtime/preos/src/mmu.rs",
-      "bytes": 36495,
-      "sha256": "bf53ae078a719011418904a708e128b5027ddb7f0864ff70548ee7d6e74575b7"
+      "bytes": 52282,
+      "sha256": "4b275a53ed1543e58e849e918f5c644a49da81f7bcf5fb55c7ea8f0314d8f3df"
     },
     {
       "path": "runtime/preos/src/pauth.rs",
@@ -360,6 +360,81 @@
       "path": "src/trap.rs",
       "bytes": 2571,
       "sha256": "d6d278cfb7005e041b0fbaf130e7a4e6983797c65c496ee6e5dabd4af543212a"
+    },
+    {
+      "path": "tools/mmu_fault_levels/README.md",
+      "bytes": 7833,
+      "sha256": "b9ab310556d2934543b683f70a1a78bebb83b8fcd54472801503659fc5f40c8d"
+    },
+    {
+      "path": "tools/mmu_fault_levels/abort_oracle.c",
+      "bytes": 3278,
+      "sha256": "fff9af94deb18b1cc96f132b4c008807cd4363dae2104395f408b2723dfaf879"
+    },
+    {
+      "path": "tools/mmu_fault_levels/abort_start.S",
+      "bytes": 1520,
+      "sha256": "7bb9fc87363f259200ea456a44dd401957b515fdffbaf82c91a332b2bae29f4a"
+    },
+    {
+      "path": "tools/mmu_fault_levels/captured-abort/report.json",
+      "bytes": 103021,
+      "sha256": "8f3a5410b0a53aabd28a8c559c0e9b759d14a4d5ce11c6ccbc3210fda468eff0"
+    },
+    {
+      "path": "tools/mmu_fault_levels/captured-at/report.json",
+      "bytes": 243056,
+      "sha256": "e4315a02a0019a41cf7950b2917b1bcdd6f858e3a54745da129e109c758a3155"
+    },
+    {
+      "path": "tools/mmu_fault_levels/compare_walker.py",
+      "bytes": 6333,
+      "sha256": "401de50aceefb77ece6824cf0eaf5cf03478a4eb23438dac14f16d44c8164fd8"
+    },
+    {
+      "path": "tools/mmu_fault_levels/contract.md",
+      "bytes": 2837,
+      "sha256": "f46a796d1c36db8aff30666ed60fbfbfde38661e2c1e1cad44ac5d440df7fa06"
+    },
+    {
+      "path": "tools/mmu_fault_levels/differential-final/report.json",
+      "bytes": 129021,
+      "sha256": "e3f613aba00fd4cd1434e3a263b8e468f8654cbc75d7f2435f38cfbd13954a9c"
+    },
+    {
+      "path": "tools/mmu_fault_levels/differential-r1/report.json",
+      "bytes": 115704,
+      "sha256": "768ad7b5ee5fb9f38ebcbee5a2508af76c9869527bd1aca21ccab430ec580e08"
+    },
+    {
+      "path": "tools/mmu_fault_levels/oracle.c",
+      "bytes": 3621,
+      "sha256": "bf7781065729a78ae67b116b7f89dd1af1a6b1053ff3631c680baaac6188794e"
+    },
+    {
+      "path": "tools/mmu_fault_levels/oracle.ld",
+      "bytes": 172,
+      "sha256": "bda09dbcfbd0b5580ecb0121f524e8f95267c8433e643928603ccd810daf539a"
+    },
+    {
+      "path": "tools/mmu_fault_levels/oracle_start.S",
+      "bytes": 425,
+      "sha256": "1dfb16a3276b936111a0741388192dd469917aa7b8e6cac889f8075a4cec01bb"
+    },
+    {
+      "path": "tools/mmu_fault_levels/probe_abort_levels.py",
+      "bytes": 4821,
+      "sha256": "6db0dd4d5f76b2a4235e9165e4a9bd0be5e1f668510803a2b0553853debd3d86"
+    },
+    {
+      "path": "tools/mmu_fault_levels/probe_fault_levels.py",
+      "bytes": 6205,
+      "sha256": "2b2ca2aeb15e48896cc75e2068ea145ce0ed4715ba2831c25da6477366b7f045"
+    },
+    {
+      "path": "tools/mmu_fault_levels/results.json",
+      "bytes": 1936,
+      "sha256": "b8622996b98bea4c6833dce887aee9d9f8b9b3770352ccc3bc3f3ab5ce9c9c20"
     },
     {
       "path": "tools/mmu_granule_probe.S",

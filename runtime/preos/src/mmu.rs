@@ -108,6 +108,58 @@ pub(crate) enum Fault {
     AccessFlag = 5,
 }
 
+/// A physical descriptor reader reports backing separately from descriptor bits.
+/// Unavailable backing is not proof of a guest architectural external abort.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TableReadError {
+    Unavailable,
+    ExternalAbort,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TranslationFailureKind {
+    Architectural(Fault),
+    TableRead(TableReadError),
+}
+
+/// Context of the failed check, never the architectural ESR.S1PTW bit.
+/// S1PTW describes a stage-2 fault; this walker implements stage 1 only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum FaultContext {
+    Input,
+    Walk,
+    Leaf,
+    CachedLeaf,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct TranslationFailure {
+    pub(crate) kind: TranslationFailureKind,
+    pub(crate) level: Option<u8>,
+    pub(crate) context: FaultContext,
+    /// On CachedLeaf this is cached provenance, not a read at fault time.
+    pub(crate) descriptor_pa: Option<u64>,
+    pub(crate) output_pa: Option<u64>,
+}
+
+impl TranslationFailure {
+    fn architectural(fault: Fault, level: Option<u8>, context: FaultContext) -> Self {
+        Self { kind: TranslationFailureKind::Architectural(fault), level, context,
+               descriptor_pa: None, output_pa: None }
+    }
+
+    fn at_descriptor(mut self, pa: u64) -> Self { self.descriptor_pa = Some(pa); self }
+    fn with_output(mut self, pa: u64) -> Self { self.output_pa = Some(pa); self }
+
+    /// Preserve the documented coarse legacy Option-reader API.
+    fn legacy_fault(self) -> Fault {
+        match self.kind {
+            TranslationFailureKind::Architectural(fault) => fault,
+            TranslationFailureKind::TableRead(_) => Fault::Translation,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Translation {
     pub(crate) pa: u64,
@@ -127,6 +179,8 @@ struct TlbEntry {
     user_accessible: bool,
     executable_el0: bool,
     executable_privileged: bool,
+    level: u8,
+    descriptor_pa: u64,
 }
 
 const TLB_ENTRY: TlbEntry = TlbEntry {
@@ -139,6 +193,8 @@ const TLB_ENTRY: TlbEntry = TlbEntry {
     user_accessible: false,
     executable_el0: false,
     executable_privileged: false,
+    level: 3,
+    descriptor_pa: 0,
 };
 
 #[derive(Clone, Copy)]
@@ -288,7 +344,7 @@ impl VfMmu {
         va: u64,
         access: Access,
         current_el: ExceptionLevel,
-    ) -> Result<Option<Translation>, Fault> {
+    ) -> Result<Option<Translation>, TranslationFailure> {
         for entry in self.tlb.iter() {
             if !entry.valid || entry.asid != self.asid {
                 continue;
@@ -299,7 +355,10 @@ impl VfMmu {
             }
             let offset_mask = (1u64 << shift) - 1;
             let pa = entry.pa_base | (va & offset_mask);
-            if pa & !self.physical_address_mask != 0 { return Err(Fault::AddressSize); }
+            let failure = |fault| TranslationFailure::architectural(
+                fault, Some(entry.level), FaultContext::CachedLeaf)
+                .at_descriptor(entry.descriptor_pa).with_output(pa);
+            if pa & !self.physical_address_mask != 0 { return Err(failure(Fault::AddressSize)); }
             let user = current_el == ExceptionLevel::El0;
             let allowed = match access {
                 Access::Read => !user || entry.user_accessible,
@@ -313,7 +372,7 @@ impl VfMmu {
                 }
             };
             if !allowed {
-                return Err(Fault::Permission);
+                return Err(failure(Fault::Permission));
             }
             return Ok(Some(Translation {
                 pa,
@@ -372,20 +431,27 @@ impl VfMmu {
         Ok((writable, user_accessible, executable_el0, executable_privileged))
     }
 
-    /// Translate a VA through the selected TTBR0/TTBR1 range. `read64` reads guest physical memory,
-    /// not host memory; returning `None` is a translation fault.
+    /// Compatibility entry: an absent descriptor remains a coarse Translation
+    /// fault. New memory providers use translate_detailed to retain its cause.
     pub(crate) fn translate<F>(
-        &mut self,
-        va: u64,
-        access: Access,
-        current_el: ExceptionLevel,
-        mut read64: F,
+        &mut self, va: u64, access: Access, current_el: ExceptionLevel, mut read64: F,
     ) -> Result<Translation, Fault>
-    where
-        F: FnMut(u64) -> Option<u64>,
+    where F: FnMut(u64) -> Option<u64>,
+    {
+        self.translate_detailed(va, access, current_el, |pa|
+            read64(pa).ok_or(TableReadError::Unavailable))
+            .map_err(TranslationFailure::legacy_fault)
+    }
+
+    /// One walker for both APIs. Physical read errors retain their actual level
+    /// and descriptor address; no host pointer is ever returned or followed.
+    pub(crate) fn translate_detailed<F>(
+        &mut self, va: u64, access: Access, current_el: ExceptionLevel, mut read64: F,
+    ) -> Result<Translation, TranslationFailure>
+    where F: FnMut(u64) -> Result<u64, TableReadError>,
     {
         if matches!(access, Access::Execute) && va & 3 != 0 {
-            return Err(Fault::Alignment);
+            return Err(TranslationFailure::architectural(Fault::Alignment, None, FaultContext::Input));
         }
         if !self.enabled {
             return Ok(Translation {
@@ -396,22 +462,25 @@ impl VfMmu {
             });
         }
         if !self.canonical_va(va) {
-            return Err(Fault::AddressSize);
+            // AArch64_S1Translate VAIsOutOfRange is Translation level 0.
+            // AddressSize describes output PA limits, not this VA range gap.
+            return Err(TranslationFailure::architectural(Fault::Translation, Some(0), FaultContext::Input));
         }
         if let Some(hit) = self.tlb_lookup(va, access, current_el)? {
             return Ok(hit);
         }
 
-        let (root, tsz, walk_disabled) = self.select_root(va).ok_or(Fault::AddressSize)?;
-        // EPD inhibits a table walk on a TLB miss, not canonical-address
-        // recognition. A matching TLB entry was considered above.
-        if walk_disabled {
-            return Err(Fault::Translation);
-        }
+        let (root, tsz, walk_disabled) = self.select_root(va).ok_or_else(|| TranslationFailure::architectural(Fault::Translation, Some(0), FaultContext::Input))?;
         let start_level = self
             .granule
             .start_level(tsz)
-            .ok_or(Fault::AddressSize)?;
+            .ok_or_else(|| TranslationFailure::architectural(Fault::AddressSize, Some(0), FaultContext::Input))?;
+        // EPD inhibits a table walk on a TLB miss and reports level zero
+        // in the AArch64 EL1 regime, independent of the start level.
+        if walk_disabled {
+            return Err(TranslationFailure::architectural(
+                Fault::Translation, Some(0), FaultContext::Input));
+        }
         let index_bits = self.granule.index_bits();
         let page_shift = self.granule.page_shift();
         let address_mask = self.granule.address_mask();
@@ -423,33 +492,47 @@ impl VfMmu {
         let mut table = root & address_mask;
         // TTBR ASID bits are outside address_mask; an actual out-of-range
         // table base faults before the guest-physical read callback is used.
-        if table & !self.physical_address_mask != 0 { return Err(Fault::AddressSize); }
+        if table & !self.physical_address_mask != 0 { return Err(TranslationFailure::architectural(Fault::AddressSize, Some(0), FaultContext::Input).with_output(table)); }
         for level in start_level..=MAX_LEVEL {
             let shift = page_shift + index_bits * (MAX_LEVEL as u64 - level as u64);
             let index = (table_va >> shift) & index_mask;
-            let entry_address = table.checked_add(index * 8).ok_or(Fault::Translation)?;
-            if entry_address > self.physical_address_mask - 7 { return Err(Fault::AddressSize); }
-            let descriptor = read64(entry_address).ok_or(Fault::Translation)?;
+            let walk_fault = |fault| TranslationFailure::architectural(
+                fault, Some(level as u8), FaultContext::Walk);
+            let entry_address = table.checked_add(index * 8).ok_or_else(|| walk_fault(Fault::Translation))?;
+            if entry_address > self.physical_address_mask - 7 {
+                return Err(walk_fault(Fault::AddressSize).at_descriptor(entry_address));
+            }
+            let descriptor = read64(entry_address).map_err(|error| TranslationFailure {
+                kind: TranslationFailureKind::TableRead(error), level: Some(level as u8),
+                context: FaultContext::Walk, descriptor_pa: Some(entry_address), output_pa: None,
+            })?;
+            let descriptor_fault = |fault| walk_fault(fault).at_descriptor(entry_address);
             if descriptor & 1 == 0 {
-                return Err(Fault::Translation);
+                return Err(descriptor_fault(Fault::Translation));
             }
             let descriptor_type = descriptor & DESCRIPTOR_TYPE_MASK;
             // This walker supports DS=0 only. A 16 KiB L1 block requires
             // LPA2/DS=1; its descriptor is reserved in the supported regime.
             if descriptor_type == 1 && (level == 0 || level == MAX_LEVEL
                 || (level == 1 && self.granule == Granule::SixteenKiB)) {
-                return Err(Fault::Translation);
+                return Err(descriptor_fault(Fault::Translation));
             }
             let output = descriptor & address_mask;
-            if output & !self.physical_address_mask != 0 { return Err(Fault::AddressSize); }
+            if output & !self.physical_address_mask != 0 { return Err(descriptor_fault(Fault::AddressSize).with_output(output)); }
+            // Diagnostic leaf PA includes the offset on both cold and cached
+            // failures. Compute it without changing descriptor/fault priority.
+            let leaf_offset_mask = (1u64 << shift) - 1;
+            let leaf_pa = (output & !leaf_offset_mask) | (va & leaf_offset_mask);
+            let leaf_fault = |fault| TranslationFailure::architectural(
+                fault, Some(level as u8), FaultContext::Leaf).at_descriptor(entry_address).with_output(leaf_pa);
             if level < MAX_LEVEL && descriptor_type == 1 {
                 let block_shift = shift;
                 let block_mask = !((1u64 << block_shift) - 1);
                 let (writable, user_accessible, executable_el0, executable_privileged) =
-                    Self::descriptor_permissions(descriptor, level, current_el, access)?;
+                    Self::descriptor_permissions(descriptor, level, current_el, access).map_err(leaf_fault)?;
                 let pa_base = output & block_mask;
                 let pa = pa_base | (va & !block_mask);
-                if pa & !self.physical_address_mask != 0 { return Err(Fault::AddressSize); }
+                if pa & !self.physical_address_mask != 0 { return Err(leaf_fault(Fault::AddressSize).with_output(pa)); }
                 let translation = Translation {
                     pa,
                     writable,
@@ -468,18 +551,20 @@ impl VfMmu {
                     user_accessible,
                     executable_el0,
                     executable_privileged,
+                    level as u8,
+                    entry_address,
                 );
                 return Ok(translation);
             }
             if level < MAX_LEVEL && descriptor_type != 3 {
-                return Err(Fault::Translation);
+                return Err(descriptor_fault(Fault::Translation));
             }
             if level == MAX_LEVEL {
                 if descriptor_type != 3 {
-                    return Err(Fault::Translation);
+                    return Err(descriptor_fault(Fault::Translation));
                 }
                 let (writable, user_accessible, executable_el0, executable_privileged) =
-                    Self::descriptor_permissions(descriptor, level, current_el, access)?;
+                    Self::descriptor_permissions(descriptor, level, current_el, access).map_err(leaf_fault)?;
                 let pa_base = output;
                 let translation = Translation {
                     pa: pa_base | (va & ((1u64 << page_shift) - 1)),
@@ -499,12 +584,14 @@ impl VfMmu {
                     user_accessible,
                     executable_el0,
                     executable_privileged,
+                    level as u8,
+                    entry_address,
                 );
                 return Ok(translation);
             }
             table = descriptor & address_mask;
         }
-        Err(Fault::Translation)
+        Err(TranslationFailure::architectural(Fault::Translation, Some(3), FaultContext::Walk))
     }
 
     fn cache(
@@ -516,6 +603,8 @@ impl VfMmu {
         user_accessible: bool,
         executable_el0: bool,
         executable_privileged: bool,
+        level: u8,
+        descriptor_pa: u64,
     ) {
         let shift = u32::from(page_shift);
         self.tlb[self.next] = TlbEntry {
@@ -528,6 +617,8 @@ impl VfMmu {
             user_accessible,
             executable_el0,
             executable_privileged,
+            level,
+            descriptor_pa,
         };
         self.next = (self.next + 1) % TLB_ENTRIES;
     }
@@ -542,6 +633,194 @@ mod tests {
             .iter()
             .find(|(base, _)| *base == (address & !7))
             .map(|(_, value)| *value)
+    }
+
+    fn detailed_fixture(granule: Granule, leaf_level: usize, leaf: u64)
+        -> (VfMmu, [(u64, u64); 4], usize)
+    {
+        let (step, tcr, start) = match granule {
+            Granule::FourKiB => (0x1000, 16, 0),
+            Granule::SixteenKiB => (0x4000, 17 | (2 << 14), 1),
+        };
+        let mut mmu = VfMmu::disabled();
+        assert!(mmu.configure_tcr(step, 0, tcr, 0));
+        let mut entries = [(0, 0); 4];
+        for level in start..=leaf_level {
+            let i = level - start;
+            let pa = step * (i as u64 + 1);
+            entries[i] = (pa, if level == leaf_level { leaf } else { pa + step | 3 });
+        }
+        (mmu, entries, leaf_level - start + 1)
+    }
+
+    #[test]
+    fn detailed_invalid_descriptors_preserve_level_and_read_address() {
+        for granule in [Granule::FourKiB, Granule::SixteenKiB] {
+            let start = if granule == Granule::FourKiB { 0 } else { 1 };
+            for level in start..=3 {
+                let (mut mmu, entries, count) = detailed_fixture(granule, level, 0);
+                let mut reads = 0;
+                let fault = mmu.translate_detailed(0, Access::Read, ExceptionLevel::El1, |pa| {
+                    reads += 1;
+                    read_page(&entries[..count], pa).ok_or(TableReadError::Unavailable)
+                }).unwrap_err();
+                assert_eq!(reads, count);
+                assert_eq!(fault.kind, TranslationFailureKind::Architectural(Fault::Translation));
+                assert_eq!(fault.level, Some(level as u8));
+                assert_eq!(fault.context, FaultContext::Walk);
+                assert_eq!(fault.descriptor_pa, Some(entries[count - 1].0));
+                assert_eq!(fault.output_pa, None);
+                assert_eq!(mmu.translate(0, Access::Read, ExceptionLevel::El1, |pa|
+                    read_page(&entries[..count], pa)), Err(Fault::Translation));
+            }
+        }
+    }
+
+    #[test]
+    fn detailed_table_failures_are_not_invalid_descriptors() {
+        for granule in [Granule::FourKiB, Granule::SixteenKiB] {
+            let start = if granule == Granule::FourKiB { 0 } else { 1 };
+            for level in start..=3 { for error in [TableReadError::Unavailable, TableReadError::ExternalAbort] {
+                let (mut mmu, entries, count) = detailed_fixture(granule, level, 0);
+                let target = entries[count - 1].0;
+                let fault = mmu.translate_detailed(0, Access::Write, ExceptionLevel::El1, |pa| {
+                    if pa == target { Err(error) } else { Ok(read_page(&entries[..count], pa).unwrap()) }
+                }).unwrap_err();
+                assert_eq!(fault.kind, TranslationFailureKind::TableRead(error));
+                assert_eq!(fault.level, Some(level as u8));
+                assert_eq!(fault.context, FaultContext::Walk);
+                assert_eq!(fault.descriptor_pa, Some(target));
+                assert_eq!(fault.output_pa, None);
+                assert_eq!(mmu.translate(0, Access::Write, ExceptionLevel::El1, |pa|
+                    if pa == target { None } else { read_page(&entries[..count], pa) }), Err(Fault::Translation));
+            }}
+        }
+    }
+
+    #[test]
+    fn detailed_leaf_and_cached_permission_failures_agree() {
+        for granule in [Granule::FourKiB, Granule::SixteenKiB] {
+            let first_leaf = if granule == Granule::FourKiB { 1 } else { 2 };
+            for level in first_leaf..=3 {
+                let va = if level == 3 { 0x234 } else { 0x1234 };
+                let leaf = 0x8000_04c0 | if level == 3 { 3 } else { 1 };
+                let (mut mmu, entries, count) = detailed_fixture(granule, level, leaf);
+                let cold = mmu.translate_detailed(va, Access::Write, ExceptionLevel::El1, |pa|
+                    read_page(&entries[..count], pa).ok_or(TableReadError::Unavailable)).unwrap_err();
+                assert_eq!(cold.kind, TranslationFailureKind::Architectural(Fault::Permission));
+                assert_eq!(cold.level, Some(level as u8));
+                assert_eq!(cold.context, FaultContext::Leaf);
+                assert_eq!(cold.descriptor_pa, Some(entries[count - 1].0));
+                assert_eq!(cold.output_pa, Some(0x8000_0000 + va));
+                mmu.translate_detailed(va, Access::Read, ExceptionLevel::El1, |pa|
+                    read_page(&entries[..count], pa).ok_or(TableReadError::Unavailable)).unwrap();
+                let hot = mmu.translate_detailed(va, Access::Write, ExceptionLevel::El1, |_|
+                    panic!("cached denial must not reread descriptor memory")).unwrap_err();
+                assert_eq!(hot.context, FaultContext::CachedLeaf);
+                assert_eq!(hot.kind, cold.kind); assert_eq!(hot.level, cold.level);
+                assert_eq!(hot.descriptor_pa, cold.descriptor_pa);
+                assert_eq!(hot.output_pa, cold.output_pa);
+            }
+        }
+    }
+
+    #[test]
+    fn detailed_access_flags_and_reserved_blocks_keep_their_level() {
+        for granule in [Granule::FourKiB, Granule::SixteenKiB] {
+            let first_leaf = if granule == Granule::FourKiB { 1 } else { 2 };
+            for level in first_leaf..=3 {
+                let va = if level == 3 { 0x234 } else { 0x1234 };
+                let leaf = 0x8000_0040 | if level == 3 { 3 } else { 1 };
+                let (mut mmu, entries, count) = detailed_fixture(granule, level, leaf);
+                let fault = mmu.translate_detailed(va, Access::Read, ExceptionLevel::El1, |pa|
+                    read_page(&entries[..count], pa).ok_or(TableReadError::Unavailable)).unwrap_err();
+                assert_eq!(fault.kind, TranslationFailureKind::Architectural(Fault::AccessFlag));
+                assert_eq!(fault.level, Some(level as u8));
+                assert_eq!(fault.context, FaultContext::Leaf);
+                assert_eq!(fault.output_pa, Some(0x8000_0000 + va));
+            }
+        }
+        let (mut mmu, entries, count) = detailed_fixture(Granule::SixteenKiB, 1, 0x8000_0001);
+        let fault = mmu.translate_detailed(0, Access::Read, ExceptionLevel::El1, |pa|
+            read_page(&entries[..count], pa).ok_or(TableReadError::Unavailable)).unwrap_err();
+        assert_eq!(fault.kind, TranslationFailureKind::Architectural(Fault::Translation));
+        assert_eq!(fault.level, Some(1));
+        assert_eq!(fault.output_pa, None); // Reserved type wins before AF/output.
+    }
+
+    #[test]
+    fn detailed_output_address_errors_keep_descriptor_level() {
+        for granule in [Granule::FourKiB, Granule::SixteenKiB] {
+            let start = if granule == Granule::FourKiB { 0 } else { 1 };
+            for level in start..=3 {
+                let (mut mmu, entries, count) = detailed_fixture(granule, level, (1u64 << 32) | 3);
+                let fault = mmu.translate_detailed(0, Access::Read, ExceptionLevel::El1, |pa|
+                    read_page(&entries[..count], pa).ok_or(TableReadError::Unavailable)).unwrap_err();
+                assert_eq!(fault.kind, TranslationFailureKind::Architectural(Fault::AddressSize));
+                assert_eq!(fault.level, Some(level as u8));
+                assert_eq!(fault.descriptor_pa, Some(entries[count - 1].0));
+                assert_eq!(fault.output_pa, Some(1u64 << 32));
+            }
+        }
+    }
+
+    #[test]
+    fn detailed_epd_and_root_address_errors_use_aarch64_level_zero() {
+        for (granule, sizes) in [(Granule::FourKiB, [16u8,25,34]), (Granule::SixteenKiB,[17u8,28,39])] {
+            for size in sizes { for upper in [false,true] {
+                let mut mmu = VfMmu::disabled();
+                let tg0 = if granule == Granule::FourKiB {0} else {2};
+                let tg1 = if granule == Granule::FourKiB {2} else {1};
+                let mut tcr = u64::from(size) | (tg0 << 14) | (u64::from(size) << 16) | (tg1 << 30);
+                let va = if upper { u64::MAX << (64-u32::from(size)) } else {0};
+                tcr |= if upper {1 << 23} else {1 << 7};
+                assert!(mmu.configure_tcr(0x4000,0x4000,tcr,0));
+                let fault = mmu.translate_detailed(va, Access::Read, ExceptionLevel::El1, |_| panic!("EPD read")).unwrap_err();
+                assert_eq!(fault.kind, TranslationFailureKind::Architectural(Fault::Translation));
+                assert_eq!(fault.level, Some(0)); assert_eq!(fault.context, FaultContext::Input);
+                assert_eq!(fault.descriptor_pa, None);
+                tcr &= !((1<<7)|(1<<23));
+                assert!(mmu.configure_tcr(1u64<<32,1u64<<32,tcr,0));
+                let fault = mmu.translate_detailed(va, Access::Read, ExceptionLevel::El1, |_| panic!("bad root read")).unwrap_err();
+                assert_eq!(fault.kind, TranslationFailureKind::Architectural(Fault::AddressSize));
+                assert_eq!(fault.level, Some(0)); assert_eq!(fault.output_pa, Some(1u64<<32));
+            }}
+        }
+    }
+
+    #[test]
+    fn detailed_input_errors_never_invent_a_leaf_or_table_read() {
+        let mut mmu = VfMmu::disabled();
+        let fault = mmu.translate_detailed(2, Access::Execute, ExceptionLevel::El1, |_| panic!("misaligned fetch read")).unwrap_err();
+        assert_eq!(fault.kind, TranslationFailureKind::Architectural(Fault::Alignment));
+        assert_eq!(fault.level, None); assert_eq!(fault.context, FaultContext::Input);
+        assert_eq!(fault.descriptor_pa, None); assert_eq!(fault.output_pa, None);
+        assert!(mmu.configure(0x1000,16,0));
+        let fault = mmu.translate_detailed(1u64<<48, Access::Read, ExceptionLevel::El1, |_| panic!("invalid VA read")).unwrap_err();
+        assert_eq!(fault.kind, TranslationFailureKind::Architectural(Fault::Translation));
+        assert_eq!(fault.level, Some(0)); assert_eq!(fault.descriptor_pa, None);
+    }
+
+    #[test]
+    fn virtual_range_gaps_are_translation_faults_without_reading_tables() {
+        for (granule, sizes) in [(Granule::FourKiB,[16u8,25,34,39]),(Granule::SixteenKiB,[17u8,28,39,47])] {
+            for size in sizes {
+                let tg0 = if granule == Granule::FourKiB {0} else {2};
+                let tg1 = if granule == Granule::FourKiB {2} else {1};
+                let tcr = u64::from(size)|(tg0<<14)|(u64::from(size)<<16)|(tg1<<30);
+                let low_end = 1u64 << (64-u32::from(size));
+                let high_begin = u64::MAX << (64-u32::from(size));
+                let mut mmu = VfMmu::disabled();
+                assert!(mmu.configure_tcr(0x4000,0x8000,tcr,0));
+                for va in [low_end, high_begin-1] {
+                    let fault = mmu.translate_detailed(va, Access::Read, ExceptionLevel::El1, |_| panic!("VA range read")).unwrap_err();
+                    assert_eq!(fault.kind,TranslationFailureKind::Architectural(Fault::Translation));
+                    assert_eq!(fault.level,Some(0)); assert_eq!(fault.context,FaultContext::Input);
+                    assert_eq!((fault.descriptor_pa,fault.output_pa),(None,None));
+                    assert_eq!(mmu.translate(va, Access::Read, ExceptionLevel::El1, |_| panic!("legacy VA range read")),Err(Fault::Translation));
+                }
+            }
+        }
     }
 
     #[test]
@@ -782,7 +1061,7 @@ mod tests {
             assert_eq!(mmu.translate(blocked, Access::Read, ExceptionLevel::El1,
                 |_| panic!("disabled walk accessed a descriptor")), Err(Fault::Translation));
             assert_eq!(mmu.translate(1 << 48, Access::Read, ExceptionLevel::El1,
-                |_| panic!("noncanonical address accessed a descriptor")), Err(Fault::AddressSize));
+                |_| panic!("noncanonical address accessed a descriptor")), Err(Fault::Translation));
             assert_eq!(mmu.translate(allowed, Access::Read, ExceptionLevel::El1,
                 |a| if a == root { Some(0x8000_0441) } else { None }).unwrap().pa, 0x8000_0000);
         }

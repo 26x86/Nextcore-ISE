@@ -29,6 +29,14 @@ jobs:
         run: python3 tools/probe_pair_memory.py
       - name: Compare scalar widths and signed loads with an independent Arm CPU
         run: python3 tools/probe_scalar_memory.py
+      - name: Compare exact stage-1 fault levels and captured table inputs
+        run: |
+          python3 tools/mmu_fault_levels/probe_fault_levels.py --output "$RUNNER_TEMP/mmu-level-at"
+          python3 tools/mmu_fault_levels/probe_abort_levels.py --output "$RUNNER_TEMP/mmu-level-abort"
+          python3 tools/mmu_fault_levels/compare_walker.py --runtime-checkout . \
+            --at-report "$RUNNER_TEMP/mmu-level-at/report.json" \
+            --abort-report "$RUNNER_TEMP/mmu-level-abort/report.json" \
+            --output "$RUNNER_TEMP/mmu-level-comparison"
       - name: Native C to Rust memory provider and negative control
         run: |
           python3 tools/probe_efi_memory_provider.py --output "$RUNNER_TEMP/native-memory-provider"
