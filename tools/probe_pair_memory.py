@@ -37,6 +37,8 @@ def probe():
             "source_sha256": source_hash, "elf_sha256": elf_hash,
             "commands": records, "apple_assets_used": False,
             "sp_alignment_oracle_verified": False,
+            "mmu_off_device_alignment_oracle_verified": False,
+            "device_alignment_limitation": "Oracle alignment case enables SCTLR.A; the A=0 Device rule is separately specification-tested",
             "sp_alignment_limitation": "QEMU gen_check_sp_alignment omits SA/SA0 checks",
             "macos_boot_verified": False}
 

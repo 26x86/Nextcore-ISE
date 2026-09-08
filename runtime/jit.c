@@ -272,7 +272,8 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             if(mode!=1) {b(c,0x48);b(c,0x05);u32(c,(uint32_t)displacement);}
             b(c,0x49);b(c,0x89);b(c,0xc3); /* r11=guest element address */
             b(c,0x49);b(c,0x89);b(c,0xc1); /* r9=address, then RAM offset */
-            if(sctlr&2) {b(c,0xa8);b(c,bytes-1);align=jcc(c,0x85);}
+            /* MMU-off with HCR=0 is Device-nGnRnE, even with SCTLR.A=0. */
+            b(c,0xa8);b(c,bytes-1);align=jcc(c,0x85);
             imm(c,base);b(c,0x49);b(c,0x29);b(c,0xc1);
             size_t below=jcc(c,0x82);
             b(c,0x49);b(c,0x83);b(c,0xf8);b(c,bytes);

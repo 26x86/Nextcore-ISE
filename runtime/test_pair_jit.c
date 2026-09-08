@@ -70,7 +70,7 @@ int main(void){
        the first store or a pre/post writeback. */
     for(unsigned read=0;read<2;read++)for(unsigned mode=1;mode<=3;mode++)
     for(unsigned where=0;where<3;where++){
-        uint64_t address=where==0?base-8:where==1?base+4092:base+4088;
+        uint64_t address=where==0?base-8:where==1?base+4096:base+4088;
         reset(&c);c.x[3]=address;c.x[4]=0x1111;c.x[5]=0x2222;memcpy(before,ram,sizeof(ram));
         CHECK(run(&c,pair(8,read,mode,0,3,4,5),ram,sizeof(ram),&code)==VF_DATA_ABORT);
         CHECK(c.far==(where==2?address+8:address) && c.pc==base && c.retired==0);
@@ -81,9 +81,21 @@ int main(void){
         reset(&c);CHECK(vf_cpu_set_current_el(&c,el)==0);c.sp=base+129;
         c.sctlr=(sa?(el==0?16:8):0)|(a?2:0);memcpy(before,ram,sizeof(ram));
         int status=run(&c,pair(8,0,2,0,31,4,5),ram,sizeof(ram),&code);
-        CHECK(status==(sa?VF_SP_ALIGNMENT_FAULT:a?VF_ALIGNMENT_FAULT:VF_BUDGET));
-        if(sa || a){CHECK(c.retired==0 && c.sp==base+129 && !memcmp(before,ram,sizeof(ram)));
-            CHECK(sa?c.esr==((UINT64_C(0x26)<<26)|(1u<<25)):(c.esr&63)==0x21);}
+        CHECK(status==(sa?VF_SP_ALIGNMENT_FAULT:VF_ALIGNMENT_FAULT));
+        CHECK(c.retired==0 && c.sp==base+129 && !memcmp(before,ram,sizeof(ram)));
+        CHECK(sa?c.esr==((UINT64_C(0x26)<<26)|(1u<<25)):(c.esr&63)==0x21);
+    }
+    /* Device-nGnRnE alignment applies to every element width and mode,
+       regardless of SCTLR.A. Faults cannot commit a load or writeback. */
+    for(unsigned bytes=4;bytes<=8;bytes+=4)for(unsigned read=0;read<2;read++)
+    for(unsigned mode=1;mode<=3;mode++)for(unsigned a=0;a<2;a++)
+    for(unsigned offset=1;offset<bytes;offset++){
+        reset(&c);c.sctlr=a?2:0;c.x[3]=base+128+offset;c.x[4]=0x1111;c.x[5]=0x2222;
+        memcpy(before,ram,sizeof(ram));
+        CHECK(run(&c,pair(bytes,read,mode,1,3,4,5),ram,sizeof(ram),&code)==VF_ALIGNMENT_FAULT);
+        CHECK(c.pc==base && c.retired==0 && c.x[3]==base+128+offset && c.x[4]==0x1111 && c.x[5]==0x2222);
+        CHECK(!memcmp(before,ram,sizeof(ram)) && c.far==base+128+offset+(mode==1?0:bytes));
+        CHECK(c.esr==((UINT64_C(0x25)<<26)|(1u<<25)|(read?0:64)|0x21));
     }
     for(unsigned regime=0;regime<5;regime++){
         reset(&c);c.x[3]=base+128;

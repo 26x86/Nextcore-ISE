@@ -1206,7 +1206,9 @@ impl GuestCpuState {
         let offset = (i64::from(signed_imm) * size as i64) as u64;
         let updated_base = raw_base.wrapping_add(offset);
         let address = if mode == 1 { raw_base } else { updated_base };
-        if self.sys.sctlr_el1 & SCTLR_A != 0 && address & (size as u64 - 1) != 0 {
+        // This bounded MMU-off/HCR=0 regime is Device-nGnRnE. A=0 does
+        // not permit unaligned Device accesses, even to caller-owned RAM.
+        if address & (size as u64 - 1) != 0 {
             return Err((ExceptionKind::AlignmentFault, address));
         }
         let source = [self.read_reg(rt, false), self.read_reg(rt2, false)];
@@ -2132,7 +2134,7 @@ mod tests {
 
     #[test]
     fn pair_faults_preserve_memory_writeback_and_encode_alignment() {
-        for read in [false,true] { for mode in 1..=3 { for address in [248u64,252,u64::MAX-7] {
+        for read in [false,true] { for mode in 1..=3 { for address in [248u64,256,u64::MAX-7] {
             let mut ram=[0xa5u8;256];let mut cpu=GuestCpuState::reset(0);
             cpu.x[3]=address;cpu.x[4]=0x1111;cpu.x[5]=0x2222;
             let word=pair_word(8,read,mode,0,3,4,5);ram[..4].copy_from_slice(&word.to_le_bytes());
@@ -2150,12 +2152,27 @@ mod tests {
             let word=pair_word(8,false,2,0,31,4,5);ram[..4].copy_from_slice(&word.to_le_bytes());
             let before=ram;
             let result=cpu.execute_one(&mut RamBus::new(&mut ram));
-            if sa || a {
-                assert_eq!(result,StepResult::Exception(if sa {ExceptionKind::SpAlignmentFault} else {ExceptionKind::AlignmentFault}));
-                assert_eq!(ram,before);assert_eq!(cpu.sp,129);assert_eq!(cpu.pc,0);
-                if sa {assert_eq!(cpu.sys.esr_el1,(0x26<<26)|(1<<25));}
-            } else {assert_eq!(result,StepResult::Continue);}
+            assert_eq!(result,StepResult::Exception(if sa {ExceptionKind::SpAlignmentFault} else {ExceptionKind::AlignmentFault}));
+            assert_eq!(ram,before);assert_eq!(cpu.sp,129);assert_eq!(cpu.pc,0);
+            if sa {assert_eq!(cpu.sys.esr_el1,(0x26<<26)|(1<<25));}
         }}}
+    }
+
+    #[test]
+    fn mmu_off_device_pairs_always_require_element_alignment() {
+        for bytes in [4usize,8] { for read in [false,true] { for mode in 1..=3 {
+        for a in [false,true] { for offset in 1..bytes {
+            let mut ram=[0xa5;256];let mut cpu=GuestCpuState::reset(0);
+            cpu.sys.sctlr_el1=if a {2} else {0};
+            cpu.x[3]=128+offset as u64;cpu.x[4]=0x1111;cpu.x[5]=0x2222;
+            let word=pair_word(bytes,read,mode,1,3,4,5);
+            ram[..4].copy_from_slice(&word.to_le_bytes());let before=ram;
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut ram)),StepResult::Exception(ExceptionKind::AlignmentFault));
+            assert_eq!(ram,before);assert_eq!(cpu.pc,0);
+            assert_eq!([cpu.x[3],cpu.x[4],cpu.x[5]],[128+offset as u64,0x1111,0x2222]);
+            assert_eq!(cpu.pending_exception.unwrap().far,128+offset as u64+if mode==1 {0} else {bytes as u64});
+            assert_eq!(cpu.sys.esr_el1,(0x25<<26)|(1<<25)|if read {0} else {64}|0x21);
+        }}}}}
     }
 
     #[test]

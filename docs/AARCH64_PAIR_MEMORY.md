@@ -27,7 +27,12 @@ retired. Two scalar accesses do not claim 128-bit atomicity. Completed
 reference stores invalidate overlapping exclusive reservations. Native
 exclusive instructions remain outside its supported subset.
 
-SCTLR.A controls element alignment. An SP base is checked before applying
+In this MMU-off, HCR=0 regime, data accesses have Device-nGnRnE attributes.
+Element alignment is therefore required even when SCTLR.A=0; the bounded
+host RAM allocation does not override architectural memory attributes.
+This follows sections 3.2 and 12.1 of the
+[Arm memory model guide](https://developer.arm.com/-/media/Arm%20Developer%20Community/PDF/Learn%20the%20Architecture/Armv8-A%20memory%20model%20guide.pdf?revision=58b1dd0a-3800-4218-b21a-f95a0332034c).
+An SP base is checked before applying
 the displacement, with SCTLR.SA0 at EL0 and SA at EL1 controlling 16-byte
 alignment. SP faults have exception kind14 and native status19, appended
 without renumbering prior values; ESR EC=0x26, IL=1, ISS=0. Ordinary pair data
@@ -47,3 +52,12 @@ writeback, width/zero behavior and a data-alignment exception in QEMU.
 QEMU's [SP-alignment hook is empty](https://qemu.googlesource.com/qemu/+/d27e7c359330ba7020bdbed7ed2316cb4cf6ffc1/target/arm/tcg/translate-a64.c),
 so the oracle explicitly excludes SA/SA0 validation. This limitation does
 not relax the specification-based native/reference SP checks.
+The oracle's data-alignment case sets SCTLR.A=1 and does not validate the
+MMU-off Device rule with A=0; its receipt reports that separate coverage gap.
+
+The initial BP28 receipt allowed unaligned RAM pairs when SCTLR.A=0. That
+expectation is superseded by the Device-attribute rule above. Historical
+receipts remain evidence of their exact source versions, not validation of
+that incorrect expectation. Corrected native/reference tests require an
+alignment fault for both values of A, both element widths and all addressing
+modes, with unchanged memory, destinations and base/writeback.
