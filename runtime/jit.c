@@ -316,39 +316,61 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             fix_to(c,first,data_target);fix_to(c,wrapped,data_target);
             fix_to(c,short_second,data_target);fix_to(c,second,data_target);
             fix(c,next);
-        } else if((w&0xffc00000)==0xf9000000 || (w&0xffc00000)==0xf9400000) {
-            /* Preserve the guest PA for faults and separately derive the
-             * checked host-RAM offset. Host pointers never become guest PAs. */
+        } else if((w&0x3b000000)==0x39000000) {
+            unsigned size_code=w>>30,opc=(w>>22)&3,bytes=1u<<size_code;
+            int read=opc!=0,signed_load=opc>=2,result64=opc==2 || bytes==8;
             field32(c,offsetof(vf_cpu,instruction),w);
-            load(c,rn,1,1);b(c,0x49);b(c,0x89);b(c,0xc1);
-            b(c,0x49);b(c,0x81);b(c,0xc1);u32(c,((w>>10)&4095)*8);
-            b(c,0x4d);b(c,0x89);b(c,0xcb); /* r11 = original guest address; flags retained */
-            size_t carry=jcc(c,0x82); /* Preserve ADD's carry before TEST. */
-            /* Keep the effective address in r9.  The fault blocks below
-             * store it in FAR before the common architectural commit. */
-            b(c,0x4d);b(c,0x89);b(c,0xca); /* r10 = r9 */
-            b(c,0x49);b(c,0x83);b(c,0xe2);b(c,0x07); /* r10 &= 7 */
-            b(c,0x4d);b(c,0x85);b(c,0xd2);
-            size_t align=jcc(c,0x85); /* Unaligned 64-bit access. */
-            imm(c,base);b(c,0x49);b(c,0x29);b(c,0xc1); /* r9 -= guest RAM base */
+            /* V=1 belongs to SIMD/FP. size=3/opc=2 is PRFM; other
+             * rejected size/opc combinations are reserved integer forms. */
+            if((w&(1u<<26)) || (opc>=2 && (size_code==3 || (opc==3 && size_code==2)))) {
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            uint64_t sctlr=cpu?cpu->sctlr:0;
+            if(current_el>VF_EL1 || (cpu && (cpu->hcr_el2 || cpu->scr_el3)) ||
+               (sctlr&(UINT64_C(1)<<(current_el==VF_EL0?24:25)))) {
+                finish(c,pc,n,VF_SYSTEM_REGISTER_TRAP);break;
+            }
+            size_t sp_align=0,align=0;
+            load(c,rn,1,1);
+            if(rn==31 && (sctlr&(current_el==VF_EL0?16u:8u))) {
+                b(c,0x49);b(c,0x89);b(c,0xc3);
+                b(c,0xa8);b(c,15);sp_align=jcc(c,0x85);
+            }
+            b(c,0x48);b(c,0x05);u32(c,((w>>10)&4095)*bytes);
+            b(c,0x49);b(c,0x89);b(c,0xc3); /* r11=guest EA, r9=checked offset */
+            b(c,0x49);b(c,0x89);b(c,0xc1);
+            /* Supported native regime is MMU-off Device-nGnRnE. */
+            if(bytes>1){b(c,0xa8);b(c,bytes-1);align=jcc(c,0x85);}
+            imm(c,base);b(c,0x49);b(c,0x29);b(c,0xc1);
             size_t below=jcc(c,0x82);
-            b(c,0x4d);b(c,0x89);b(c,0xc2);b(c,0x49);b(c,0x83);b(c,0xea);b(c,8);
+            b(c,0x49);b(c,0x83);b(c,0xf8);b(c,bytes);
+            size_t short_ram=jcc(c,0x82);
+            b(c,0x4d);b(c,0x89);b(c,0xc2);b(c,0x49);b(c,0x83);b(c,0xea);b(c,bytes);
             b(c,0x4d);b(c,0x39);b(c,0xd1);size_t bound=jcc(c,0x87);
-            if(w&0x400000) { b(c,0x4a);b(c,0x8b);b(c,0x04);b(c,0x0a);save(c,rd,0); }
-            else { load(c,rd,0,1);b(c,0x4a);b(c,0x89);b(c,0x04);b(c,0x0a); }
+            if(read) {
+                b(c,result64?0x4a:0x42);
+                if(bytes<4){b(c,0x0f);b(c,(signed_load?0xbe:0xb6)+(bytes==2));}
+                else b(c,signed_load?0x63:0x8b);
+                b(c,0x04);b(c,0x0a);save(c,rd,0);
+            } else {
+                load(c,rd,0,bytes==8);
+                if(bytes==2)b(c,0x66);
+                b(c,bytes==8?0x4a:0x42);b(c,bytes==1?0x88:0x89);b(c,0x04);b(c,0x0a);
+            }
             b(c,0xe9);size_t next=c->used;u32(c,0);
+            size_t sp_target=c->used;
+            if(sp_align){save_host_r11(c,offsetof(vf_cpu,far));finish(c,pc,n,VF_SP_ALIGNMENT_FAULT);}
             size_t alignment_target=c->used;
-            save_host_r11(c,offsetof(vf_cpu,far));
-            finish(c,pc,n,VF_ALIGNMENT_FAULT);
+            if(align){save_host_r11(c,offsetof(vf_cpu,far));finish(c,pc,n,VF_ALIGNMENT_FAULT);}
             size_t data_target=c->used;
             save_host_r11(c,offsetof(vf_cpu,far));
             finish(c,pc,n,VF_DATA_ABORT);
-            size_t next_target=c->used;
-            fix_to(c,align,alignment_target);
-            fix_to(c,carry,data_target);
+            if(sp_align)fix_to(c,sp_align,sp_target);
+            if(align)fix_to(c,align,alignment_target);
             fix_to(c,below,data_target);
+            fix_to(c,short_ram,data_target);
             fix_to(c,bound,data_target);
-            fix_to(c,next,next_target);
+            fix(c,next);
         } else if((w&0xff000010)==0x54000000) {
             unsigned condition=w&15;
             uint64_t target=pc+(uint64_t)(sext((w>>5)&0x7ffff,19)*4);

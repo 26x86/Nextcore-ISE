@@ -27,3 +27,5 @@ jobs:
           python3 tools/probe_mmu_physical.py
       - name: Compare integer pair transfers with an independent Arm CPU
         run: python3 tools/probe_pair_memory.py
+      - name: Compare scalar widths and signed loads with an independent Arm CPU
+        run: python3 tools/probe_scalar_memory.py
