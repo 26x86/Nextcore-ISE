@@ -31,7 +31,9 @@ def main() -> None:
         "memory_abi_v2.h","memory_boot_v2.h","memory_boot_v2.c","memory_boot_v2.rs","memory_stage1.inc","memory_layout_v2.c","test_stage1_provider.rs",
         "preos/src/platform.rs","preos/src/exception_level.rs","preos/src/mmu.rs",
         "memory-service/Cargo.toml","memory-service/src/lib.rs","memory-service/src/abi.rs",
-        "memory-service/src/abi_v2.rs","memory-service/src/stage1.rs","memory-service/src/stage1_tests.rs")]
+        "memory-service/src/abi_v2.rs","memory-service/src/stage1.rs","memory-service/src/stage1_tests.rs",
+        "memory-service/src/dynamic.rs","memory-service/src/dynamic_abi.rs","memory-service/src/dynamic_tests.rs",
+        "memory_dynamic.h","memory_dynamic.inc")]
     before={str(p.relative_to(runtime)):digest(p) for p in paths}
     records=[]
     def run(command: list[str]) -> None:
@@ -94,9 +96,9 @@ def main() -> None:
             directory=work/name;directory.mkdir(exist_ok=True)
             original=(service/"stage1.rs").read_text();assert original.count(needle)==1
             stage=directory/"stage1.rs"
-            stage.write_text(original.replace(needle,replacement).replace('#[path="stage1_tests.rs"]',f'#[path={json.dumps(str(service/"stage1_tests.rs"))}]'))
+            stage.write_text(original.replace(needle,replacement).replace('#[path="stage1_tests.rs"]',f'#[path={json.dumps(str(service/"stage1_tests.rs"))}]').replace('#[path="dynamic.rs"]',f'#[path={json.dumps(str(service/"dynamic.rs"))}]'))
             library_source=(service/"lib.rs").read_text()
-            for module in ("abi","abi_v2"):
+            for module in ("abi","abi_v2","dynamic_abi"):
                 library_source=library_source.replace(f"pub mod {module};",f"#[path={json.dumps(str(service/(module+'.rs')))}] pub mod {module};")
             for module in ("mmu","exception_level"):
                 library_source=library_source.replace(f'"../../preos/src/{module}.rs"',json.dumps(str(runtime/f"preos/src/{module}.rs")))
