@@ -50,3 +50,5 @@ jobs:
         run: python3 tools/probe_efi_stage1_provider.py --work-dir "$RUNNER_TEMP/native-stage1-provider" --output "$RUNNER_TEMP/native-stage1-provider.json"
       - name: Transactional one-way MMU activation and semantic negative controls
         run: python3 tools/probe_dynamic_memory.py --work-dir "$RUNNER_TEMP/dynamic-memory" --output "$RUNNER_TEMP/dynamic-memory.json"
+      - name: UBFM native and reference execution with precise undefined syndromes
+        run: python3 tools/probe_ubfm_native.py --work-dir "$RUNNER_TEMP/ubfm-native" --output "$RUNNER_TEMP/ubfm-native.json"

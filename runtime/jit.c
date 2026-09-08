@@ -246,6 +246,26 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                 b(c,0x4c);b(c,0x21);b(c,0x89);u32(c,offsetof(vf_cpu,pstate));
                 b(c,0x48);b(c,0x09);b(c,0x81);u32(c,offsetof(vf_cpu,pstate));fix(c,done);
             }
+        } else if((w&0x7f800000)==0x53000000) {
+            /* UBFM, including every extract/insert/shift alias. R31 is ZR.
+             * This branch is shared by direct and all provider entry paths. */
+            unsigned rotate=(w>>16)&63,end=(w>>10)&63,width=wide?64:32;
+            if(((w>>22)&1)!=wide || (!wide && ((rotate|end)&32))) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            unsigned bits=end>=rotate?end-rotate+1:end+1;
+            uint64_t mask=bits==64?UINT64_MAX:(UINT64_C(1)<<bits)-1;
+            load(c,rn,0,wide);
+            if(end>=rotate && rotate) {
+                if(wide)b(c,0x48);b(c,0xc1);b(c,0xe8);b(c,rotate);
+            }
+            b(c,0x49);b(c,0xb9);u64(c,mask);
+            b(c,wide?0x4c:0x44);b(c,0x21);b(c,0xc8);
+            if(end<rotate) {
+                if(wide)b(c,0x48);b(c,0xc1);b(c,0xe0);b(c,width-rotate);
+            }
+            save(c,rd,0); /* Guest NZCV is unchanged by host flag writes. */
         } else if((w&0x1f800000)==0x12000000) {
             uint64_t mask;unsigned op=(w>>29)&3;
             if(!logical_mask(w,&mask)) {

@@ -229,3 +229,34 @@ fn run(c:m::Controls,tables:&[u8],ram:&mut[u8],entry:u64,initial:[u64;4],budget:
         assert_eq!((r.memory.base.execution.esr,r.memory.base.guest_far),(0,0));assert_eq!(ram,before);
     }
 }
+
+#[path="ubfm_provider_cases.rs"]mod ubfm_cases;
+#[test]fn ubfm_stays_native_before_and_after_one_way_enable_without_widening_guard() {
+    for sixteen in [false,true] {for mapped in [false,true] {for case in ubfm_cases::cases() {
+        let(c,tables,mut ram,step,_)=fixture(sixteen,&[case.word,HLT]);
+        let entry=if mapped {RAM+step as u64-12}else{words(&mut ram,0,&[case.word,HLT]);RAM};let before=ram.clone();
+        let mut expected=[c.sctlr|1,case.source,8,0xfedcba9876543210];let initial=expected;
+        if mapped {expected[2]+=1;}
+        if case.destination!=31 {expected[case.destination]=case.expected;}
+        let e=run(c,&tables,&mut ram,entry,initial,8,0);let r=e.out;let b=r.memory.base.execution.base;
+        let count=if mapped {5}else{2};assert_eq!((b.status,b.retired,b.compiled_blocks),(1,count,count));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);assert_eq!((r.memory.base.execution.sp,r.memory.base.execution.pstate),(RAM+0x400,0x3c5));
+        assert_eq!((b.pc,r.memory.base.provider_status),(if mapped {RAM+step as u64+8}else{RAM+8},0));
+        assert_eq!((r.memory.base.fetch_requests,r.memory.base.data_requests,r.memory.base.completed_data_operations),(count,0,0));
+        assert_eq!((r.memory.base.execution.esr,r.memory.base.guest_far),(0,0));assert_eq!(ram,before);
+        assert_eq!((r.final_control.architectural.sctlr&1,r.final_control.effective.sctlr&1),(u64::from(mapped),u64::from(mapped)));
+        assert_eq!(r.final_control,e.service_state);assert!(e.data.iter().all(|q|q.operation==nextcore_memory_service::abi::FETCH));
+    }}}
+    for sixteen in [false,true] {
+        for word in ubfm_cases::INVALID {
+            let(c,tables,mut ram,step,_)=fixture(sixteen,&[word,HLT]);let before=ram.clone();
+            let initial=[c.sctlr|1,2,8,4];let e=run(c,&tables,&mut ram,RAM+step as u64-12,initial,8,0);let r=e.out;let b=r.memory.base.execution.base;
+            assert_eq!((b.status,b.retired,b.compiled_blocks,r.memory.base.fetch_requests),(8,3,4,4));
+            assert_eq!([b.x0,b.x1,b.x2,b.x3],[initial[0],2,9,4]);assert_eq!((b.pc,r.memory.base.execution.esr,r.memory.base.data_requests),(RAM+step as u64,1<<25,0));assert_eq!(ram,before);
+        }
+        let(c,tables,mut ram,step,_)=fixture(sixteen,&[HLT]);words(&mut ram,step-4,&[0xd3401c23]);let before=ram.clone();
+        let e=run(c,&tables,&mut ram,RAM+step as u64-12,[c.sctlr|1,9,8,7],8,0);let r=e.out;let b=r.memory.base.execution.base;
+        assert_eq!((b.status,b.retired,r.memory.base.provider_status),(4,1,1));assert_eq!((r.final_control.architectural.sctlr&1,r.final_control.effective.sctlr&1),(0,0));
+        assert_eq!(b.pc,RAM+step as u64-8);assert_eq!(ram,before);
+    }
+}

@@ -8,8 +8,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 3096,
-      "sha256": "e1c2675e6d5999d9daf5c909eac9674bd6839bbca7e3b311b67dc734d439f89b"
+      "bytes": 3306,
+      "sha256": "ed5534d4ca43b7d4e3755278d7bef738db3c88ea2d6db442ab83d28ac675f5a9"
     },
     {
       "path": ".gitignore",
@@ -102,9 +102,19 @@
       "sha256": "420462fa96aae5c90269cfe53b13210715154b83983de9c68f2c43246a807b18"
     },
     {
+      "path": "docs/UNDEFINED_A64_SYNDROME.md",
+      "bytes": 3176,
+      "sha256": "bd485111a1417bfd9001cdc02fc2042a47b2ce95a92a4099528b0b249e6294e7"
+    },
+    {
+      "path": "docs/UNSIGNED_BITFIELD_MOVE.md",
+      "bytes": 5624,
+      "sha256": "756372dee1420c1d8ea980b50caa5a01f5f8c5b96c34a36df41582f8f9fdbfa2"
+    },
+    {
       "path": "repository.json",
-      "bytes": 1309,
-      "sha256": "760ee63664163f5ed510c7e42deb08de708f5086604a8ce295c78aa685504594"
+      "bytes": 1299,
+      "sha256": "05e27f1dba968358e70a9de3e253cd4745b6cfd8df7c2ea3fa2f168b3c10b4fc"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -113,8 +123,8 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 21562,
-      "sha256": "99b5cf138ed60b7a98a6d94036567aa3538d5d05f880ce7bcb742c375eb2fbf9"
+      "bytes": 21661,
+      "sha256": "555051a9c83e12b72fcf2b8d5df72ce43e61c4f88a0d11934fa9b5072dd4321f"
     },
     {
       "path": "runtime/boot_jit.c",
@@ -143,8 +153,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 39799,
-      "sha256": "0c689ccf6bff8ff58233f80717b97ebd5728c5b43fb559f53d2f9ce09d06fa9b"
+      "bytes": 40849,
+      "sha256": "1be35e85b38ea43034cb214e99f064d68b4d69bc3ea811be4bf8d5a6cf87270f"
     },
     {
       "path": "runtime/jit.h",
@@ -308,8 +318,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 139835,
-      "sha256": "d184faf2c6135fd92796f3b7596c2059c03c2d798589b5d4cea3437a692e7506"
+      "bytes": 143695,
+      "sha256": "5432bac0814d8014851412f72f598c16ce6b5255eac46540f65c1eb4b4fa42ee"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -378,13 +388,13 @@
     },
     {
       "path": "runtime/test_conditional_jit.c",
-      "bytes": 5121,
-      "sha256": "91525044f0ebac2d8f6b158e548979c74c8d2b8834025f5f94d114307441c737"
+      "bytes": 5128,
+      "sha256": "5c5df85816dae3730812587c73a3914b95a64a5bd6228ce3c1226e8cfa47eac4"
     },
     {
       "path": "runtime/test_dynamic_provider.rs",
-      "bytes": 17856,
-      "sha256": "1ecec4be471228dfb687a2b411c471c249938fc6730cbb6b689dcd0eca035fd5"
+      "bytes": 20566,
+      "sha256": "ed0cd251af018bdb5196a637a98d0248a616f098c2f2735b6d7ee084ec467ace"
     },
     {
       "path": "runtime/test_flags_jit.c",
@@ -413,13 +423,13 @@
     },
     {
       "path": "runtime/test_memory_provider.rs",
-      "bytes": 15153,
-      "sha256": "8536474a38b83f76f665aaf1aed54145e8546cf3e4198b29c99fdc497bcb82d6"
+      "bytes": 16522,
+      "sha256": "5acc1ca5dacd20209db806d4621eec64d10db2a199f6816ec89e09441245d194"
     },
     {
       "path": "runtime/test_pair_jit.c",
-      "bytes": 7403,
-      "sha256": "b9ab8e6431f0fb26095dfce49584893f6fa1d3d099f4f9a475587ddd446a5f38"
+      "bytes": 7417,
+      "sha256": "e73afb379232d6cc02765a0f5d040b4e22a6a817b90493eeec412b665dc4a70a"
     },
     {
       "path": "runtime/test_pauth_jit.c",
@@ -428,8 +438,8 @@
     },
     {
       "path": "runtime/test_scalar_jit.c",
-      "bytes": 6789,
-      "sha256": "b0ac953e238ac06c2d6c7c7c87d94d3fda9bd53860a92949001d5874360dacdd"
+      "bytes": 6796,
+      "sha256": "4c53adbbc951b4087c9ccfad7adff3872ae446fe5cc515fed1f89a94110a56ec"
     },
     {
       "path": "runtime/test_shift_jit.c",
@@ -438,8 +448,8 @@
     },
     {
       "path": "runtime/test_stage1_provider.rs",
-      "bytes": 17139,
-      "sha256": "3ae544bfb99fd8dc2525855123bf70e841d64ea638d5888c29ce83a9cad825f4"
+      "bytes": 18853,
+      "sha256": "07ce03784d0325f1f3496cee8e0a87c7c46996a74b9a025dbbe5d763739e71a7"
     },
     {
       "path": "runtime/test_thread_jit.c",
@@ -447,9 +457,19 @@
       "sha256": "935a1f5e41e14001a23d900e41fdafc3e40ea2ce6c23efe00254ab90e7cb6fc1"
     },
     {
+      "path": "runtime/test_ubfm_jit.c",
+      "bytes": 4043,
+      "sha256": "4429872ba836da16a30fc11a02f03dd41bc8fe68085435046a6c35e3db5e2ec3"
+    },
+    {
       "path": "runtime/test_wx.c",
       "bytes": 693,
       "sha256": "afa4209e70d3c566493865b49c315295503ed0787f0e64dfb1338e713b23c6e4"
+    },
+    {
+      "path": "runtime/ubfm_provider_cases.rs",
+      "bytes": 1252,
+      "sha256": "cae7ae7790a918dde84b65d1810db27fc02dad19af1491c46ea4d8d439d35fc4"
     },
     {
       "path": "runtime/uefi.h",
@@ -630,6 +650,11 @@
       "path": "tools/probe_scalar_memory.py",
       "bytes": 3522,
       "sha256": "c3109d178c5404a2ebd602b4139612c7d2c9c44971cfdc5279d4c4c84119df18"
+    },
+    {
+      "path": "tools/probe_ubfm_native.py",
+      "bytes": 5146,
+      "sha256": "2e9fe310746f0e5965205d01ba06756581e4a8e89c2b62805b647a2e5c5a34b2"
     },
     {
       "path": "tools/scalar_memory_probe.S",

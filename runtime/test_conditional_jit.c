@@ -66,7 +66,7 @@ int main(void){
         vf_cpu cpu;vf_cpu_reset(&cpu,VF_EL1);cpu.x[0]=11;cpu.x[1]=12;cpu.sp=0x9870;cpu.pstate=UINT64_C(0xb00003c5);
         uint8_t ram[8]={0};CHECK(vf_run(&cpu,(const uint8_t*)&word,4,ram,8,&code,1,perms,0)==VF_UNDEFINED_INSTRUCTION);
         CHECK(cpu.retired==0 && cpu.pc==0 && cpu.x[0]==11 && cpu.x[1]==12 && cpu.sp==0x9870 && cpu.pstate==UINT64_C(0xb00003c5));
-        CHECK(cpu.esr_el[VF_EL1]==0);
+        CHECK(cpu.esr_el[VF_EL1]==(1u<<25));
     }
     CHECK(munmap(code.bytes,4096)==0);
     printf("{\"passed\":true,\"native_jit_executed\":true,\"assertions\":%u,\"conditional_cases\":%u}\n",checks,cases);

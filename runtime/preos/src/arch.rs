@@ -247,7 +247,8 @@ fn exception_syndrome(
         // ISS in this boundary.  Their internal ExceptionKind remains the
         // precise classification returned to the host.
         ExceptionKind::UndefinedInstruction | ExceptionKind::PrivilegedInstruction => {
-            ESR_EC_UNKNOWN << 26
+            // EC0 requires IL=1 and ISS=0; raw opcode bits never become ISS.
+            (ESR_EC_UNKNOWN << 26) | (1 << 25)
         }
         ExceptionKind::TimerInterrupt
         | ExceptionKind::ExternalInterrupt
@@ -1650,6 +1651,22 @@ impl GuestCpuState {
             }
             self.pc=pc.wrapping_add(4);return StepResult::Continue;
         }
+        if word&0x7f800000==0x53000000 {
+            let r=(word>>16)&63;let s=(word>>10)&63;
+            if ((word>>22)&1)!=u32::from(wide) || (!wide && (r|s)&32!=0) {
+                self.raise(GuestException {kind:ExceptionKind::UndefinedInstruction,
+                    instruction:word,syndrome:word as u64,far:pc,pc});
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            }
+            // Arm's rotate/write-mask/top-mask operation. Unlike logical
+            // immediates, a full-width bitfield is valid. R31 is always ZR.
+            let width=if wide {64}else{32};
+            let low=|bits:u32|u64::MAX>>(64-bits);
+            let rotate=|x:u64|if wide {x.rotate_right(r)}else{u64::from((x as u32).rotate_right(r))};
+            let result=rotate(self.read_reg(rn,false)) & rotate(low(s+1)) & low((s.wrapping_sub(r)&(width-1))+1);
+            self.write_reg(rd,result,false,wide);
+            self.pc=pc.wrapping_add(4);return StepResult::Continue;
+        }
         if word&0x1f800000==0x12000000 {
             let Some(mask)=logical_immediate(word) else {
                 self.raise(GuestException {kind:ExceptionKind::UndefinedInstruction,
@@ -2162,7 +2179,7 @@ mod tests {
             let mut cpu=GuestCpuState::reset(0);cpu.x[3]=128;cpu.x[4]=0x1122334455667788;
             assert_eq!(cpu.execute_one(&mut bus),StepResult::Exception(ExceptionKind::UndefinedInstruction));
             assert_eq!(bus.fetches,1);assert_eq!((cpu.pc,cpu.x[3],cpu.x[4]),(0,128,0x1122334455667788));
-            assert_eq!(cpu.sys.esr_el1,0);assert_eq!(cpu.pending_exception.unwrap().instruction,bus.word);
+            assert_eq!(cpu.sys.esr_el1,1<<25);assert_eq!(cpu.pending_exception.unwrap().instruction,bus.word);
         }}}
         assert_eq!(exception_syndrome(ExceptionKind::InstructionAbort,ExceptionLevel::El1,
             u64::from(scalar_word(3,0,0,3,4))),(ESR_EC_IABT_SAME<<26)|7);
@@ -2414,7 +2431,7 @@ mod tests {
             assert_eq!(cpu.pair_memory(&mut RamBus::new(&mut ram),invalid),Err((ExceptionKind::UndefinedInstruction,0)));
             assert_eq!(ram,before);
             assert_eq!(cpu.execute_one(&mut RamBus::new(&mut ram)),StepResult::Exception(ExceptionKind::UndefinedInstruction));
-            assert_eq!(cpu.sys.esr_el1,0);
+            assert_eq!(cpu.sys.esr_el1,1<<25);
             assert_eq!(cpu.pending_exception.unwrap().instruction,invalid);
             assert_eq!(ram,before);assert_eq!(cpu.pc,0);
         }
@@ -2427,6 +2444,48 @@ mod tests {
         cpu.pc=0;cpu.sp=0x9870;
         assert_eq!(cpu.pair_memory(&mut RamBus::new(&mut ram),pair_word(8,true,2,0,3,3,31)),Ok(()));
         assert_eq!(cpu.x[3],0x42);assert_eq!(cpu.sp,0x9870);
+    }
+
+    #[test]
+    fn unsigned_bitfield_all_immediates_match_independent_bit_placement() {
+        fn run(width:u32,r:u32,s:u32,source:u64,rn:u32,rd:u32,flags:u32) {
+            let mut expected=0u64;
+            for bit in 0..width {
+                if (if rn==31 {0}else{source})&(1u64<<bit)==0 {continue;}
+                if s>=r && bit>=r && bit<=s {expected|=1u64<<(bit-r);}
+                if s<r && bit<=s {expected|=1u64<<(bit+width-r);}
+            }
+            let word=0x53000000|(u32::from(width==64)<<31)|(u32::from(width==64)<<22)|(r<<16)|(s<<10)|(rn<<5)|rd;
+            let mut cpu=GuestCpuState::reset(0);for index in 0..31 {cpu.x[index]=0xfedcba9800000000+index as u64;}
+            if rn!=31 {cpu.x[rn as usize]=source;}
+            cpu.sp=0x98765430;cpu.pstate=0x3c5|(flags<<28);let mut registers=cpu.x;
+            if rd!=31 {registers[rd as usize]=expected;}
+            let mut bytes=word.to_le_bytes();let before=bytes;
+            let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut bytes),1,|_|{});
+            assert_eq!(result.status,ArchRunStatus::Budget);assert_eq!(cpu.retired,1);assert_eq!(cpu.pc,4);
+            assert_eq!(cpu.x,registers);assert_eq!(cpu.sp,0x98765430);assert_eq!(cpu.pstate,0x3c5|(flags<<28));assert_eq!(bytes,before);
+        }
+        let sources=[0,u64::MAX,1,0x8000000000000000,0x80000000,0x0123456789abcdef,0xdeadbeef00000001];
+        for width in [32u32,64] {for r in 0..width {for s in 0..width {for (i,source) in sources.iter().enumerate() {
+            run(width,r,s,*source,0,2,(r+s+i as u32)&15);
+        }}}}
+        for width in [32u32,64] {for flags in 0..16 {for mode in 0..4 {for edge in 0..4 {
+            run(width,if edge&1!=0 {width-1}else{0},if edge&2!=0 {width-1}else{0},u64::MAX,
+                if mode&1!=0 {31}else{0},if mode&2!=0 {31}else{0},flags);
+        }}}}
+    }
+
+    #[test]
+    fn unsigned_bitfield_reserved_and_other_bitfield_opcodes_do_not_modify_state() {
+        for word in [0xd3000002u32,0x53400002,0x53200002,0x53008002,0x53608002,
+            0x33000002,0xb3400002,0x13000002,0x93400002,0x73000002,0xf3400002] {
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=u64::MAX;cpu.x[2]=0x76543210;cpu.sp=0x9870;cpu.pstate=0xb00003c5;
+            let registers=cpu.x;let mut bytes=word.to_le_bytes();let before=bytes;
+            let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut bytes),1,|_|{});
+            assert_eq!(result.exception.unwrap().kind,ExceptionKind::UndefinedInstruction);
+            assert_eq!(cpu.retired,0);assert_eq!(cpu.pc,0);assert_eq!(cpu.x,registers);assert_eq!(cpu.sp,0x9870);
+            assert_eq!(cpu.pstate,0xb00003c5);assert_eq!(cpu.sys.esr_el1,1<<25);assert_eq!(bytes,before);
+        }
     }
 
     #[test]
@@ -2470,7 +2529,7 @@ mod tests {
             cpu.x[0]=11;cpu.x[1]=12;cpu.sp=0x9870;cpu.pstate=0xb00003c5;
             assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word.to_le_bytes())),StepResult::Exception(ExceptionKind::UndefinedInstruction));
             assert_eq!((cpu.x[0],cpu.x[1],cpu.sp,cpu.pc,cpu.pstate),(11,12,0x9870,0,0xb00003c5));
-            assert_eq!(cpu.sys.esr_el1,0);
+            assert_eq!(cpu.sys.esr_el1,1<<25);
         }
     }
 
@@ -2871,7 +2930,7 @@ mod tests {
 
         assert_eq!(exception.kind, ExceptionKind::UndefinedInstruction);
         assert_eq!(exception.instruction, word);
-        assert_eq!(exception.syndrome, ESR_EC_UNKNOWN << 26);
+        assert_eq!(exception.syndrome, (ESR_EC_UNKNOWN << 26) | (1 << 25));
         assert_ne!(u64::from(exception.instruction), exception.syndrome);
     }
 
