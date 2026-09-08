@@ -8,13 +8,13 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 270,
-      "sha256": "0fe50d6d23050bebbe5a2df001dea4e8993ca4cb0f41a0dc58263c9071b51282"
+      "bytes": 989,
+      "sha256": "b0ce1b7a6dbdafb6eeabdb5ea797e723ee60a76ba4027ed1f3fee0f5786406e3"
     },
     {
       "path": ".gitignore",
-      "bytes": 20,
-      "sha256": "9cc2c8cc102e0b2a0a177c8f594abc9b9776300a04473c24b45d52c1007a4119"
+      "bytes": 96,
+      "sha256": "a1fcc8ce567becadc74ded3ef57f32d6774c219e94da8ff788ea2cde0c95de5f"
     },
     {
       "path": "Cargo.toml",
@@ -28,8 +28,238 @@
     },
     {
       "path": "README.md",
-      "bytes": 466,
-      "sha256": "c4e1e0638161694da4d01c6db7499cefa67dd43687b5515fe1c797ba6327a446"
+      "bytes": 1885,
+      "sha256": "896b952fea131a8539f21887154b854221ff0297f5c83376dca0da4fbf56942d"
+    },
+    {
+      "path": "devices/aic_v1.c",
+      "bytes": 2951,
+      "sha256": "77e58f8acbc3a2906b0d64b9c9942ed48679f0cc7145fb01585c265705a5c8e7"
+    },
+    {
+      "path": "devices/aic_v1.h",
+      "bytes": 868,
+      "sha256": "6fd62d5a06c398aeddbb6a5e2825331168dd6fa623aa0bb1bd5411ed2ee111d7"
+    },
+    {
+      "path": "devices/test_aic.c",
+      "bytes": 1703,
+      "sha256": "97519be005272a7fa4d7d1338f06db8d6a3acda6caab16bd5173a23dea97892a"
+    },
+    {
+      "path": "docs/AARCH64_LOGICAL_IMMEDIATE.md",
+      "bytes": 2258,
+      "sha256": "bf44f9a73457cf4181e91f96dfda398f02ab80f7281452ad0cb557842213367e"
+    },
+    {
+      "path": "docs/EFI_PLATFORM_IRQ_V2.md",
+      "bytes": 4754,
+      "sha256": "da30e8cc04075c68ed2176b50c49ecfa87c12d8b8ea068dbde80e78b07064500"
+    },
+    {
+      "path": "docs/EFI_THREAD_REGISTERS.md",
+      "bytes": 3528,
+      "sha256": "a1b5e8669d3fb624a4e99738fd04cf0cb31538dd888fb272616b68ecf6cfd650"
+    },
+    {
+      "path": "docs/MMU_OUTPUT_WIDTH.md",
+      "bytes": 2970,
+      "sha256": "82af44990e851c6920428e6e647722927055509885393bf0287ee522a062cecc"
+    },
+    {
+      "path": "repository.json",
+      "bytes": 1305,
+      "sha256": "11824ebd1da43d19cc1a5da6f0f5c9afedb510b5c506ef42c99faee03fca4983"
+    },
+    {
+      "path": "runtime/abi_layout.c",
+      "bytes": 1665,
+      "sha256": "03b71dd9958a85655a50c30387c83d542ae51c808b1913f6a349b531d69f7617"
+    },
+    {
+      "path": "runtime/arch.c",
+      "bytes": 20507,
+      "sha256": "072cf0589d18a53e33d06bf1d243c141ce8095e4cce9adcf7f1250b52f06e427"
+    },
+    {
+      "path": "runtime/boot_jit.c",
+      "bytes": 4255,
+      "sha256": "e8fe05a83dafb3930a76b442d059556ddf832dd92a65d2ed5220da91b0f5b311"
+    },
+    {
+      "path": "runtime/boot_jit.h",
+      "bytes": 2250,
+      "sha256": "5f70ed26073af250f4e508f545df7dbfee7e96e32afe9396fddf40f90abbd46b"
+    },
+    {
+      "path": "runtime/gop_scanout.c",
+      "bytes": 3264,
+      "sha256": "85e9a454846614e8a17420d628f806f93e6925a4c39a5b1b648e6b691895a912"
+    },
+    {
+      "path": "runtime/gop_scanout.h",
+      "bytes": 1895,
+      "sha256": "5025bcf913b70baf13888792091efd67b4bf42f2fa34c5b4bb52163cfacde5b6"
+    },
+    {
+      "path": "runtime/handoff.h",
+      "bytes": 750,
+      "sha256": "82d91868045b55e5d79b931d9a29acb10d11d02f0f164d7578012515919b68a2"
+    },
+    {
+      "path": "runtime/jit.c",
+      "bytes": 24861,
+      "sha256": "5883e2cfa2dfc5dde9456da5f6599c113ec1a634c3457e84c02d6941538589e6"
+    },
+    {
+      "path": "runtime/jit.h",
+      "bytes": 8685,
+      "sha256": "d0cc9748d6c7d0968c1675f24a4dced9644384b130f276ba76937c9f93249e31"
+    },
+    {
+      "path": "runtime/jit_protection.c",
+      "bytes": 3153,
+      "sha256": "aaaae4ed9d644e91d4da26e745c336ce767dfdd60e8e1a9a2a9287c0ed60ddc7"
+    },
+    {
+      "path": "runtime/main.c",
+      "bytes": 11826,
+      "sha256": "e60b0a038268582c5612858fbcbdb5cd6d47d42740b43fcb386333a369421ede"
+    },
+    {
+      "path": "runtime/platform_abi.h",
+      "bytes": 485,
+      "sha256": "e0c19055be84de172df89495c822a18deae24d04315e4350cc42cba07fc90eba"
+    },
+    {
+      "path": "runtime/platform_layout.c",
+      "bytes": 722,
+      "sha256": "70ce0c588e602f06c3be49982c9060b736f08ee118a32039ff9df918d46f9d0d"
+    },
+    {
+      "path": "runtime/preos/Cargo.lock",
+      "bytes": 157,
+      "sha256": "e0b8566b2229be151981d2c2b0f4419cc5eb49285ae88c73594a78aed5993231"
+    },
+    {
+      "path": "runtime/preos/Cargo.toml",
+      "bytes": 342,
+      "sha256": "37636ea1746d9cb5ff56d6f2ba02ba1d009a8ca2b686e8684cc601cc86cb5fe9"
+    },
+    {
+      "path": "runtime/preos/src/arch.rs",
+      "bytes": 109462,
+      "sha256": "16542a6e54147ca9a90a832af12572f3308d5bc757c8e9fca6ff343836bcd294"
+    },
+    {
+      "path": "runtime/preos/src/lib.rs",
+      "bytes": 33578,
+      "sha256": "8aaf42e8ae1c971cce07aa6a88b266d3c3c1bd3210eff7ca39d50d2b766b8727"
+    },
+    {
+      "path": "runtime/preos/src/m1.rs",
+      "bytes": 58468,
+      "sha256": "cada02dd5bc459683ebebf3e28d0436933dba8097ba274ed0404a95010cd19f9"
+    },
+    {
+      "path": "runtime/preos/src/machine.rs",
+      "bytes": 21282,
+      "sha256": "57c0ead54a9757281acc3abc00412355326e4aa9407692f085b76bfed5245592"
+    },
+    {
+      "path": "runtime/preos/src/mmu.rs",
+      "bytes": 36495,
+      "sha256": "bf53ae078a719011418904a708e128b5027ddb7f0864ff70548ee7d6e74575b7"
+    },
+    {
+      "path": "runtime/preos/src/pauth.rs",
+      "bytes": 15447,
+      "sha256": "f0c93ce49e3b8fa27bc28805d60fd6689edb41acd299bc914b192c329938604c"
+    },
+    {
+      "path": "runtime/preos/src/platform.rs",
+      "bytes": 2966,
+      "sha256": "8034a1b63c14ef6dc420f2a61adbcce21cc6d990dc777962cc7fe063c8205769"
+    },
+    {
+      "path": "runtime/preos/src/vmapple.rs",
+      "bytes": 14756,
+      "sha256": "bb4967dcd409c1679eb4acafe5d0bfe51a47a57768c86f45deb9b5abbc308c98"
+    },
+    {
+      "path": "runtime/preos_abi.h",
+      "bytes": 7801,
+      "sha256": "f355c3ab92457c569c3a4833b91ec8ad51ccdef6d0e8142d3ba236db5f37d5dc"
+    },
+    {
+      "path": "runtime/preos_bridge.c",
+      "bytes": 8726,
+      "sha256": "b2ad8426208c296fdd3da1b49f98e50c855e67a38f97b55a5797606c627c5065"
+    },
+    {
+      "path": "runtime/preos_bridge.h",
+      "bytes": 761,
+      "sha256": "97a63e5667b5dadaa1cf9ee6f1ae66e4595cfd8c86c21281043529e79392a112"
+    },
+    {
+      "path": "runtime/preos_host_test.c",
+      "bytes": 14792,
+      "sha256": "53e3c0ef55887f1a0458fb75ba90c1a013d4abfc3148c8cb3dbe20692ba05afa"
+    },
+    {
+      "path": "runtime/test_boot_jit.c",
+      "bytes": 6016,
+      "sha256": "eb0d2c371567d6998e35592a550016b2e12ae6ab5e752cdbc4fe7be4eaf6258a"
+    },
+    {
+      "path": "runtime/test_flags_jit.c",
+      "bytes": 7690,
+      "sha256": "5c8c5bd854fd73577b72b81e0d8fd50d02ea601ecae27d1343ab98df59f3a777"
+    },
+    {
+      "path": "runtime/test_gop_scanout.c",
+      "bytes": 6735,
+      "sha256": "def9a5efe836e14d972d083527464b69eb2be1268c3427b3bb16b6c2955b01c4"
+    },
+    {
+      "path": "runtime/test_irq_jit.c",
+      "bytes": 7762,
+      "sha256": "0b129c5403c17a650fe280572fa86c75afbb1a6f78d39420c7e2c0ce985cc3d5"
+    },
+    {
+      "path": "runtime/test_jit.c",
+      "bytes": 7905,
+      "sha256": "3d7ee8e6ef74c474eb9e53bae3b70a4552a87dcb4343e54a78c31b5c4156212a"
+    },
+    {
+      "path": "runtime/test_logical_jit.c",
+      "bytes": 3340,
+      "sha256": "2f53c9c225b08ecd7a9122b42398c624a8ac6b39357c5d2e5dc308d1bc509766"
+    },
+    {
+      "path": "runtime/test_pauth_jit.c",
+      "bytes": 2924,
+      "sha256": "c076301752be3a6c627de552962b28963583828a7c03f2727943bd2cee00b8ef"
+    },
+    {
+      "path": "runtime/test_shift_jit.c",
+      "bytes": 2639,
+      "sha256": "cc44fa1d2e599e99bd2038b6bd78c2a29fa662f5274a2a8afb6754bc7fae6760"
+    },
+    {
+      "path": "runtime/test_thread_jit.c",
+      "bytes": 5762,
+      "sha256": "935a1f5e41e14001a23d900e41fdafc3e40ea2ce6c23efe00254ab90e7cb6fc1"
+    },
+    {
+      "path": "runtime/test_wx.c",
+      "bytes": 693,
+      "sha256": "afa4209e70d3c566493865b49c315295503ed0787f0e64dfb1338e713b23c6e4"
+    },
+    {
+      "path": "runtime/uefi.h",
+      "bytes": 4184,
+      "sha256": "ad65b75ad72ddca190093a8df01ec2e89622fadaaee0b1e149a704e80106e32b"
     },
     {
       "path": "src/cpu_features.rs",
@@ -48,13 +278,38 @@
     },
     {
       "path": "src/lib.rs",
-      "bytes": 71,
-      "sha256": "145f9b74ed68d8914466b7d3f549ecc6bf78b794ae48e26a13c6290a719c7386"
+      "bytes": 310,
+      "sha256": "6f7ee41115d898c4a51fc892448c53fbc52fad526e652bd98854545596870d0f"
     },
     {
       "path": "src/trap.rs",
       "bytes": 2571,
       "sha256": "d6d278cfb7005e041b0fbaf130e7a4e6983797c65c496ee6e5dabd4af543212a"
+    },
+    {
+      "path": "tools/mmu_granule_probe.S",
+      "bytes": 2886,
+      "sha256": "4ada14f9eb69cda0e1c366ceb7676860f847ce4f14a2e857eb4a5cb3e04d3964"
+    },
+    {
+      "path": "tools/mmu_physical_probe.S",
+      "bytes": 7222,
+      "sha256": "3e1af639bc8811c8aa326117e303c96423957874c9de701b5b59a2ef3bd6abff"
+    },
+    {
+      "path": "tools/probe_efi_native_pauth.py",
+      "bytes": 8231,
+      "sha256": "6a3cf14bb65e4bd3736ed707222efa1e297688cf575726934385587361aff8bf"
+    },
+    {
+      "path": "tools/probe_mmu_granules.py",
+      "bytes": 3221,
+      "sha256": "13e3df4a342ec3aa64b02306f1f1b84a0b1c6960b621ff0ca78d732f22eb0297"
+    },
+    {
+      "path": "tools/probe_mmu_physical.py",
+      "bytes": 2620,
+      "sha256": "c002177b1dea3f04e5e9909f52fa4a748096e475d9b217fff3bf175f097180f8"
     }
   ]
 }
