@@ -3,33 +3,33 @@
   "files": [
     {
       "path": ".gitattributes",
-      "bytes": 30,
-      "sha256": "9319637ee361d94b77df3b8f63b650075d6933135e97a0e9b7fdf4240fe7b95c"
+      "bytes": 28,
+      "sha256": "4b0f1fc438f30f25abe421b7542e9f3803b8b5c15ca3695614222e2bc547a9fe"
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 284,
-      "sha256": "630fdd492ea0a0590953605efa917908436059d0f0591fcce6a3cfb45eb38438"
+      "bytes": 270,
+      "sha256": "0fe50d6d23050bebbe5a2df001dea4e8993ca4cb0f41a0dc58263c9071b51282"
     },
     {
       "path": ".gitignore",
-      "bytes": 22,
-      "sha256": "2a58829f54c2e8f11df2f4f4e94b1c06962eee8a1bd17bab47a9f2221eac95c9"
+      "bytes": 20,
+      "sha256": "9cc2c8cc102e0b2a0a177c8f594abc9b9776300a04473c24b45d52c1007a4119"
     },
     {
       "path": "Cargo.toml",
-      "bytes": 192,
-      "sha256": "e1ba08d68de6849d401d8608d056cc8ae141471e4f2a5066793d7b807b5b61e4"
+      "bytes": 182,
+      "sha256": "8e8da05240b454840d6f330dae3c6ec6fc6415db1cdf24ebc5c7c8395e64a6b4"
     },
     {
       "path": "LICENSE.txt",
-      "bytes": 1865,
-      "sha256": "64d8c31222df29cfd8327944815b8d6b3c202a45540d49524a4617f50825a5c4"
+      "bytes": 1851,
+      "sha256": "77c458ccb6116400cf960f8951630bc3b8b34731b56ffbd736b95c2b78449104"
     },
     {
       "path": "README.md",
-      "bytes": 317,
-      "sha256": "ce658a5b6c9cb6b74b82941f53d91611bc681c483e3634db336c49bf7f4230e6"
+      "bytes": 466,
+      "sha256": "c4e1e0638161694da4d01c6db7499cefa67dd43687b5515fe1c797ba6327a446"
     },
     {
       "path": "src/cpu_features.rs",

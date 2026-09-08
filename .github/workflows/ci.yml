@@ -1,4 +1,4 @@
-name: Nextcore-ISE CI
+name: NextCore ISE CI
 on:
   push:
   pull_request:

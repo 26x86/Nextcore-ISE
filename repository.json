@@ -7,8 +7,12 @@
   "crate": "nextcore-ise",
   "description": "instruction-set emulation and CPU feature policy",
   "source_path": "nextcore/crates/nextcore-ise",
-  "source_commit": "3acb61b5c60e3519debb5a65cf47629c387e12cf",
+  "source_commit": "dcc90013109eac694ccbf997b1e44a7018480f78",
   "depends_on": [],
   "initial_tag": "26x86-Nextcore-ISE-v0.1.0",
-  "generated_utc": "2026-09-07T12:43:21.243061+00:00"
+  "generated_utc": "2026-09-08T06:40:15.007407+00:00",
+  "release_tag": "26x86-Nextcore-ISE-v0.1.1",
+  "previous_head": "073b8ced31d43c419ed2d9ea78d9ab8d8b372180",
+  "dependency_tags": {},
+  "export_method": "immutable git objects applied to existing main; manifest dependency rewrite only"
 }
