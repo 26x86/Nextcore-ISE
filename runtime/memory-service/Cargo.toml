@@ -1,0 +1,12 @@
+[package]
+name = "nextcore-memory-service"
+version = "0.1.0"
+edition = "2021"
+description = "Caller-owned no_std RAM service for Nextcore's native EFI ARM64e JIT"
+license = "BSD-4-Clause"
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[workspace]

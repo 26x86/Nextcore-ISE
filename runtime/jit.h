@@ -160,6 +160,10 @@ int vf_run_boot_v2(vf_cpu *, uint8_t *, size_t, uint64_t ram_base,
                 const uint64_t initial_x0_x3[4], vf_pauth_step,
                 const vf_boot_options_v2 *);
 int vf_host_supported(void);
+/* Shared boot-state preparation, with no RAM dereference or execution. */
+int vf_cpu_prepare_boot(vf_cpu *,uint64_t ram_size,uint64_t ram_base,
+    uint64_t entry,uint64_t args,uint64_t stack,const uint64_t initial[4],
+    vf_pauth_step,const vf_boot_options_v2 *,uint64_t budget);
 
 void vf_cpu_reset(vf_cpu *, uint32_t initial_el);
 int vf_cpu_set_current_el(vf_cpu *, uint32_t el);
