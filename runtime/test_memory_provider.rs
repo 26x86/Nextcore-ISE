@@ -87,6 +87,17 @@ fn native_alu_and_memory_commit_through_actual_rust_callbacks() {
     assert_eq!(requests.iter().map(|q|q.operation).collect::<Vec<_>>(),[FETCH,FETCH,STORE,FETCH,LOAD,FETCH,FETCH]);
 }
 #[test]
+fn conditional_comparison_stays_native_between_provider_fetches() {
+    // First compare gives Z=1,C=1; the false NE replaces NZCV with 0xf.
+    // NV then executes unconditionally and produces Z=1,C=1 again.
+    let words=[0xfa41e000,0x3a41100f,0xfa5ff800,HLT];
+    let mut ram=payload(&words,256);let before=ram.clone();
+    let (r,_)=run(&mut ram,[31,31,0x33,0x44],BASE+256,8,0);
+    assert_eq!((r.execution.base.status,r.execution.base.retired,r.execution.base.compiled_blocks,r.fetch_requests,r.data_requests),(1,4,4,4,0));
+    assert_eq!((r.execution.pstate>>28,r.execution.base.x0,r.execution.base.x1,r.execution.base.x2,r.execution.base.x3),(6,31,31,0x33,0x44));
+    assert_eq!(ram,before);
+}
+#[test]
 fn all_thirteen_scalar_forms_use_provider_with_signed_and_zero_register_semantics() {
     for size in 0..4 {for opc in 0..4 {if opc>=2 && (size==3 || (size==2&&opc==3)){continue;}
         for sp in [false,true] {for zero in [false,true] {

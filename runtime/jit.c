@@ -63,6 +63,28 @@ static void fix_to(vf_code *c,size_t p,size_t target) {
     if(p+4<=c->capacity)for(int i=0;i<4;i++)c->bytes[p+i]=(uint8_t)(rel>>(8*i));
 }
 static void fix(vf_code *c,size_t p) { fix_to(c,p,c->used); }
+/* Branch to the caller's false path using committed guest NZCV. Zero means
+ * AL/NV: both predicates always hold in A64 ConditionHolds. */
+static size_t condition_false(vf_code *c,unsigned condition) {
+    if(condition>=14)return 0;
+    b(c,0x8b);b(c,0x81);u32(c,offsetof(vf_cpu,pstate));
+    b(c,0xc1);b(c,0xe8);b(c,28);
+    unsigned group=condition>>1,fall_cc=0x84;
+    if(group<4) {
+        const unsigned masks[4]={4,2,8,1};
+        b(c,0x83);b(c,0xe0);b(c,masks[group]);
+    } else if(group==4) {
+        b(c,0x83);b(c,0xe0);b(c,6);
+        b(c,0x83);b(c,0xf8);b(c,2);fall_cc=0x85;
+    } else {
+        b(c,0x41);b(c,0x89);b(c,0xc1);
+        b(c,0x41);b(c,0xc1);b(c,0xe9);b(c,3);
+        b(c,0x44);b(c,0x31);b(c,0xc8);
+        b(c,0x83);b(c,0xe0);b(c,group==5?1:5);fall_cc=0x85;
+    }
+    if(condition&1)fall_cc^=1;
+    return jcc(c,fall_cc);
+}
 static uint32_t word(const uint8_t *p) { return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
 static int64_t sext(uint32_t x,unsigned bits) { return (int64_t)(int32_t)(x<<(32-bits))>>(32-bits); }
 static int logical_mask(uint32_t w,uint64_t *mask) {
@@ -209,6 +231,20 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
         if(provider && memory_family(w)) {
             field32(c,offsetof(vf_cpu,instruction),w);
             finish(c,pc,n,VF_MEMORY_DISPATCH);break;
+        } else if((w&0x3fe00410)==0x3a400000) {
+            /* CCMP/CCMN, register or imm5. R31 is ZR, never SP. */
+            size_t fallback=condition_false(c,(w>>12)&15);
+            if(w&(1u<<11))imm(c,(w>>16)&31);else load(c,(w>>16)&31,0,wide);
+            b(c,0x49);b(c,0x89);b(c,0xc1);
+            load(c,rn,0,wide);b(c,wide?0x4c:0x44);b(c,((w>>30)&1)?0x29:0x01);b(c,0xc8);
+            save_arithmetic_flags(c,(w>>30)&1);
+            if(fallback) {
+                b(c,0xe9);size_t done=c->used;u32(c,0);fix(c,fallback);
+                imm(c,(uint64_t)(w&15)<<28);
+                b(c,0x49);b(c,0xb9);u64(c,~UINT64_C(0xf0000000));
+                b(c,0x4c);b(c,0x21);b(c,0x89);u32(c,offsetof(vf_cpu,pstate));
+                b(c,0x48);b(c,0x09);b(c,0x81);u32(c,offsetof(vf_cpu,pstate));fix(c,done);
+            }
         } else if((w&0x1f800000)==0x12000000) {
             uint64_t mask;unsigned op=(w>>29)&3;
             if(!logical_mask(w,&mask)) {
@@ -408,25 +444,7 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             unsigned condition=w&15;
             uint64_t target=pc+(uint64_t)(sext((w>>5)&0x7ffff,19)*4);
             if(condition>=14) { finish(c,target,n+1,VF_NEXT);break; }
-            /* Compute each Arm predicate from committed NZCV, so intervening
-             * instructions and host block boundaries cannot change it. */
-            b(c,0x8b);b(c,0x81);u32(c,offsetof(vf_cpu,pstate));
-            b(c,0xc1);b(c,0xe8);b(c,28);
-            unsigned group=condition>>1,fall_cc=0x84;
-            if(group<4) {
-                const unsigned masks[4]={4,2,8,1};
-                b(c,0x83);b(c,0xe0);b(c,masks[group]);
-            } else if(group==4) {
-                b(c,0x83);b(c,0xe0);b(c,6);
-                b(c,0x83);b(c,0xf8);b(c,2);fall_cc=0x85;
-            } else {
-                b(c,0x41);b(c,0x89);b(c,0xc1);
-                b(c,0x41);b(c,0xc1);b(c,0xe9);b(c,3);
-                b(c,0x44);b(c,0x31);b(c,0xc8);
-                b(c,0x83);b(c,0xe0);b(c,group==5?1:5);fall_cc=0x85;
-            }
-            if(condition&1)fall_cc^=1;
-            size_t fall=jcc(c,fall_cc);
+            size_t fall=condition_false(c,condition);
             finish(c,target,n+1,VF_NEXT);
             fix(c,fall);finish(c,pc+4,n+1,VF_NEXT);break;
         } else if((w&0x7e000000)==0x34000000) {

@@ -29,6 +29,8 @@ jobs:
         run: python3 tools/probe_pair_memory.py
       - name: Compare scalar widths and signed loads with an independent Arm CPU
         run: python3 tools/probe_scalar_memory.py
+      - name: Compare conditional flags with an independent Arm CPU
+        run: python3 tools/probe_conditional_compare.py --work-dir "$RUNNER_TEMP/conditional-compare" --output "$RUNNER_TEMP/conditional-compare.json"
       - name: Compare exact stage-1 fault levels and captured table inputs
         run: |
           python3 tools/mmu_fault_levels/probe_fault_levels.py --output "$RUNNER_TEMP/mmu-level-at"
