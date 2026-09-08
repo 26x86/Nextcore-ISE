@@ -1,2 +1,9 @@
 /target/
 Cargo.lock
+
+/runtime/preos/target/
+/runtime/build/
+/_isolated/
+
+__pycache__/
+*.py[cod]
