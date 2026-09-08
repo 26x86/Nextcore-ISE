@@ -37,3 +37,10 @@ jobs:
             --at-report "$RUNNER_TEMP/mmu-level-at/report.json" \
             --abort-report "$RUNNER_TEMP/mmu-level-abort/report.json" \
             --output "$RUNNER_TEMP/mmu-level-comparison"
+      - name: Native C to Rust memory provider and negative control
+        run: |
+          python3 tools/probe_efi_memory_provider.py --work-dir "$RUNNER_TEMP/native-memory-provider" --output "$RUNNER_TEMP/native-memory-provider.json"
+          python3 tools/probe_pc_alignment.py --work-dir "$RUNNER_TEMP/pc-alignment" --output "$RUNNER_TEMP/pc-alignment.json"
+          cargo test --manifest-path runtime/memory-service/Cargo.toml
+          rustup target add x86_64-unknown-uefi
+          cargo check --manifest-path runtime/memory-service/Cargo.toml --target x86_64-unknown-uefi

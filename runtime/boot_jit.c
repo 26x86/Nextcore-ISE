@@ -76,6 +76,11 @@ int vf_boot_run_v2(uint8_t *ram,size_t ram_size,uint64_t base,uint64_t entry,
     vf_code buffer={code,code_bytes,0};
     int status=vf_run_boot_v2(&cpu,ram,ram_size,base,entry,args,stack,
                            &buffer,budget,protect,opaque,registers,pauth,options);
+    vf_boot_snapshot(&cpu,status,extended);return status;
+}
+void vf_boot_snapshot(const vf_cpu *state,int status,vf_boot_result_v2 *extended) {
+    const vf_cpu cpu=*state;
+    vf_boot_result *result=&extended->base;
     result->status=(uint32_t)status;
     result->fault_instruction=decoded_fault_instruction(&cpu,status);
     result->retired=cpu.retired;result->pc=cpu.pc;
@@ -87,5 +92,4 @@ int vf_boot_run_v2(uint8_t *ram,size_t ram_size,uint64_t base,uint64_t entry,
     extended->elr=cpu.elr_el[VF_EL1];extended->spsr=cpu.spsr_el[VF_EL1];
     extended->exception_vector=cpu.exception_vector;extended->esr=cpu.esr_el[VF_EL1];
     extended->pstate=cpu.pstate;extended->sp=cpu.sp;
-    return status;
 }

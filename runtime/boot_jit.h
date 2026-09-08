@@ -17,6 +17,8 @@ typedef struct {
     uint32_t pending_lines,platform_profile;
     uint64_t elr,spsr,exception_vector,esr,pstate,sp;
 } vf_boot_result_v2;
+/* Internal common snapshot helper; preserves the existing public records. */
+void vf_boot_snapshot(const vf_cpu *,int,vf_boot_result_v2 *);
 int vf_boot_run_v2(uint8_t *ram,size_t ram_size,uint64_t ram_base,
                 uint64_t entry,uint64_t args,uint64_t stack,
                 uint8_t *code,size_t code_bytes,uint64_t budget,

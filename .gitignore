@@ -7,3 +7,6 @@ Cargo.lock
 
 __pycache__/
 *.py[cod]
+
+# Standalone no_std memory service build products.
+runtime/memory-service/target/
