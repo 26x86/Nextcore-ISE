@@ -25,11 +25,19 @@ _start:
     adr x1, pass4
     mov x0, #4
     hlt #0xf000
-    msr sctlr_el1, xzr
-    isb
-    tlbi vmalle1
-    dsb sy
-    isb
+    bl disable
+    /* T1SZ=26: the L1 initial index is only eight bits. Canonical bit38
+     * must not select entry256 instead of the programmed entry0. */
+    movk x22, #0x801a, lsl #16
+    bl enable
+    mov x0, #0xffffffc000000000
+    add x0, x0, #0x1000
+    add x0, x0, #0x234
+    bl translate
+    adr x1, pass4partial
+    mov x0, #4
+    hlt #0xf000
+    bl disable
     /* 16 KiB L2 roots: code RAM index32, UART region index4. */
     mov x9, #0x40000000
     orr x9, x9, #0x400
@@ -50,8 +58,28 @@ _start:
     adr x1, pass16
     mov x0, #4
     hlt #0xf000
+    bl disable
+    /* T1SZ=29: the L2 initial index is only ten bits. Canonical bit35
+     * must not select entry1024 instead of the programmed entry0. */
+    movk x22, #0x401d, lsl #16
+    bl enable
+    mov x0, #0xfffffff800000000
+    add x0, x0, #0x1000
+    add x0, x0, #0x234
+    bl translate
+    adr x1, pass16partial
+    mov x0, #4
+    hlt #0xf000
     mov x9, #0
     b exit
+
+disable:
+    msr sctlr_el1, xzr
+    isb
+    tlbi vmalle1
+    dsb sy
+    isb
+    ret
 
 enable:
     dsb sy
@@ -90,7 +118,9 @@ exit:
     hlt #0xf000
     b .
 pass4: .asciz "MMU_ORACLE: 4K_TTBR1_PA_OK\n"
+pass4partial: .asciz "MMU_ORACLE: 4K_TTBR1_PARTIAL_PA_OK\n"
 pass16: .asciz "MMU_ORACLE: 16K_TTBR1_PA_OK\n"
+pass16partial: .asciz "MMU_ORACLE: 16K_TTBR1_PARTIAL_PA_OK\n"
 failure: .asciz "MMU_ORACLE: FAIL\n"
 .balign 8
 exit_block: .quad 0x20026, 0

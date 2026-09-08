@@ -404,10 +404,14 @@ impl VfMmu {
         let page_shift = self.granule.page_shift();
         let address_mask = self.granule.address_mask();
         let index_mask = (1u64 << index_bits) - 1;
+        // A shortened initial table consumes only VA[63-TxSZ:shift].
+        // TTBR1 canonical extension bits are not part of that table index.
+        // Later levels consume the usual full index width.
+        let table_va = va & (u64::MAX >> tsz);
         let mut table = root & address_mask;
         for level in start_level..=MAX_LEVEL {
             let shift = page_shift + index_bits * (MAX_LEVEL as u64 - level as u64);
-            let index = (va >> shift) & index_mask;
+            let index = (table_va >> shift) & index_mask;
             let entry_address = table.checked_add(index * 8).ok_or(Fault::Translation)?;
             let descriptor = read64(entry_address).ok_or(Fault::Translation)?;
             if descriptor & 1 == 0 {
@@ -776,6 +780,56 @@ mod tests {
         }
         assert!(!mmu.configure_tcr(0x1001, 0x2000, good, 9));
         assert!(!mmu.configure_tcr(0x1000, 0x2001, good, 9));
+    }
+
+
+    #[test]
+    fn partial_initial_tables_exclude_upper_canonical_bits() {
+        // Independently specified architectural table shapes. Cover each
+        // supported starting level with a shortened initial table, at both
+        // ends of both canonical ranges. Child tables retain their full size.
+        for (tsz, start, page_shift, index_bits, root_entries, tg0, tg1) in [
+            (17u8, 0usize, 12u32, 9u32, 256u64, 0u64, 2u64),
+            (26, 1, 12, 9, 256, 0, 2),
+            (35, 2, 12, 9, 256, 0, 2),
+            (18, 1, 14, 11, 1024, 2, 1),
+            (29, 2, 14, 11, 1024, 2, 1),
+            (40, 3, 14, 11, 1024, 2, 1),
+        ] {
+            let low_mask = u64::MAX >> tsz;
+            let page_mask = (1u64 << page_shift) - 1;
+            for upper in [false, true] {
+                for last in [false, true] {
+                    let mut mmu = VfMmu::disabled();
+                    let tcr = u64::from(tsz) | (u64::from(tsz) << 16)
+                        | (tg0 << 14) | (tg1 << 30);
+                    assert!(mmu.configure_tcr(0x10000, 0x20000, tcr, 1));
+                    let root = if upper { 0x20000 } else { 0x10000 };
+                    let range_base = if upper { !low_mask } else { 0 };
+                    let page_offset = if last { low_mask & !page_mask } else { 0 };
+                    let va = range_base | page_offset | 0x234;
+                    let mut entries = std::vec::Vec::new();
+                    let mut table = root;
+                    for level in start..=3 {
+                        let count = if level == start { root_entries } else { 1 << index_bits };
+                        let index = if last { count - 1 } else { 0 };
+                        let next = 0x30000 + (level as u64) * 0x10000;
+                        let desc = if level == 3 { 0x8000_0443 } else { next | 3 };
+                        entries.push((table + index * 8, desc));
+                        table = next;
+                    }
+                    let mut reads = std::vec::Vec::new();
+                    let translated = mmu.translate(va, Access::Read, ExceptionLevel::El1,
+                        |address| { reads.push(address); read_page(&entries, address) })
+                        .unwrap_or_else(|error| panic!("tsz={tsz} upper={upper} last={last}: {error:?}, reads={reads:x?}"));
+                    assert_eq!(translated.pa, 0x8000_0234);
+                    assert_eq!(translated.page_shift, page_shift as u8);
+                    assert_eq!(reads, entries.iter().map(|entry| entry.0).collect::<std::vec::Vec<_>>());
+                    assert_eq!(mmu.translate(va, Access::Read, ExceptionLevel::El1,
+                        |_| panic!("expected cached translation")).unwrap(), translated);
+                }
+            }
+        }
     }
 
 }

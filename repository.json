@@ -9,7 +9,7 @@
   "development": {
     "branch": "codex/arm64e-boot-metal",
     "base_commit": "e4c318ff707ff57eaf128ffd66cc962a210ab8e1",
-    "updated_utc": "2026-09-08T13:12:18.409684+00:00",
+    "updated_utc": "2026-09-08T13:28:06.760368+00:00",
     "dependency_revisions": {},
     "integration": "Git submodule with an immutable gitlink; workspace source patches for local development"
   },
