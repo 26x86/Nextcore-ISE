@@ -1,9 +1,28 @@
-# NextCore ISE
+# Nextcore-ISE
 
-Instruction-set emulation and CPU feature policy.
+Instruction policy and the freestanding ARM64e-to-x86_64 JIT runtime used by
+Nextcore-EFI. The physical execution target is x86 EFI. WSL2/Linux is a build
+and test environment; the product runtime has no host operating-system dependency.
 
-Clean-room module from [26x86](https://github.com/26x86/26x86), source commit `dcc90013109eac694ccbf997b1e44a7018480f78`.
+`src/` contains the Cargo instruction policy library. `runtime/` owns the C native
+JIT, boot bridge, EFI ABI and GOP transfer helpers. `runtime/preos/` contains the
+no_std Rust reference core and software QARMA5/PAC provider. `devices/` contains the
+bounded interrupt-controller model. EFI locates these sources through the public
+`EFI_RUNTIME_DIR` build helper and compiles them into its own EFI image.
 
-Repository snapshot: `26x86-Nextcore-ISE-v0.1.1`. Package version is preserved from that source.
+```sh
+cargo test --all-targets
+cargo test --manifest-path runtime/preos/Cargo.toml
+python3 tools/probe_efi_native_pauth.py
+clang -std=c11 -O2 -Wall -Wextra -Werror -fsanitize=address,undefined \
+  runtime/gop_scanout.c runtime/test_gop_scanout.c -o /tmp/gop-test
+/tmp/gop-test
+```
 
-Public source only; no Apple firmware, operating-system binaries or private research inputs. Module checks do not establish macOS boot, guest Metal or physical hardware support.
+Native execution is tested on Linux x86_64 with clang and rustc. The PAC provider
+currently supports the tested EL1, 48-bit, TBI-disabled address regime. Native
+32/64-bit immediate arithmetic commits ARM NZCV flags, including all conditional
+branches, and the boot bridge accepts explicit initial argument registers. Guest MMU
+enablement is still a native-JIT boundary. Synthetic PAC execution and GOP
+readback establish component behavior; they do not establish macOS boot or Metal
+hardware acceleration. Previous release metadata is retained in `repository.json`.
