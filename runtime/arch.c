@@ -75,8 +75,8 @@ static void update_timer_status(vf_cpu *cpu) {
 }
 
 static int valid_exception_kind(enum vf_exception_kind kind) {
-    return kind >= VF_EXCEPTION_UNDEFINED_INSTRUCTION &&
-           kind <= VF_EXCEPTION_EXTERNAL_INTERRUPT;
+    return (kind >= VF_EXCEPTION_UNDEFINED_INSTRUCTION &&
+           kind <= VF_EXCEPTION_EXTERNAL_INTERRUPT) || kind == VF_EXCEPTION_FIQ_INTERRUPT;
 }
 
 static uint32_t mode_for_el(uint32_t el) {
@@ -139,6 +139,7 @@ static uint32_t exception_syndrome(enum vf_exception_kind kind,
         return VF_ESR_EC_UNKNOWN << 26;
     case VF_EXCEPTION_TIMER_INTERRUPT:
     case VF_EXCEPTION_EXTERNAL_INTERRUPT:
+    case VF_EXCEPTION_FIQ_INTERRUPT:
         return 0;
     case VF_EXCEPTION_NONE:
         return 0;
@@ -171,7 +172,8 @@ int vf_cpu_set_current_el(vf_cpu *cpu, uint32_t el) {
 int vf_cpu_state_valid(const vf_cpu *cpu) {
     uint64_t mode;
     if (!cpu || cpu->current_el > VF_EL3 ||
-        cpu->exception_pending > VF_EXCEPTION_EXTERNAL_INTERRUPT ||
+        (cpu->exception_pending != VF_EXCEPTION_NONE &&
+         !valid_exception_kind((enum vf_exception_kind)cpu->exception_pending)) ||
         cpu->exception_target_el > VF_EL3 ||
         cpu->exception_from_lower_el > 1) return 0;
     mode = cpu->pstate & VF_PSTATE_MODE_MASK;
@@ -221,11 +223,16 @@ int vf_cpu_raise_exception(vf_cpu *cpu, enum vf_exception_kind kind, uint64_t pc
      * the complete EL-indexed architectural record. */
     cpu->spsr_el[target] = cpu->pstate;
     cpu->elr_el[target] = pc;
-    cpu->esr_el[target] = syndrome;
-    cpu->far_el[target] = far;
+    int asynchronous = kind==VF_EXCEPTION_TIMER_INTERRUPT ||
+        kind==VF_EXCEPTION_EXTERNAL_INTERRUPT || kind==VF_EXCEPTION_FIQ_INTERRUPT;
+    /* IRQ/FIQ entry does not supply an ESR or FAR. Preserve both banks. */
+    if(!asynchronous) {
+        cpu->esr_el[target] = syndrome;
+        cpu->far_el[target] = far;
+    }
     cpu->vbar = cpu->vbar_el[target];
-    cpu->esr = syndrome;
-    cpu->far = far;
+    cpu->esr = cpu->esr_el[target];
+    cpu->far = cpu->far_el[target];
     cpu->elr = pc;
     return 0;
 }
@@ -243,6 +250,9 @@ int vf_cpu_take_exception(vf_cpu *cpu) {
     base = cpu->vbar_el[target] & ~UINT64_C(0x7ff);
     offset = cpu->exception_from_lower_el ? UINT64_C(0x400) :
              ((cpu->spsr_el[target] & 1) ? UINT64_C(0x200) : UINT64_C(0));
+    if(cpu->exception_pending==VF_EXCEPTION_TIMER_INTERRUPT ||
+       cpu->exception_pending==VF_EXCEPTION_EXTERNAL_INTERRUPT) offset+=0x80;
+    else if(cpu->exception_pending==VF_EXCEPTION_FIQ_INTERRUPT) offset+=0x100;
     if (base > UINT64_MAX - offset) return -1;
     vector = base + offset;
 
@@ -307,6 +317,9 @@ int vf_cpu_commit_status(vf_cpu *cpu, int status) {
     case VF_EXTERNAL_INTERRUPT:
         kind = VF_EXCEPTION_EXTERNAL_INTERRUPT;
         break;
+    case VF_FIQ_INTERRUPT:
+        kind = VF_EXCEPTION_FIQ_INTERRUPT;
+        break;
     default:
         return 0;
     }
@@ -316,6 +329,11 @@ int vf_cpu_commit_status(vf_cpu *cpu, int status) {
 int vf_cpu_read_sysreg(const vf_cpu *cpu, uint32_t key, uint64_t *value) {
     int minimum;
     if (!cpu || !value || !vf_cpu_state_valid(cpu)) return VF_SYSREG_INVALID_VALUE;
+    if(key==VF_PLATFORM_OVERRIDE_KEY) {
+        if(cpu->platform_profile!=VF_PLATFORM_IRQ_COMPAT_V1 || cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)
+            return VF_SYSREG_UNKNOWN;
+        *value=cpu->platform_override;return VF_SYSREG_OK;
+    }
     minimum = sysreg_min_el(key);
     if (minimum < 0) return VF_SYSREG_UNKNOWN;
     if ((int)cpu->current_el < minimum)
@@ -366,6 +384,11 @@ int vf_cpu_read_sysreg(const vf_cpu *cpu, uint32_t key, uint64_t *value) {
 int vf_cpu_write_sysreg(vf_cpu *cpu, uint32_t key, uint64_t value) {
     int minimum;
     if (!cpu || !vf_cpu_state_valid(cpu)) return VF_SYSREG_INVALID_VALUE;
+    if(key==VF_PLATFORM_OVERRIDE_KEY) {
+        if(cpu->platform_profile!=VF_PLATFORM_IRQ_COMPAT_V1 || cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)
+            return VF_SYSREG_UNKNOWN;
+        return vf_cpu_configure_platform(cpu,cpu->platform_profile,value);
+    }
     minimum = sysreg_min_el(key);
     if (minimum < 0) return VF_SYSREG_UNKNOWN;
     if ((int)cpu->current_el < minimum)
@@ -438,6 +461,46 @@ void vf_cpu_advance_counter(vf_cpu *cpu, uint64_t ticks) {
 int vf_cpu_timer_pending(const vf_cpu *cpu) {
     return cpu && ((cpu->cntp_ctl & VF_TIMER_CTL_ISTATUS) ||
                    (cpu->cntv_ctl & VF_TIMER_CTL_ISTATUS));
+}
+
+int vf_cpu_configure_platform(vf_cpu *cpu,uint32_t profile,uint64_t value) {
+    if(!cpu || profile>VF_PLATFORM_IRQ_COMPAT_V1 ||
+       (profile==VF_PLATFORM_NONE && value) || (value&~VF_PLATFORM_OVERRIDE_MASK) ||
+       (((value>>20)&3)!=0 && ((value>>20)&3)!=2) ||
+       (((value>>22)&3)!=0 && ((value>>22)&3)!=2)) return VF_SYSREG_INVALID_VALUE;
+    cpu->platform_profile=profile;cpu->platform_override=value;
+    return VF_SYSREG_OK;
+}
+
+int vf_cpu_set_interrupt_lines(vf_cpu *cpu,unsigned irq,unsigned fiq) {
+    if(!cpu || irq>1 || fiq>1)return -1;
+    cpu->irq_level=irq;cpu->fiq_level=fiq;return 0;
+}
+
+int vf_cpu_poll_interrupt(vf_cpu *cpu) {
+    if(!cpu || !vf_cpu_state_valid(cpu) || cpu->exception_pending)
+        return VF_NEXT;
+    if((cpu->irq_level || cpu->fiq_level || vf_cpu_timer_pending(cpu)) &&
+       (cpu->current_el>VF_EL1 || (cpu->hcr_el2&0x18) || (cpu->scr_el3&6))) {
+        cpu->instruction=0;
+        (void)vf_cpu_raise_exception(cpu,VF_EXCEPTION_SYSTEM_REGISTER_TRAP,cpu->pc,0,0,0);
+        return cpu->status=VF_SYSTEM_REGISTER_TRAP;
+    }
+    uint64_t ov=cpu->platform_profile==VF_PLATFORM_IRQ_COMPAT_V1?cpu->platform_override:0;
+    int status=VF_NEXT;
+    enum vf_exception_kind kind=VF_EXCEPTION_NONE;
+    if(cpu->fiq_level && !(cpu->pstate&(UINT64_C(1)<<6)) && ((ov>>20)&3)!=2) {
+        status=VF_FIQ_INTERRUPT;kind=VF_EXCEPTION_FIQ_INTERRUPT;
+    } else if(!(cpu->pstate&(UINT64_C(1)<<7)) && ((ov>>22)&3)!=2) {
+        if(vf_cpu_timer_pending(cpu)) {status=VF_TIMER_INTERRUPT;kind=VF_EXCEPTION_TIMER_INTERRUPT;}
+        else if(cpu->irq_level) {status=VF_EXTERNAL_INTERRUPT;kind=VF_EXCEPTION_EXTERNAL_INTERRUPT;}
+    }
+    if(status!=VF_NEXT) {
+        if(vf_cpu_raise_exception(cpu,kind,cpu->pc,0,0,0) || vf_cpu_take_exception(cpu))
+            return VF_DATA_FAULT;
+        cpu->status=status;
+    }
+    return status;
 }
 
 void vf_cpu_invalidate_tlb(vf_cpu *cpu) {

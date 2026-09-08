@@ -3,13 +3,14 @@
 #define VENFIRE_JIT_H
 #include <stdint.h>
 #include <stddef.h>
+#include "platform_abi.h"
 #define VF_ABI __attribute__((ms_abi))
 enum vf_status { VF_NEXT, VF_HALT, VF_BAD_INSTRUCTION, VF_FETCH_FAULT, VF_DATA_FAULT,
                  VF_BUDGET, VF_CODE_FULL, VF_PROTECTION,
                  VF_UNDEFINED_INSTRUCTION, VF_PRIVILEGE_FAULT,
                  VF_TRANSLATION_FAULT, VF_PERMISSION_FAULT, VF_ALIGNMENT_FAULT,
                  VF_SYSTEM_REGISTER_TRAP, VF_TIMER_INTERRUPT, VF_EXTERNAL_INTERRUPT,
-                 VF_INSTRUCTION_ABORT, VF_DATA_ABORT };
+                 VF_INSTRUCTION_ABORT, VF_DATA_ABORT, VF_FIQ_INTERRUPT };
 
 /* These are guest architectural exceptions.  They are deliberately separate
  * from vf_status: a terminal JIT result is an execution-layer status, while a
@@ -26,6 +27,7 @@ enum vf_exception_kind {
     VF_EXCEPTION_SYSTEM_REGISTER_TRAP = 8,
     VF_EXCEPTION_TIMER_INTERRUPT = 9,
     VF_EXCEPTION_EXTERNAL_INTERRUPT = 10,
+    VF_EXCEPTION_FIQ_INTERRUPT = 13,
 };
 
 enum vf_exception_level { VF_EL0 = 0, VF_EL1 = 1, VF_EL2 = 2, VF_EL3 = 3 };
@@ -129,6 +131,8 @@ typedef struct {
      * implementation chooses zero. No FGT/AArch32 register aliases exist in
      * the bounded AArch64 profile. Kept private, outside the C/Rust ABI. */
     uint64_t tpidr_el0, tpidrro_el0, tpidr_el1;
+    uint64_t platform_override;
+    uint32_t platform_profile,irq_level,fiq_level;
 } vf_cpu;
 typedef struct { uint8_t *bytes; size_t capacity, used; } vf_code;
 typedef int (VF_ABI *vf_entry)(vf_cpu *, uint8_t *, uint64_t);
@@ -148,6 +152,11 @@ int vf_run_boot_with_registers(vf_cpu *, uint8_t *, size_t, uint64_t ram_base,
                 uint64_t entry, uint64_t args, uint64_t stack,
                 vf_code *, uint64_t budget, vf_protect, void *,
                 const uint64_t initial_x0_x3[4], vf_pauth_step);
+int vf_run_boot_v2(vf_cpu *, uint8_t *, size_t, uint64_t ram_base,
+                uint64_t entry, uint64_t args, uint64_t stack,
+                vf_code *, uint64_t budget, vf_protect, void *,
+                const uint64_t initial_x0_x3[4], vf_pauth_step,
+                const vf_boot_options_v2 *);
 int vf_host_supported(void);
 
 void vf_cpu_reset(vf_cpu *, uint32_t initial_el);
@@ -163,4 +172,7 @@ int vf_cpu_write_sysreg(vf_cpu *, uint32_t key, uint64_t value);
 void vf_cpu_advance_counter(vf_cpu *, uint64_t ticks);
 int vf_cpu_timer_pending(const vf_cpu *);
 void vf_cpu_invalidate_tlb(vf_cpu *);
+int vf_cpu_configure_platform(vf_cpu *,uint32_t profile,uint64_t initial_value);
+int vf_cpu_set_interrupt_lines(vf_cpu *,unsigned irq,unsigned fiq);
+int vf_cpu_poll_interrupt(vf_cpu *);
 #endif

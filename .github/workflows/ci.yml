@@ -22,4 +22,6 @@ jobs:
           clang -std=c11 -O2 -Wall -Wextra -Werror -fsanitize=address,undefined runtime/gop_scanout.c runtime/test_gop_scanout.c -o /tmp/gop-test
           /tmp/gop-test
       - name: Check architectural 4K and 16K upper-address translations
-        run: python3 tools/probe_mmu_granules.py
+        run: |
+          python3 tools/probe_mmu_granules.py
+          python3 tools/probe_mmu_physical.py

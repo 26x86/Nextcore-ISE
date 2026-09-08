@@ -62,6 +62,21 @@ static void fix_to(vf_code *c,size_t p,size_t target) {
 static void fix(vf_code *c,size_t p) { fix_to(c,p,c->used); }
 static uint32_t word(const uint8_t *p) { return (uint32_t)p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
 static int64_t sext(uint32_t x,unsigned bits) { return (int64_t)(int32_t)(x<<(32-bits))>>(32-bits); }
+static int logical_mask(uint32_t w,uint64_t *mask) {
+    unsigned width=(w>>31)?64:32,n=(w>>22)&1,s=(w>>10)&63,r=(w>>16)&63;
+    if(width==32 && n)return 0;
+    unsigned tag=(n<<6)|(~s&63),len=0;
+    while(tag>1) {tag>>=1;len++;}
+    if(len<1)return 0;
+    unsigned size=1u<<len,levels=size-1;
+    if(size>width || (s&levels)==levels)return 0;
+    s&=levels;r&=levels;
+    uint64_t element=(UINT64_C(1)<<(s+1))-1;
+    if(r)element=(element>>r)|(element<<(size-r));
+    if(size<64)element&=(UINT64_C(1)<<size)-1;
+    *mask=0;for(unsigned at=0;at<width;at+=size)*mask|=element<<at;
+    return 1;
+}
 static uint32_t sysreg_key(uint32_t w) { return (w >> 5) & 0x7fff; }
 static int is_system_encoding(uint32_t w) { return (w & 0xffc00000) == 0xd5000000; }
 static int is_exception_return(uint32_t w) {
@@ -135,7 +150,8 @@ static int known_privileged(uint32_t w, uint32_t current_el) {
         (w & 0xffe0001f) == 0xd4000002 ||
         (w & 0xffe0001f) == 0xd4000003)
         return current_el == VF_EL0;
-    if ((w & 0xfffff0ff) == 0xd50340df || (w & 0xfffff0ff) == 0xd503409f)
+    if ((w & 0xfffff0ff) == 0xd50340df || (w & 0xfffff0ff) == 0xd50340ff ||
+        (w & 0xfffffeff) == 0xd50040bf)
         return current_el == VF_EL0;
     if (is_mrs_msr(w) && current_el == VF_EL0 &&
         !sysreg_el0_visible(sysreg_key(w)) &&
@@ -161,7 +177,17 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
         if((pc&3) || size<4 || pc<base || pc-base>size-4 || pc>UINT64_MAX-4) { finish(c,pc,n,VF_INSTRUCTION_ABORT);break; }
         uint32_t w=word(guest+(pc-base)); unsigned rd=w&31,rn=(w>>5)&31,wide=w>>31;
         unsigned thread = is_mrs_msr(w) ? thread_offset(sysreg_key(w)) : 0;
-        if(thread) {
+        if((w&0x1f800000)==0x12000000) {
+            uint64_t mask;unsigned op=(w>>29)&3;
+            if(!logical_mask(w,&mask)) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            load(c,rn,0,wide);b(c,0x49);b(c,0xb9);u64(c,mask);
+            b(c,wide?0x4c:0x44);b(c,op==1?0x09:op==2?0x31:0x21);b(c,0xc8);
+            save(c,rd,op!=3);
+            if(op==3)save_arithmetic_flags(c,0); /* Logical host C/V are zero. */
+        } else if(thread) {
             int read = (w & 0x00200000) != 0;
             if(current_el==VF_EL0 && (sysreg_key(w)==VF_SYSREG_KEY_TPIDR_EL1 ||
                 (!read && sysreg_key(w)==VF_SYSREG_KEY_TPIDRRO_EL0))) {
@@ -210,10 +236,18 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             load(c,rn,1,wide);if(wide)b(c,0x48);b(c,0x05+subtract*0x28);u32(c,v);
             save(c,rd,!flags);
             if(flags)save_arithmetic_flags(c,subtract);
-        } else if((w&0x3fe0fc00)==0x0b000000) {
-            /* ADD/SUB register, LSL #0 only, R31 is ZR. */
-            unsigned rm=(w>>16)&31;load(c,rm,0,wide);b(c,0x49);b(c,0x89);b(c,0xc1);
+        } else if((w&0x1f200000)==0x0b000000) {
+            /* ADD/SUB(S) shifted register. Both R31 sources are ZR. */
+            unsigned rm=(w>>16)&31,shift=(w>>22)&3,amount=(w>>10)&63;
+            if(shift==3 || (!wide && amount>=32)) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            load(c,rm,0,wide);
+            if(amount) {if(wide)b(c,0x48);b(c,0xc1);b(c,shift==0?0xe0:shift==1?0xe8:0xf8);b(c,amount);}
+            b(c,0x49);b(c,0x89);b(c,0xc1);
             load(c,rn,0,wide);b(c,wide?0x4c:0x44);b(c,((w>>30)&1)?0x29:0x01);b(c,0xc8);save(c,rd,0);
+            if((w>>29)&1)save_arithmetic_flags(c,(w>>30)&1);
         } else if((w&0xffc00000)==0xf9000000 || (w&0xffc00000)==0xf9400000) {
             /* Preserve the guest PA for faults and separately derive the
              * checked host-RAM offset. Host pointers never become guest PAs. */
@@ -311,6 +345,9 @@ int vf_translate(vf_code *c,const uint8_t *guest,size_t size,uint64_t pc,unsigne
 int vf_translate_cpu(vf_code *c,vf_cpu *cpu,const uint8_t *guest,size_t size,
                      uint64_t pc,unsigned limit) {
     if(!cpu || !vf_cpu_state_valid(cpu)) return VF_PRIVILEGE_FAULT;
+    /* This native path addresses caller RAM physically. A table walker is
+     * not connected here: never execute an enabled guest MMU as identity. */
+    if(cpu->sctlr&1) {cpu->instruction=0;return VF_SYSTEM_REGISTER_TRAP;}
     return translate_impl(c,cpu,guest,size,pc,limit);
 }
 int vf_host_supported(void) {
@@ -335,13 +372,45 @@ static int pauth_slow_step(vf_cpu *cpu) {
     cpu->retired++;vf_cpu_advance_counter(cpu,1);
     return 1;
 }
+static int platform_slow_step(vf_cpu *cpu) {
+    uint32_t w=cpu->instruction;
+    if(!is_mrs_msr(w) || sysreg_key(w)!=VF_PLATFORM_OVERRIDE_KEY)return 0;
+    unsigned rt=w&31;
+    if(w&0x00200000) {
+        uint64_t value;
+        if(vf_cpu_read_sysreg(cpu,VF_PLATFORM_OVERRIDE_KEY,&value))return 0;
+        if(rt!=31)cpu->x[rt]=value;
+    } else if(vf_cpu_write_sysreg(cpu,VF_PLATFORM_OVERRIDE_KEY,rt==31?0:cpu->x[rt]))return 0;
+    cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
+}
+static int pstate_slow_step(vf_cpu *cpu) {
+    uint32_t w=cpu->instruction;
+    if(cpu->current_el==VF_EL0 || (cpu->sctlr&1))return 0;
+    if((w&0xfffff0ff)==0xd50340df || (w&0xfffff0ff)==0xd50340ff) {
+        uint64_t mask=(uint64_t)((w>>8)&15)<<6;
+        if((w&255)==0xdf)cpu->pstate|=mask;else cpu->pstate&=~mask;
+    } else if((w&0xfffffeff)==0xd50040bf) {
+        unsigned old=(cpu->pstate&1)?cpu->current_el:VF_EL0;
+        cpu->sp_el[old]=cpu->sp;
+        cpu->pstate=(cpu->pstate&~UINT64_C(1))|((w>>8)&1);
+        cpu->sp=cpu->sp_el[(cpu->pstate&1)?cpu->current_el:VF_EL0];
+    } else return 0;
+    cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
+}
 int vf_run(vf_cpu *cpu,const uint8_t *guest,size_t size,uint8_t *ram,size_t ram_size,
            vf_code *code,uint64_t budget,vf_protect protect,void *opaque) {
     if(!cpu||!guest||!ram||ram_size<8||!code||!code->bytes||!protect||
        !vf_cpu_state_valid(cpu)) return cpu ? (cpu->status=VF_DATA_FAULT) : VF_DATA_FAULT;
     uint64_t start=cpu->retired;
     while(cpu->retired-start<budget) {
+        if(cpu->sctlr&1) {cpu->instruction=0;return cpu->status=VF_SYSTEM_REGISTER_TRAP;}
+        int asynchronous=vf_cpu_poll_interrupt(cpu);
+        if(asynchronous!=VF_NEXT)return cpu->status=asynchronous;
         uint64_t left=budget-(cpu->retired-start);unsigned count=left>32?32:(unsigned)left;
+        /* Poll every instruction while a level or timer may change eligibility.
+         * The common no-input path retains its native multi-instruction block. */
+        if(cpu->irq_level || cpu->fiq_level ||
+           ((cpu->cntp_ctl|cpu->cntv_ctl)&VF_TIMER_CTL_ENABLE))count=1;
         if(protect(code->bytes,code->capacity,0,opaque))return cpu->status=VF_PROTECTION;
         int status=vf_translate_cpu(code,cpu,guest,size,cpu->pc,count);
         if(status) {
@@ -351,10 +420,12 @@ int vf_run(vf_cpu *cpu,const uint8_t *guest,size_t size,uint8_t *ram,size_t ram_
         if(protect(code->bytes,code->capacity,1,opaque))return cpu->status=VF_PROTECTION;
         /* CPUID serializes stores before execution on x86; no I-cache invalidate needed. */
         uint32_t a=0,bv,cv,d;__asm__ volatile("cpuid":"+a"(a),"=b"(bv),"=c"(cv),"=d"(d)::"memory");
+        uint64_t before=cpu->retired;
         status=((vf_entry)(void *)code->bytes)(cpu,ram,ram_size);
+        vf_cpu_advance_counter(cpu,cpu->retired-before);
         cpu->compiled_blocks++;
         if((status==VF_UNDEFINED_INSTRUCTION || status==VF_SYSTEM_REGISTER_TRAP)
-            && pauth_slow_step(cpu))continue;
+            && (platform_slow_step(cpu) || pstate_slow_step(cpu) || pauth_slow_step(cpu)))continue;
         if(status!=VF_NEXT) {
             if(vf_cpu_commit_status(cpu,status)) return cpu->status=status;
             return cpu->status=status;
@@ -382,17 +453,36 @@ int vf_run_boot_with_registers(vf_cpu *cpu,uint8_t *ram,size_t ram_size,uint64_t
                 uint64_t entry,uint64_t args,uint64_t stack,vf_code *code,
                 uint64_t budget,vf_protect protect,void *opaque,
                 const uint64_t registers[4],vf_pauth_step pauth) {
+    return vf_run_boot_v2(cpu,ram,ram_size,base,entry,args,stack,code,budget,
+                         protect,opaque,registers,pauth,0);
+}
+
+int vf_run_boot_v2(vf_cpu *cpu,uint8_t *ram,size_t ram_size,uint64_t base,
+                uint64_t entry,uint64_t args,uint64_t stack,vf_code *code,
+                uint64_t budget,vf_protect protect,void *opaque,
+                const uint64_t registers[4],vf_pauth_step pauth,
+                const vf_boot_options_v2 *options) {
     if(!cpu || !ram || ram_size<8 || base>UINT64_MAX-ram_size ||
        (base&0x3fff) || (entry&3) || entry<base || entry-base>ram_size-4 ||
        (args&7) || args<base || args-base>=ram_size ||
        (stack&15) || stack<=base || stack-base>ram_size || !budget || !registers)
         return VF_DATA_FAULT;
+    const vf_boot_options_v2 defaults={2,sizeof(vf_boot_options_v2),0,0,0,0x3c5,0,0,0,0};
+    vf_boot_options_v2 config=options?*options:defaults;
+    if(config.abi_version!=2 || config.struct_size!=sizeof(config) || config.flags ||
+       config.reserved || config.irq_level>1 || config.fiq_level>1 ||
+       ((config.initial_pstate&15)!=4 && (config.initial_pstate&15)!=5) ||
+       (config.initial_pstate&~UINT64_C(0xf00003cf)) ||
+       (config.vbar && ((config.vbar&0x7ff) || config.vbar<base ||
+                       ram_size<0x800 || config.vbar-base>ram_size-0x800)))return VF_DATA_FAULT;
     uint64_t initial[4];for(unsigned i=0;i<4;i++)initial[i]=registers[i];
     vf_cpu_reset(cpu,VF_EL1);
+    if(vf_cpu_configure_platform(cpu,config.platform_profile,config.initial_override))return VF_DATA_FAULT;
     cpu->pc=entry;
     for(unsigned i=0;i<4;i++)cpu->x[i]=initial[i];
-    cpu->sp=stack;cpu->sp_el[VF_EL1]=stack;
-    cpu->pstate|=VF_PSTATE_DAIF_MASK;
+    cpu->sp=stack;cpu->sp_el[VF_EL1]=stack;cpu->sp_el[VF_EL0]=stack;
+    cpu->pstate=config.initial_pstate;cpu->vbar_el[VF_EL1]=config.vbar;
+    vf_cpu_set_interrupt_lines(cpu,(unsigned)config.irq_level,(unsigned)config.fiq_level);
     cpu->guest_ram_base=base;
     cpu->pauth_step=pauth;
     return vf_run(cpu,ram,ram_size,ram,ram_size,code,budget,protect,opaque);

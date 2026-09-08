@@ -31,6 +31,23 @@ int main(void) {
     vf_code buffer={mmap(0,16384,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0),16384,0};
     CHECK(buffer.bytes!=MAP_FAILED);
     vf_cpu cpu;
+    const struct {unsigned width,subtract;uint64_t a,b,result;unsigned flags;} reg_cases[]={
+        {64,1,0,1,UINT64_MAX,8},{64,1,5,5,0,6},
+        {64,1,UINT64_C(0x8000000000000000),1,UINT64_C(0x7fffffffffffffff),3},
+        {64,0,UINT64_MAX,1,0,6},{32,0,0x7fffffff,1,0x80000000,9},
+        {32,1,UINT64_C(0x1234567800000000),1,UINT64_C(0xffffffff),8},
+    };
+    for(unsigned i=0;i<sizeof(reg_cases)/sizeof(reg_cases[0]);i++) {
+        uint32_t program[]={0x2b000000u|((reg_cases[i].width==64?1u:0u)<<31)|
+            (reg_cases[i].subtract<<30)|(1u<<16)|2,0xd4400000};
+        vf_cpu_reset(&cpu,VF_EL1);cpu.x[0]=reg_cases[i].a;cpu.x[1]=reg_cases[i].b;
+        CHECK(vf_run(&cpu,(uint8_t*)program,sizeof(program),ram,sizeof(ram),&buffer,8,perms,0)==VF_HALT);
+        CHECK(cpu.x[2]==reg_cases[i].result && (cpu.pstate>>28&15)==reg_cases[i].flags);
+    }
+    uint32_t cmp_register[]={0xeb0003ff,0xd4400000}; /* CMP XZR, X0 */
+    vf_cpu_reset(&cpu,VF_EL1);cpu.sp=UINT64_MAX;cpu.x[0]=0;
+    CHECK(vf_run(&cpu,(uint8_t*)cmp_register,sizeof(cmp_register),ram,sizeof(ram),&buffer,8,perms,0)==VF_HALT);
+    CHECK(cpu.sp==UINT64_MAX && cpu.x[31]==0 && (cpu.pstate>>28&15)==6);
     const struct {uint32_t word;uint64_t input,output;unsigned nzcv;} cases[]={
         {0xb1000401,0,1,0},
         {0xb1000401,UINT64_MAX,0,6},

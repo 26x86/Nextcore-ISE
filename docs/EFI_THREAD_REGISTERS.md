@@ -29,9 +29,11 @@ registers also remain explicit boundaries. Context ID, VHE, security-state
 banking, and implementation-defined platform control are separate contracts;
 these three software stores do not provide them.
 
-The private `vf_cpu` structure grows to 864 bytes on x86_64. It never crosses
-the C/Rust boundary. The stable boot result remains 64 bytes and PAC context
-368 bytes. The reproducible native probe compares the exported preOS C and
+The private `vf_cpu` structure was 864 bytes on x86_64 at BP26 and is 888
+bytes after BP27's per-CPU platform state. It never crosses the C/Rust
+boundary. The stable boot result remains 64 bytes and PAC context 368 bytes;
+the separately versioned platform ABI has its own checked options/result
+layouts. The reproducible native probe compares the exported preOS C and
 Rust layouts and runs both reference and generated-code tests:
 
 ```sh

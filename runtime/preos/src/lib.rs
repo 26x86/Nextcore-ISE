@@ -16,6 +16,7 @@ mod machine;
 use machine::VfMachine;
 mod arch;
 mod pauth;
+mod platform;
 mod mmu;
 mod m1;
 mod vmapple;
@@ -482,6 +483,8 @@ fn termination_for_arch_exception(kind: arch::ExceptionKind) -> u32 {
         arch::ExceptionKind::SystemRegisterTrap => TERMINATION_SYSTEM_REGISTER_TRAP,
         arch::ExceptionKind::TimerInterrupt => TERMINATION_TIMER_INTERRUPT,
         arch::ExceptionKind::ExternalInterrupt => TERMINATION_EXTERNAL_INTERRUPT,
+        // The legacy preOS result has no FIQ discriminator; v2 boot ABI does.
+        arch::ExceptionKind::FiqInterrupt => TERMINATION_UNSUPPORTED,
         arch::ExceptionKind::GuestHalt => TERMINATION_HALT,
         arch::ExceptionKind::SupervisorCall => TERMINATION_UNSUPPORTED,
     }

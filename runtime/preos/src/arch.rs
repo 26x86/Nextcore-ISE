@@ -143,6 +143,7 @@ pub(crate) enum ExceptionKind {
     ExternalInterrupt = 10,
     GuestHalt = 11,
     SupervisorCall = 12,
+    FiqInterrupt = 13,
 }
 
 const ESR_EC_UNKNOWN: u64 = 0x00;
@@ -240,6 +241,7 @@ fn exception_syndrome(
         }
         ExceptionKind::TimerInterrupt
         | ExceptionKind::ExternalInterrupt
+        | ExceptionKind::FiqInterrupt
         | ExceptionKind::GuestHalt => 0,
     }
 }
@@ -252,6 +254,23 @@ fn access_syndrome(access: Access) -> u64 {
         Access::Write => INTERNAL_ACCESS_WNR,
         Access::Read | Access::Execute => 0,
     }
+}
+
+fn logical_immediate(word: u32) -> Option<u64> {
+    let width=if word>>31!=0 {64} else {32};
+    let n=(word>>22)&1;let imms=(word>>10)&63;let immr=(word>>16)&63;
+    if width==32 && n!=0 { return None; }
+    let tag=(n<<6)|(!imms&63);
+    if tag<2 { return None; }
+    let len=31-tag.leading_zeros();let size=1u32<<len;let levels=size-1;
+    let s=imms&levels;let r=immr&levels;
+    if size>width || s==levels { return None; }
+    let mut element=(1u64<<(s+1))-1;
+    if r!=0 { element=(element>>r)|(element<<(size-r)); }
+    if size<64 { element&=(1u64<<size)-1; }
+    let mut mask=0;let mut at=0;
+    while at<width {mask|=element<<at;at+=size;}
+    Some(mask)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -338,6 +357,7 @@ pub(crate) enum SystemRegister {
     TpidrEl0 = 35,
     TpidrroEl0 = 36,
     TpidrEl1 = 37,
+    PlatformOverride = 38,
 }
 
 impl SystemRegister {
@@ -346,6 +366,7 @@ impl SystemRegister {
     /// the access direction is decided by the instruction decoder.
     fn from_instruction(word: u32) -> Option<Self> {
         match word & !31 {
+            0xd53d_f500 | 0xd51d_f500 => Some(Self::PlatformOverride),
             0xd53b_d040 | 0xd51b_d040 => Some(Self::TpidrEl0),
             0xd53b_d060 | 0xd51b_d060 => Some(Self::TpidrroEl0),
             0xd538_d080 | 0xd518_d080 => Some(Self::TpidrEl1),
@@ -648,6 +669,7 @@ pub(crate) struct GuestCpuState {
     pub(crate) pauth: PauthBoundary,
     pub(crate) waiting: bool,
     pub(crate) retired: u64,
+    pub(crate) platform: crate::platform::PlatformState,
 }
 
 impl GuestCpuState {
@@ -673,6 +695,7 @@ impl GuestCpuState {
             pauth: PauthBoundary::reset(),
             waiting: false,
             retired: 0,
+            platform: crate::platform::PlatformState::reset(),
         }
     }
 
@@ -714,24 +737,23 @@ impl GuestCpuState {
         saved_pstate: u32,
         exception: GuestException,
     ) {
+        let asynchronous=matches!(exception.kind, ExceptionKind::TimerInterrupt |
+            ExceptionKind::ExternalInterrupt | ExceptionKind::FiqInterrupt);
         match target {
             ExceptionLevel::El0 => {}
             ExceptionLevel::El1 => {
                 self.sys.spsr_el1 = u64::from(saved_pstate);
-                self.sys.esr_el1 = exception.syndrome;
-                self.sys.far_el1 = exception.far;
+                if !asynchronous { self.sys.esr_el1 = exception.syndrome; self.sys.far_el1 = exception.far; }
                 self.sys.elr_el1 = exception.pc;
             }
             ExceptionLevel::El2 => {
                 self.sys.spsr_el2 = u64::from(saved_pstate);
-                self.sys.esr_el2 = exception.syndrome;
-                self.sys.far_el2 = exception.far;
+                if !asynchronous { self.sys.esr_el2 = exception.syndrome; self.sys.far_el2 = exception.far; }
                 self.sys.elr_el2 = exception.pc;
             }
             ExceptionLevel::El3 => {
                 self.sys.spsr_el3 = u64::from(saved_pstate);
-                self.sys.esr_el3 = exception.syndrome;
-                self.sys.far_el3 = exception.far;
+                if !asynchronous { self.sys.esr_el3 = exception.syndrome; self.sys.far_el3 = exception.far; }
                 self.sys.elr_el3 = exception.pc;
             }
         }
@@ -767,11 +789,6 @@ impl GuestCpuState {
     }
 
     fn exception_offset(kind: ExceptionKind, from: ExceptionLevel, saved_pstate: u32) -> u64 {
-        let lower = if from == ExceptionLevel::El0 {
-            0x400
-        } else {
-            0x200
-        };
         let synchronous = if from == ExceptionLevel::El0 {
             0x400
         } else if saved_pstate & 1 != 0 {
@@ -780,7 +797,8 @@ impl GuestCpuState {
             0
         };
         match kind {
-            ExceptionKind::TimerInterrupt | ExceptionKind::ExternalInterrupt => lower + 0x80,
+            ExceptionKind::TimerInterrupt | ExceptionKind::ExternalInterrupt => synchronous + 0x80,
+            ExceptionKind::FiqInterrupt => synchronous + 0x100,
             _ => synchronous,
         }
     }
@@ -837,6 +855,11 @@ impl GuestCpuState {
     }
 
     pub(crate) fn read_sysreg(&mut self, reg: SystemRegister) -> Result<u64, SysRegFault> {
+        if reg==SystemRegister::PlatformOverride {
+            return if self.platform.profile==crate::platform::PROFILE_IRQ_COMPAT_V1 && self.current_el==ExceptionLevel::El1 && self.sys.hcr_el2==0 && self.sys.scr_el3==0 {
+                Ok(self.platform.override_value)
+            } else { Err(SysRegFault::Unknown) };
+        }
         if reg == SystemRegister::TpidrEl1 && self.current_el == ExceptionLevel::El0 {
             return Err(SysRegFault::Undefined);
         }
@@ -844,6 +867,7 @@ impl GuestCpuState {
             return Err(SysRegFault::Privilege);
         }
         match reg {
+            SystemRegister::PlatformOverride => unreachable!(),
             SystemRegister::TpidrEl0 => Ok(self.sys.tpidr_el0),
             SystemRegister::TpidrroEl0 => Ok(self.sys.tpidrro_el0),
             SystemRegister::TpidrEl1 => Ok(self.sys.tpidr_el1),
@@ -889,6 +913,13 @@ impl GuestCpuState {
         reg: SystemRegister,
         value: u64,
     ) -> Result<(), SysRegFault> {
+        if reg==SystemRegister::PlatformOverride {
+            if self.platform.profile!=crate::platform::PROFILE_IRQ_COMPAT_V1 || self.current_el!=ExceptionLevel::El1 || self.sys.hcr_el2!=0 || self.sys.scr_el3!=0 {
+                return Err(SysRegFault::Unknown);
+            }
+            return if self.platform.configure(self.platform.profile,value) { Ok(()) }
+                else { Err(SysRegFault::InvalidValue) };
+        }
         if self.current_el == ExceptionLevel::El0
             && matches!(reg, SystemRegister::TpidrEl1 | SystemRegister::TpidrroEl0)
         {
@@ -898,6 +929,7 @@ impl GuestCpuState {
             return Err(SysRegFault::Privilege);
         }
         match reg {
+            SystemRegister::PlatformOverride => unreachable!(),
             SystemRegister::TpidrEl0 => self.sys.tpidr_el0 = value,
             SystemRegister::TpidrroEl0 => self.sys.tpidrro_el0 = value,
             SystemRegister::TpidrEl1 => self.sys.tpidr_el1 = value,
@@ -1033,9 +1065,19 @@ impl GuestCpuState {
     }
 
     pub(crate) fn poll_interrupt(&mut self) -> bool {
-        if self.pstate & PSTATE_I != 0 || self.pending_exception.is_some() {
+        if self.pending_exception.is_some() {
             return false;
         }
+        if (self.platform.irq || self.platform.fiq || self.timer.pending() || self.virtual_timer.pending() || self.smp.external_pending!=0)
+            && (self.current_el as u8>1 || self.sys.hcr_el2&0x18!=0 || self.sys.scr_el3&6!=0) {
+            self.raise(GuestException {kind:ExceptionKind::SystemRegisterTrap,instruction:0,
+                syndrome:0,far:0,pc:self.pc});return true;
+        }
+        if self.platform.fiq && self.platform.fiq_enabled() && self.pstate & PSTATE_F == 0 {
+            self.raise(GuestException { kind: ExceptionKind::FiqInterrupt,
+                instruction:0,syndrome:0,far:0,pc:self.pc });return true;
+        }
+        if self.pstate & PSTATE_I != 0 || !self.platform.irq_enabled() { return false; }
         if self.timer.pending() || self.virtual_timer.pending() {
             self.raise(GuestException {
                 kind: ExceptionKind::TimerInterrupt,
@@ -1047,7 +1089,7 @@ impl GuestCpuState {
             return true;
         }
         let bit = 1u64 << self.affinity;
-        if self.smp.external_pending & bit != 0 {
+        if self.platform.irq || self.smp.external_pending & bit != 0 {
             self.smp.external_pending &= !bit;
             self.raise(GuestException {
                 kind: ExceptionKind::ExternalInterrupt,
@@ -1078,7 +1120,7 @@ impl GuestCpuState {
     /// overwriting ESR/ELR.
     fn commit_pending_interrupt(&mut self) -> Option<GuestException> {
         match self.pending_exception.map(|exception| exception.kind) {
-            Some(ExceptionKind::TimerInterrupt | ExceptionKind::ExternalInterrupt) => {
+            Some(ExceptionKind::TimerInterrupt | ExceptionKind::ExternalInterrupt | ExceptionKind::FiqInterrupt) => {
                 self.take_pending_exception()
             }
             _ => None,
@@ -1496,6 +1538,22 @@ impl GuestCpuState {
             return StepResult::Continue;
         }
 
+        if word&0x1f800000==0x12000000 {
+            let Some(mask)=logical_immediate(word) else {
+                self.raise(GuestException {kind:ExceptionKind::UndefinedInstruction,
+                    instruction:word,syndrome:word as u64,far:pc,pc});
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            };
+            let op=(word>>29)&3;let input=self.read_reg(rn,false);
+            let mut result=match op {1=>input|mask,2=>input^mask,_=>input&mask};
+            if !wide {result&=0xffff_ffff;}
+            self.write_reg(rd,result,op!=3,wide);
+            if op==3 {
+                let n=((result>>(if wide {63} else {31}))&1) as u32;
+                self.pstate=(self.pstate&!0xf0000000)|(n<<31)|((u32::from(result==0))<<30);
+            }
+            self.pc=pc.wrapping_add(4);return StepResult::Continue;
+        }
         // MOVZ/MOVK, 32- and 64-bit forms.
         let move_op = word & 0x7f800000;
         if move_op == 0x52800000 || move_op == 0x72800000 {
@@ -1538,13 +1596,13 @@ impl GuestCpuState {
             return StepResult::Continue;
         }
 
-        // ADD/SUB shifted register, LSL only.
+        // ADD/SUB shifted register, LSL/LSR/ASR at the operand width.
         if word & 0x1f200000 == 0x0b000000 {
             let subtract = word & (1 << 30) != 0;
             let set_flags = word & (1 << 29) != 0;
             let shift_type = (word >> 22) & 3;
             let amount = (word >> 10) & 0x3f;
-            if shift_type != 0 || (!wide && amount >= 32) || (wide && amount >= 64) {
+            if shift_type == 3 || (!wide && amount >= 32) {
                 self.raise(GuestException {
                     kind: ExceptionKind::UndefinedInstruction,
                     instruction: word,
@@ -1554,7 +1612,14 @@ impl GuestCpuState {
                 });
                 return StepResult::Exception(ExceptionKind::UndefinedInstruction);
             }
-            let right = self.read_reg((word >> 16) & 31, false) << amount;
+            let mut right=self.read_reg((word >> 16) & 31, false);
+            if !wide {right&=0xffff_ffff;}
+            right=match shift_type {
+                0=>right<<amount,
+                1=>right>>amount,
+                _=>if wide {((right as i64)>>amount) as u64}
+                    else {(((right as u32 as i32)>>amount) as u32) as u64},
+            };
             let left = self.read_reg(rn, false);
             let (value, carry, overflow) = add_sub(left, right, subtract, wide);
             self.write_reg(rd, value, false, wide);
@@ -1943,6 +2008,127 @@ fn write_width(memory: &mut [u8], index: usize, width: usize, value: u64) -> boo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shifted_arithmetic_matches_unsigned_wide_math_at_every_shift_count() {
+        let pairs=[(0,1),(u64::MAX,u64::MAX),(0x7fffffff7fffffff,1),
+            (0x8000000080000000,0xffffffff80000001)];
+        for width in [32u32,64] {for shift in 0..3 {for amount in 0..width {
+        for sub in 0..2 {for flags in 0..2 {for (raw_a,raw_b) in pairs {
+            let mask=if width==64 {u64::MAX} else {0xffffffff};let sign=1u64<<(width-1);
+            let a=raw_a&mask;let mut b=raw_b&mask;
+            if shift==0 {b=(b<<amount)&mask;} else {
+                let neg=shift==2 && b&sign!=0;b>>=amount;
+                if neg && amount!=0 {b|=mask^(mask>>amount);}
+            }
+            let result=if sub!=0 {a.wrapping_sub(b)} else {a.wrapping_add(b)}&mask;
+            let carry=if sub!=0 {a>=b} else {(u128::from(a)+u128::from(b))>>width!=0};
+            let overflow=(a^result)&(if sub!=0 {a^b} else {!(a^b)})&sign!=0;
+            let nzcv=if flags!=0 {(u32::from(result&sign!=0)<<3)|(u32::from(result==0)<<2)|
+                (u32::from(carry)<<1)|u32::from(overflow)} else {15};
+            let word=0x0b000002|(u32::from(width==64)<<31)|(sub<<30)|(flags<<29)|
+                (shift<<22)|(1<<16)|(amount<<10);
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=raw_a;cpu.x[1]=raw_b;cpu.sp=0x9876;
+            cpu.pstate|=0xf00003c0;let mut bytes=word.to_le_bytes();
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),StepResult::Continue);
+            assert_eq!(cpu.x[2],result);assert_eq!(cpu.sp,0x9876);assert_eq!(cpu.pstate>>28,nzcv);
+        }}}}}}
+        for word in [0x0bc00000u32,0x8bc00000,0x0b008000,0x2b00fc00] {
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=u64::MAX;
+            let mut bytes=word.to_le_bytes();
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+            assert_eq!(cpu.x[0],u64::MAX);assert_eq!(cpu.pc,0);
+        }
+    }
+
+    #[test]
+    fn logical_masks_and_native_class_semantics_match_circular_bit_runs() {
+        for width in [32u32,64] {for size in [2u32,4,8,16,32,64] {
+            if size>width {continue;}
+            for ones in 1..size {for rot in 0..size {for op in 0..4 {
+                let imms=((!(size-1)<<1)&63)|(ones-1);
+                let word=0x12000000|(u32::from(width==64)<<31)|(op<<29)|
+                    (u32::from(size==64)<<22)|(rot<<16)|(imms<<10)|1;
+                let mut mask=0u64;
+                for bit in 0..width {if (bit+rot)%size<ones {mask|=1u64<<bit;}}
+                assert_eq!(logical_immediate(word),Some(mask));
+                let mut cpu=GuestCpuState::reset(0);cpu.x[0]=0x91a2_b3c4_d5e6_f780;
+                cpu.pstate|=0xf0000000;
+                let mut expected=match op {1=>cpu.x[0]|mask,2=>cpu.x[0]^mask,_=>cpu.x[0]&mask};
+                if width==32 {expected&=0xffffffff;}
+                let mut bytes=word.to_le_bytes();
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),StepResult::Continue);
+                assert_eq!(cpu.x[1],expected);assert_eq!(cpu.pc,4);
+                let flags=if op==3 {(((expected>>(width-1))as u32)<<3)|(u32::from(expected==0)<<2)} else {15};
+                assert_eq!(cpu.pstate>>28,flags);
+            }}}
+        }}
+        for word in [0x12400000u32,0x9240fc00,0x9200fc00,0x9200f800] {
+            assert_eq!(logical_immediate(word),None);
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=u64::MAX;
+            let mut bytes=word.to_le_bytes();
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),
+                StepResult::Exception(ExceptionKind::UndefinedInstruction));
+            assert_eq!(cpu.pc,0);assert_eq!(cpu.x[0],u64::MAX);
+        }
+    }
+
+    #[test]
+    fn irq_fiq_levels_obey_override_and_pstate_at_each_vector_group() {
+        for mode in 0..3 { for daif in 0..4 { for ov in 0..4 { for lines in 0..4 {
+            let mut cpu=GuestCpuState::reset(0);
+            assert!(cpu.set_exception_level(if mode==0 {0} else {1}));
+            cpu.pstate=(if mode==0 {0} else if mode==1 {4} else {5})|(daif<<6)|0xa0000000;
+            let saved=cpu.pstate;
+            cpu.sp=0x1230;cpu.sp_el[1]=0x3000;cpu.sys.vbar_el1=0x2000;
+            cpu.sys.esr_el1=0xabcdef;cpu.sys.far_el1=0x6789;
+            let value=(if ov&1!=0 {2<<22} else {0})|(if ov&2!=0 {2<<20} else {0});
+            assert!(cpu.platform.configure(1,value));
+            cpu.platform.irq=lines&1!=0;cpu.platform.fiq=lines&2!=0;
+            let fiq=lines&2!=0 && daif&1==0 && ov&2==0;
+            let irq=lines&1!=0 && daif&2==0 && ov&1==0;
+            let mut halt=0xd4400000u32.to_le_bytes();
+            let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut halt),2, |_| {});
+            assert_eq!(cpu.sys.esr_el1,0xabcdef);assert_eq!(cpu.sys.far_el1,0x6789);
+            assert_eq!(cpu.platform.irq,lines&1!=0);assert_eq!(cpu.platform.fiq,lines&2!=0);
+            if fiq || irq {
+                let kind=if fiq {ExceptionKind::FiqInterrupt} else {ExceptionKind::ExternalInterrupt};
+                assert_eq!(result.exception.unwrap().kind,kind);
+                let offset=(if mode==0 {0x400} else if mode==1 {0} else {0x200})+
+                    if fiq {0x100} else {0x80};
+                assert_eq!(cpu.pc,0x2000+offset);assert_eq!(cpu.exception_vector,cpu.pc);
+                assert_eq!(cpu.sys.elr_el1,0);assert_eq!(cpu.sys.spsr_el1,u64::from(saved));
+                assert_eq!(cpu.retired,0);assert_eq!(cpu.pstate,0xa00003c5);
+                assert_eq!(cpu.sp,if mode==2 {0x1230} else {0x3000});
+                cpu.pstate=(cpu.pstate&!0xc0)|(saved&0xc0);
+                assert!(cpu.poll_interrupt());assert_eq!(cpu.pending_exception.unwrap().kind,kind);
+                cpu.take_pending_exception();cpu.platform.irq=false;cpu.platform.fiq=false;
+                cpu.pstate&=!0xc0;assert!(!cpu.poll_interrupt());
+            } else { assert_eq!(result.status,ArchRunStatus::Halt);assert_eq!(cpu.retired,1); }
+        }}}}
+    }
+
+    #[test]
+    fn platform_write_unmasks_a_pending_level_without_consuming_it() {
+        let mut cpu=GuestCpuState::reset(0);cpu.sys.vbar_el1=0x2000;
+        assert!(cpu.platform.configure(1,0xa00000));cpu.platform.irq=true;
+        let words=[0xd2800000u32,0xd51df500,0xd4400000];
+        let mut ram=[0u8;12];for (slot,word) in ram.chunks_exact_mut(4).zip(words) {slot.copy_from_slice(&word.to_le_bytes());}
+        let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut ram),8, |_| {});
+        assert_eq!(result.exception.unwrap().kind,ExceptionKind::ExternalInterrupt);
+        assert_eq!(cpu.retired,2);assert_eq!(cpu.sys.elr_el1,8);
+        assert_eq!(cpu.platform.override_value,0);assert!(cpu.platform.irq);
+        for value in [1,1<<20,3<<22,1<<24,u64::MAX] {
+            let mut cpu=GuestCpuState::reset(0);assert!(cpu.platform.configure(1,0xa00000));cpu.x[0]=value;
+            let mut word=0xd51df500u32.to_le_bytes();
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word)),StepResult::Exception(ExceptionKind::SystemRegisterTrap));
+            assert_eq!(cpu.pc,0);assert_eq!(cpu.platform.override_value,0xa00000);
+        }
+        let mut cpu=GuestCpuState::reset(0);
+        assert_eq!(cpu.read_sysreg(SystemRegister::PlatformOverride),Err(SysRegFault::Unknown));
+        assert!(cpu.platform.configure(1,0));assert!(cpu.set_exception_level(0));
+        assert_eq!(cpu.read_sysreg(SystemRegister::PlatformOverride),Err(SysRegFault::Unknown));
+    }
 
     fn thread_instruction(read: bool, op1: u32, op2: u32, rt: u32) -> u32 {
         (if read { 0xd5200000 } else { 0xd5000000 })

@@ -151,6 +151,7 @@ pub(crate) struct VfMmu {
     pub(crate) asid: u16,
     pub(crate) granule: Granule,
     walk_disabled: [bool; 2],
+    physical_address_mask: u64,
     tlb: [TlbEntry; TLB_ENTRIES],
     next: usize,
 }
@@ -166,6 +167,7 @@ impl VfMmu {
             asid: 0,
             granule: Granule::FourKiB,
             walk_disabled: [false; 2],
+            physical_address_mask: PHYSICAL_ADDRESS_MASK,
             tlb: [TLB_ENTRY; TLB_ENTRIES],
             next: 0,
         }
@@ -182,7 +184,7 @@ impl VfMmu {
     ///
     /// `tcr` is intentionally passed as a value rather than exposing the
     /// complete control register to this module.  The bounded implementation
-    /// consumes TG0, T0SZ, TG1, T1SZ and EPD0/EPD1; cacheability/shareability bits
+    /// consumes TG0, T0SZ, TG1, T1SZ, IPS and EPD0/EPD1; cacheability/shareability bits
     /// stay in the architectural register bank until the memory-attribute
     /// phase has a backing cache model.
     pub(crate) fn configure_tcr(
@@ -196,6 +198,13 @@ impl VfMmu {
         let t1sz = ((tcr >> 16) & 0x3f) as u8;
         let tg0 = (tcr >> 14) & 0x3;
         let tg1 = (tcr >> 30) & 0x3;
+        // Baseline output widths; 52/56-bit descriptors and LPA2 are not
+        // implemented by this bounded walker. Reject, never truncate them.
+        let physical_bits = match (tcr >> 32) & 7 {
+            0 => 32, 1 => 36, 2 => 40, 3 => 42, 4 => 44, 5 => 48,
+            _ => return false,
+        };
+        if tcr & (1u64 << 59) != 0 { return false; }
         let granule = match tg0 {
             0 => Granule::FourKiB,
             2 => Granule::SixteenKiB,
@@ -239,6 +248,7 @@ impl VfMmu {
         self.asid = asid;
         self.granule = granule;
         self.walk_disabled = [tcr & (1 << 7) != 0, tcr & (1 << 23) != 0];
+        self.physical_address_mask = (1u64 << physical_bits) - 1;
         self.invalidate();
         true
     }
@@ -287,6 +297,9 @@ impl VfMmu {
             if (va >> shift) != entry.va_tag {
                 continue;
             }
+            let offset_mask = (1u64 << shift) - 1;
+            let pa = entry.pa_base | (va & offset_mask);
+            if pa & !self.physical_address_mask != 0 { return Err(Fault::AddressSize); }
             let user = current_el == ExceptionLevel::El0;
             let allowed = match access {
                 Access::Read => !user || entry.user_accessible,
@@ -302,9 +315,8 @@ impl VfMmu {
             if !allowed {
                 return Err(Fault::Permission);
             }
-            let offset_mask = (1u64 << shift) - 1;
             return Ok(Some(Translation {
-                pa: entry.pa_base | (va & offset_mask),
+                pa,
                 writable: entry.writable && (!user || entry.user_accessible),
                 executable: if user {
                     entry.executable_el0
@@ -409,23 +421,37 @@ impl VfMmu {
         // Later levels consume the usual full index width.
         let table_va = va & (u64::MAX >> tsz);
         let mut table = root & address_mask;
+        // TTBR ASID bits are outside address_mask; an actual out-of-range
+        // table base faults before the guest-physical read callback is used.
+        if table & !self.physical_address_mask != 0 { return Err(Fault::AddressSize); }
         for level in start_level..=MAX_LEVEL {
             let shift = page_shift + index_bits * (MAX_LEVEL as u64 - level as u64);
             let index = (table_va >> shift) & index_mask;
             let entry_address = table.checked_add(index * 8).ok_or(Fault::Translation)?;
+            if entry_address > self.physical_address_mask - 7 { return Err(Fault::AddressSize); }
             let descriptor = read64(entry_address).ok_or(Fault::Translation)?;
             if descriptor & 1 == 0 {
                 return Err(Fault::Translation);
             }
             let descriptor_type = descriptor & DESCRIPTOR_TYPE_MASK;
+            // This walker supports DS=0 only. A 16 KiB L1 block requires
+            // LPA2/DS=1; its descriptor is reserved in the supported regime.
+            if descriptor_type == 1 && (level == 0 || level == MAX_LEVEL
+                || (level == 1 && self.granule == Granule::SixteenKiB)) {
+                return Err(Fault::Translation);
+            }
+            let output = descriptor & address_mask;
+            if output & !self.physical_address_mask != 0 { return Err(Fault::AddressSize); }
             if level < MAX_LEVEL && descriptor_type == 1 {
                 let block_shift = shift;
                 let block_mask = !((1u64 << block_shift) - 1);
                 let (writable, user_accessible, executable_el0, executable_privileged) =
                     Self::descriptor_permissions(descriptor, level, current_el, access)?;
-                let pa_base = descriptor & address_mask & block_mask;
+                let pa_base = output & block_mask;
+                let pa = pa_base | (va & !block_mask);
+                if pa & !self.physical_address_mask != 0 { return Err(Fault::AddressSize); }
                 let translation = Translation {
-                    pa: pa_base | (va & !block_mask),
+                    pa,
                     writable,
                     executable: if current_el == ExceptionLevel::El0 {
                         executable_el0
@@ -454,7 +480,7 @@ impl VfMmu {
                 }
                 let (writable, user_accessible, executable_el0, executable_privileged) =
                     Self::descriptor_permissions(descriptor, level, current_el, access)?;
-                let pa_base = descriptor & address_mask;
+                let pa_base = output;
                 let translation = Translation {
                     pa: pa_base | (va & ((1u64 << page_shift) - 1)),
                     writable,
@@ -829,6 +855,88 @@ mod tests {
                         |_| panic!("expected cached translation")).unwrap(), translated);
                 }
             }
+        }
+    }
+
+
+    #[test]
+    fn physical_output_width_bounds_roots_tables_and_leaf_pages() {
+        // Real architectural IPS encodings, tested against both granules and
+        // both canonical regions. Deliberately use nonzero ASID bits in TTBRs.
+        for (ips, bits) in [(0u64,32u32),(1,36),(2,40),(3,42),(4,44),(5,48)] {
+            for (page_shift, tsz, tg0, tg1) in [(12u32,34u64,0u64,2u64), (14,28,2,1)] {
+                let limit = 1u64 << bits;
+                let page_size = 1u64 << page_shift;
+                let tcr = tsz | (tsz << 16) | (tg0 << 14) | (tg1 << 30) | (ips << 32);
+                for upper in [false,true] {
+                    let mut mmu=VfMmu::disabled();
+                    assert!(mmu.configure_tcr(0x1234_0000_0001_0000,0xabcd_0000_0002_0000,tcr,7));
+                    let root=if upper {0x20000} else {0x10000};
+                    let va=if upper {u64::MAX << (64-tsz)} else {0};
+                    let entries=[(root,0x30003),(0x30000,(limit-page_size)|0x443)];
+                    let mapped=mmu.translate(va+0x234,Access::Read,ExceptionLevel::El1,
+                        |address| read_page(&entries,address)).unwrap();
+                    assert_eq!(mapped.pa,limit-page_size+0x234);
+                    assert_eq!(mmu.translate(va+0x234,Access::Read,ExceptionLevel::El1,
+                        |_| panic!("expected cached boundary PA")).unwrap(),mapped);
+                    // Every representable width below48 has an encodable
+                    // descriptor exactly at the first forbidden address.
+                    if bits<48 {
+                        mmu.invalidate();
+                        let bad_leaf=[(root,0x30003),(0x30000,limit|0x443)];
+                        assert_eq!(mmu.translate(va,Access::Read,ExceptionLevel::El1,
+                            |address| read_page(&bad_leaf,address)),Err(Fault::AddressSize));
+                        let mut reads=0;
+                        assert_eq!(mmu.translate(va,Access::Read,ExceptionLevel::El1,
+                            |address| { reads+=1; assert_eq!(address,root); Some(limit|3) }),Err(Fault::AddressSize));
+                        assert_eq!(reads,1,"must not follow an out-of-range table descriptor");
+                        assert!(mmu.configure_tcr(if upper {0x10000} else {limit},
+                            if upper {limit} else {0x20000},tcr,7));
+                        assert_eq!(mmu.translate(va,Access::Read,ExceptionLevel::El1,
+                            |_| panic!("out-of-range root was dereferenced")),Err(Fault::AddressSize));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn sixteen_kib_l1_blocks_require_unsupported_lpa2() {
+        let mut mmu = VfMmu::disabled();
+        let tcr = 25 | (2 << 14); // DS=0, 16 KiB L1 root, 32-bit output.
+        assert!(mmu.configure_tcr(0x10000, 0, tcr, 0));
+        // Both low and high offsets are Translation faults, even when the
+        // output field also exceeds IPS. Rejected descriptors never cache.
+        for descriptor in [0x441, (1 << 40) | 0x441] {
+            for va in [0x234, 1 << 32] {
+                let mut reads = 0;
+                assert_eq!(mmu.translate(va, Access::Read, ExceptionLevel::El1,
+                    |address| { assert_eq!(address, 0x10000); reads += 1; Some(descriptor) }),
+                    Err(Fault::Translation));
+                assert_eq!(reads, 1);
+            }
+        }
+        // A supported L2 block still admits and caches its full offset range.
+        assert!(mmu.configure_tcr(0x10000, 0, 28 | (2 << 14), 0));
+        let entries = [(0x10000, 0xfe00_0441)];
+        assert_eq!(mmu.translate(0x234, Access::Read, ExceptionLevel::El1,
+            |address| read_page(&entries, address)).unwrap().pa, 0xfe00_0234);
+        assert_eq!(mmu.translate(0x1ff_ffff, Access::Read, ExceptionLevel::El1,
+            |_| panic!("valid block offset should hit the cache")).unwrap().pa, 0xffff_ffff);
+    }
+
+    #[test]
+    fn unsupported_physical_regime_preserves_cached_configuration() {
+        let mut mmu=VfMmu::disabled();
+        let tcr=34 | (1 << 32); //36-bit PA, 4KiB L2 root.
+        assert!(mmu.configure_tcr(0x10000,0,tcr,0));
+        let mapped=mmu.translate(0x234,Access::Read,ExceptionLevel::El1,
+            |address| if address==0x10000 {Some(0xf_0000_0441)} else {None}).unwrap();
+        for unsupported in [(tcr & !(7 << 32)) | (6 << 32),
+                            (tcr & !(7 << 32)) | (7 << 32),tcr | (1 << 59)] {
+            assert!(!mmu.configure_tcr(0x20000,0,unsupported,1));
+            assert_eq!(mmu.translate(0x234,Access::Read,ExceptionLevel::El1,
+                |_| panic!("invalid configuration evicted old translation")).unwrap(),mapped);
         }
     }
 

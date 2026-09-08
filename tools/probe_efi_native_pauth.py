@@ -28,6 +28,9 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
         "jit.c", "jit.h", "arch.c", "boot_jit.c", "boot_jit.h",
         "test_jit.c", "test_boot_jit.c", "test_pauth_jit.c", "test_flags_jit.c",
         "test_thread_jit.c",
+        "test_irq_jit.c", "platform_abi.h", "platform_layout.c", "preos/src/platform.rs",
+        "test_logical_jit.c",
+        "test_shift_jit.c",
         "abi_layout.c", "preos_abi.h", "preos/src/pauth.rs",
         "preos/src/lib.rs", "preos/src/arch.rs", "preos/src/mmu.rs",
         "preos/src/m1.rs", "preos/src/machine.rs", "preos/src/vmapple.rs",
@@ -61,6 +64,9 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
             ("test_jit", False, False), ("test_boot_jit", True, False),
             ("test_pauth_jit", True, True), ("test_flags_jit", True, False),
             ("test_thread_jit", True, False),
+            ("test_irq_jit", True, False),
+            ("test_logical_jit", False, False),
+            ("test_shift_jit", False, False),
         ):
             executable = temporary / name
             command = [clang, "-std=c11", "-D_GNU_SOURCE", "-O2", "-Wall", "-Wextra",
@@ -95,6 +101,14 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
                        for line in reference_output.splitlines() if "VF_ABI_LAYOUT " in line]
         if rust_layouts != [c_layout]:
             raise RuntimeError(f"C/Rust ABI mismatch: C={c_layout!r}, Rust={rust_layouts!r}")
+        platform_layout = temporary / "platform_layout"
+        run([clang,"-std=c11","-Wall","-Wextra","-Werror",
+             str(runtime / "platform_layout.c"),"-o",str(platform_layout)])
+        c_platform = json.loads(run([str(platform_layout)]))
+        rust_platforms = [json.loads(line.split("VF_PLATFORM_ABI ",1)[1])
+                         for line in reference_output.splitlines() if "VF_PLATFORM_ABI " in line]
+        if rust_platforms != [c_platform]:
+            raise RuntimeError(f"C/Rust platform ABI mismatch: C={c_platform!r}, Rust={rust_platforms!r}")
     return {
         "schema": "nextcore.efi-native-pauth-proof/1", "passed": True,
         "host": {"system": platform.system(), "machine": platform.machine()},
@@ -102,6 +116,7 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
                               "rustc": run([rustc, "--version"]).strip()},
         "runtime_sources": {str(path.relative_to(runtime)): digest(path) for path in sources},
         "tests": tests, "c_rust_abi": {"passed": True, "values": c_layout},
+        "platform_abi_v2": {"passed": True, "values": c_platform},
         "reference_tests_passed": True,
         "commands": records, "macos_boot_verified": False,
         "scope": "Native x86_64 C JIT, NZCV/branches, TPIDR thread registers, explicit registers, nonzero physical RAM, QARMA5 callback and W^X",
