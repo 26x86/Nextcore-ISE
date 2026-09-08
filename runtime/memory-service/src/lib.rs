@@ -1,10 +1,13 @@
-//! Caller-owned, allocation-free M=0 memory service for the x86 EFI JIT.
-//! No panic handler, page walker, executable buffer or host-pointer reply.
+//! Caller-owned, allocation-free physical and stage-1 services for the x86 EFI JIT.
+//! The mapped profiles share the canonical walker; no panic handler, executable
+//! buffer, copied walker, or host-pointer reply is introduced.
 #![no_std]
 #[cfg(test)] extern crate std;
 pub mod abi;
 pub mod abi_v2;
 pub mod stage1;
+pub mod dynamic_abi;
+pub use stage1::dynamic;
 #[path="../../preos/src/exception_level.rs"] mod exception_level;
 #[path="../../preos/src/mmu.rs"] mod mmu;
 use abi::*;

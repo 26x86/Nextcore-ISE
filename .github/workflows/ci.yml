@@ -48,3 +48,5 @@ jobs:
           cargo build --release --manifest-path runtime/memory-service/Cargo.toml --target x86_64-unknown-uefi
       - name: Native translated C to Rust memory provider and semantic negative controls
         run: python3 tools/probe_efi_stage1_provider.py --work-dir "$RUNNER_TEMP/native-stage1-provider" --output "$RUNNER_TEMP/native-stage1-provider.json"
+      - name: Transactional one-way MMU activation and semantic negative controls
+        run: python3 tools/probe_dynamic_memory.py --work-dir "$RUNNER_TEMP/dynamic-memory" --output "$RUNNER_TEMP/dynamic-memory.json"

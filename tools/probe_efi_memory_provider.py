@@ -30,7 +30,9 @@ def main() -> None:
         "memory_abi.h","memory_boot.h","memory_boot.c","memory_boot.rs","memory_layout.c","test_memory_provider.rs",
         "memory_abi_v2.h","memory_boot_v2.h","memory_stage1.inc","preos/src/mmu.rs","preos/src/exception_level.rs",
         "preos/src/platform.rs","memory-service/Cargo.toml","memory-service/src/lib.rs","memory-service/src/abi.rs",
-        "memory-service/src/abi_v2.rs","memory-service/src/stage1.rs","memory-service/src/stage1_tests.rs")]
+        "memory-service/src/abi_v2.rs","memory-service/src/stage1.rs","memory-service/src/stage1_tests.rs",
+        "memory-service/src/dynamic.rs","memory-service/src/dynamic_abi.rs","memory-service/src/dynamic_tests.rs",
+        "memory_dynamic.h","memory_dynamic.inc")]
     before={str(p.relative_to(runtime)):digest(p) for p in paths}
     records=[]
     def run(command: list[str]) -> None:

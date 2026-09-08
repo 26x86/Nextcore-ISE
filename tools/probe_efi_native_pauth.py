@@ -26,7 +26,7 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
     runtime = runtime.resolve(strict=True)
     sources = [runtime / name for name in (
         "jit.c", "jit.h", "arch.c", "boot_jit.c", "boot_jit.h",
-        "memory_abi.h", "memory_boot.h", "memory_abi_v2.h", "memory_boot_v2.h", "memory_stage1.inc",
+        "memory_abi.h", "memory_boot.h", "memory_abi_v2.h", "memory_boot_v2.h", "memory_stage1.inc", "memory_dynamic.h", "memory_dynamic.inc",
         "test_jit.c", "test_boot_jit.c", "test_pauth_jit.c", "test_flags_jit.c",
         "test_thread_jit.c",
         "test_irq_jit.c", "platform_abi.h", "platform_layout.c", "preos/src/platform.rs",

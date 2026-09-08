@@ -83,21 +83,23 @@ static int v2_fault_valid(const vf_memory_request_v2 *q,const vf_memory_reply_v2
         (q->operation==VF_MEMORY_STORE?64:0);
     return 1;
 }
-static int memory_exchange_v2(vf_cpu *cpu,vf_memory_callback_v2 callback,void *owner,
-    const vf_memory_request_v2 *q,vf_memory_reply_v2 *r,vf_memory_run_result_v2 *result) {
+static int memory_exchange_version(vf_cpu *cpu,vf_memory_callback_v2 callback,void *owner,
+    const vf_memory_request_v2 *q,vf_memory_reply_v2 *r,vf_memory_run_result_v2 *result,unsigned version) {
     *r=(vf_memory_reply_v2){0};
-    result->last_reply=(vf_memory_reply_v2){.abi_version=2,.struct_size=128,.level=UINT32_MAX,.epoch=q->controls.epoch};
+    result->last_reply=(vf_memory_reply_v2){.abi_version=version,.struct_size=128,.level=UINT32_MAX,.epoch=q->controls.epoch};
     result->base.last_address=q->address;
     if(q->operation==VF_MEMORY_FETCH)result->base.fetch_requests++;else result->base.data_requests++;
     if(callback(owner,q,r))return v2_error(result,VF_PROVIDER_CALLBACK_FAILURE);
-    if(r->abi_version!=2 || r->struct_size!=128 || r->epoch!=q->controls.epoch || r->result>4 ||
+    if(r->abi_version!=version || r->struct_size!=128 || r->epoch!=q->controls.epoch || r->result>4 ||
        r->reserved[0] || r->reserved[1] || r->reserved[2] || r->reserved[3] || r->reserved[4] ||
        !v2_provenance_valid(r))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
     uint64_t mask=q->width==8?UINT64_MAX:(UINT64_C(1)<<(q->width*8))-1;
     unsigned bytes=q->width*q->count;
     int wrapping=q->address>UINT64_MAX-(bytes-1);
+    int physical_dynamic=version==3 && !(q->controls.sctlr&1);
     if(r->result==VF_MEMORY_V2_OK) {
-        if(wrapping || (q->address&(q->width-1)) ||
+        if(wrapping || (physical_dynamic && (q->address>=(UINT64_C(1)<<48) ||
+               bytes>(UINT64_C(1)<<48)-q->address)) || (q->address&(q->width-1)) ||
            r->fault || r->fsc || r->esr || r->address || r->context || r->level!=UINT32_MAX || r->metadata_flags ||
            (r->value0&~mask) || (r->value1&~mask) || (q->count==1 && r->value1) ||
            (q->operation==VF_MEMORY_STORE && (r->value0 || r->value1)))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
@@ -112,10 +114,15 @@ static int memory_exchange_v2(vf_cpu *cpu,vf_memory_callback_v2 callback,void *o
     if(r->address<q->address || r->address-q->address>=bytes)return v2_error(result,VF_PROVIDER_INVALID_REPLY);
     if(r->result==VF_MEMORY_V2_UNSUPPORTED || r->result==VF_MEMORY_V2_UNAVAILABLE) {
         if(r->fault || r->fsc || r->esr)return v2_error(result,VF_PROVIDER_INVALID_REPLY);
+        if(physical_dynamic && (r->context || r->level!=UINT32_MAX ||
+           (r->result==VF_MEMORY_V2_UNSUPPORTED?r->metadata_flags!=0:
+            (r->metadata_flags!=2 || r->output_pa!=r->address))))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
         result->last_reply=*r;result->base.last_address=r->address;
         return v2_error(result,r->result==VF_MEMORY_V2_UNAVAILABLE?VF_PROVIDER_UNAVAILABLE_V2:VF_PROVIDER_UNSUPPORTED);
     }
     if(wrapping && !(q->address&(q->width-1)))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
+    if(physical_dynamic && r->fault!=VF_MEMORY_V2_PC_ALIGNMENT && r->fault!=VF_MEMORY_V2_DATA_ALIGNMENT)
+        return v2_error(result,VF_PROVIDER_INVALID_REPLY);
     uint64_t esr;
     if(!v2_fault_valid(q,r,&esr) || r->esr!=esr)return v2_error(result,VF_PROVIDER_INVALID_REPLY);
     enum vf_exception_kind kind=q->operation==VF_MEMORY_FETCH?VF_EXCEPTION_INSTRUCTION_ABORT:
@@ -126,6 +133,10 @@ static int memory_exchange_v2(vf_cpu *cpu,vf_memory_callback_v2 callback,void *o
         return v2_error(result,VF_PROVIDER_INVALID_REPLY);
     result->last_reply=*r;result->base.last_address=r->address;return status;
 }
+static int memory_exchange_v2(vf_cpu *cpu,vf_memory_callback_v2 callback,void *owner,
+    const vf_memory_request_v2 *q,vf_memory_reply_v2 *r,vf_memory_run_result_v2 *result) {
+    return memory_exchange_version(cpu,callback,owner,q,r,result,2);
+}
 static vf_memory_request_v2 memory_request_v2(const vf_cpu *cpu,const vf_memory_controls_v2 *controls,
     unsigned op,unsigned width,unsigned count,uint64_t address) {
     vf_memory_request_v2 q={0};q.abi_version=2;q.struct_size=160;q.operation=op;
@@ -135,8 +146,8 @@ static vf_memory_request_v2 memory_request_v2(const vf_cpu *cpu,const vf_memory_
     q.controls.tcr=cpu->tcr;q.controls.mair=cpu->mair;q.controls.hcr=cpu->hcr_el2;q.controls.scr=cpu->scr_el3;
     return q;
 }
-static int memory_data_step_v2(vf_cpu *cpu,const vf_memory_controls_v2 *controls,
-    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result) {
+static int memory_data_step_version(vf_cpu *cpu,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result,unsigned version) {
     memory_shape shape;
     if(!decode_memory(cpu->instruction,&shape)) {
         (void)vf_cpu_commit_status(cpu,VF_UNDEFINED_INSTRUCTION);return VF_UNDEFINED_INSTRUCTION;
@@ -147,9 +158,10 @@ static int memory_data_step_v2(vf_cpu *cpu,const vf_memory_controls_v2 *controls
     }
     uint64_t updated=base+(int64_t)shape.displacement,address=shape.mode==1?base:updated;
     vf_memory_request_v2 q=memory_request_v2(cpu,controls,shape.read?VF_MEMORY_LOAD:VF_MEMORY_STORE,shape.width,shape.count,address);
+    if(version==3){q.abi_version=3;q.controls=*controls;}
     uint64_t mask=shape.width==8?UINT64_MAX:(UINT64_C(1)<<(shape.width*8))-1;
     if(!shape.read){q.value0=memory_register(cpu,shape.rt,0)&mask;if(shape.count==2)q.value1=memory_register(cpu,shape.rt2,0)&mask;}
-    vf_memory_reply_v2 reply;int status=memory_exchange_v2(cpu,callback,owner,&q,&reply,result);
+    vf_memory_reply_v2 reply;int status=memory_exchange_version(cpu,callback,owner,&q,&reply,result,version);
     if(status!=VF_NEXT)return status;
     if(shape.read) {
         memory_save(cpu,shape.rt,shape.signed_load?(uint64_t)sext(reply.value0,shape.width*8):reply.value0,shape.result64);
@@ -157,6 +169,10 @@ static int memory_data_step_v2(vf_cpu *cpu,const vf_memory_controls_v2 *controls
     }
     if(shape.mode!=2){if(shape.rn==31)cpu->sp=updated;else cpu->x[shape.rn]=updated;}
     cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);result->base.completed_data_operations++;return VF_NEXT;
+}
+static int memory_data_step_v2(vf_cpu *cpu,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result) {
+    return memory_data_step_version(cpu,controls,callback,owner,result,2);
 }
 static int memory_control_read_v2(vf_cpu *cpu) {
     uint32_t w=cpu->instruction;
