@@ -52,7 +52,8 @@ has its existing distinct EC. Bounded RAM misses retain the runtime's current
 diagnostic DataAbort/FSC=7 convention; this is not a claim that an MMU-off
 hardware external abort is a level-three translation fault. Reference MMU
 faults retain the existing class-only adapter's FSC=7/0x0d for translation/
-permission errors; the walker does not return the actual level. Undefined
+permission errors; the legacy CPU adapter does not consume the actual level.
+The companion detailed MMU API now preserves it for future native providers. Undefined
 ISS stays zero. These limitations do not affect the exact alignment ESR.
 
 Existing C/Rust external ABI layouts and enum values are unchanged. Validation
@@ -66,7 +67,8 @@ QEMU agreement. Actual EFI fixtures exercise this same C JIT. Private original
 prefix advancement remains separate from usable macOS boot or guest Metal.
 
 The native scalar fixture executes 106,496 cases with 426,981 assertions;
-the reference suite has 83 tests, including the same complete imm12 matrix,
+the combined scalar and MMU reference suite has 91 tests, including the same
+complete imm12 matrix,
 MMIO direction/width, mapped permissions and rejected spanning accesses.
 The native proof runs the actual C/Rust layout comparison and existing PAC,
 IRQ/vector, integer-pair and arithmetic regressions. The legacy C caller also
