@@ -297,26 +297,7 @@ pub(crate) struct GuestException {
     pub(crate) pc: u64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(u8)]
-pub(crate) enum ExceptionLevel {
-    El0 = 0,
-    El1 = 1,
-    El2 = 2,
-    El3 = 3,
-}
-
-impl ExceptionLevel {
-    fn from_u8(value: u8) -> Option<Self> {
-        match value {
-            0 => Some(Self::El0),
-            1 => Some(Self::El1),
-            2 => Some(Self::El2),
-            3 => Some(Self::El3),
-            _ => None,
-        }
-    }
-}
+pub(crate) use super::exception_level::ExceptionLevel;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SysRegFault {
@@ -384,7 +365,7 @@ impl SystemRegister {
             0xd538_2000 | 0xd518_2000 => Some(Self::Ttbr0El1),
             0xd538_2020 | 0xd518_2020 => Some(Self::Ttbr1El1),
             0xd538_2040 | 0xd518_2040 => Some(Self::TcrEl1),
-            0xd538_a000 | 0xd518_a000 => Some(Self::MairEl1),
+            0xd538_a200 | 0xd518_a200 => Some(Self::MairEl1),
             0xd538_c000 | 0xd518_c000 => Some(Self::VbarEl1),
             0xd538_5200 | 0xd518_5200 => Some(Self::EsrEl1),
             0xd538_6000 | 0xd518_6000 => Some(Self::FarEl1),
@@ -2115,6 +2096,23 @@ fn write_width(memory: &mut [u8], index: usize, width: usize, value: u64) -> boo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mair_uses_architectural_crm2_encoding_and_old_alias_is_unknown() {
+        for rt in 0..32 {
+            assert_eq!(SystemRegister::from_instruction(0xd538a200|rt),Some(SystemRegister::MairEl1));
+            assert_eq!(SystemRegister::from_instruction(0xd518a200|rt),Some(SystemRegister::MairEl1));
+            assert_eq!(SystemRegister::from_instruction(0xd538a000|rt),None);
+            assert_eq!(SystemRegister::from_instruction(0xd518a000|rt),None);
+        }
+        let mut ram=[0u8;16];ram[..4].copy_from_slice(&0xd518a200u32.to_le_bytes());
+        ram[4..8].copy_from_slice(&0xd538a201u32.to_le_bytes());
+        let mut cpu=GuestCpuState::reset(0);cpu.x[0]=0x44;
+        assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram,base:0}),StepResult::Continue);
+        assert_eq!(cpu.sys.mair_el1,0x44);
+        assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram,base:0}),StepResult::Continue);
+        assert_eq!((cpu.x[1],cpu.pc),(0x44,8));
+    }
 
     fn scalar_word(size:u32,opc:u32,offset:u32,rn:u32,rt:u32)->u32 {
         0x39000000 | (size<<30) | (opc<<22) | (offset<<10) | (rn<<5) | rt

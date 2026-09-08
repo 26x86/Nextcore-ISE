@@ -1,7 +1,12 @@
 //! Caller-owned, allocation-free M=0 memory service for the x86 EFI JIT.
 //! No panic handler, page walker, executable buffer or host-pointer reply.
 #![no_std]
+#[cfg(test)] extern crate std;
 pub mod abi;
+pub mod abi_v2;
+pub mod stage1;
+#[path="../../preos/src/exception_level.rs"] mod exception_level;
+#[path="../../preos/src/mmu.rs"] mod mmu;
 use abi::*;
 use core::ffi::c_void;
 

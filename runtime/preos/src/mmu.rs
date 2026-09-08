@@ -9,7 +9,7 @@
 
 #![allow(dead_code)]
 
-use super::arch::ExceptionLevel;
+use super::exception_level::ExceptionLevel;
 
 pub(crate) const PAGE_SHIFT: u64 = 12;
 pub(crate) const PAGE_SIZE: u64 = 1 << PAGE_SHIFT;
@@ -120,6 +120,8 @@ pub(crate) enum TableReadError {
 pub(crate) enum TranslationFailureKind {
     Architectural(Fault),
     TableRead(TableReadError),
+    /// A valid descriptor needs behavior outside the explicitly selected profile.
+    Unsupported,
 }
 
 /// Context of the failed check, never the architectural ESR.S1PTW bit.
@@ -155,7 +157,7 @@ impl TranslationFailure {
     fn legacy_fault(self) -> Fault {
         match self.kind {
             TranslationFailureKind::Architectural(fault) => fault,
-            TranslationFailureKind::TableRead(_) => Fault::Translation,
+            TranslationFailureKind::TableRead(_) | TranslationFailureKind::Unsupported => Fault::Translation,
         }
     }
 }
@@ -166,7 +168,16 @@ pub(crate) struct Translation {
     pub(crate) writable: bool,
     pub(crate) executable: bool,
     pub(crate) page_shift: u8,
+    pub(crate) attributes: Option<MemoryAttributes>,
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct MemoryAttributes {
+    pub(crate) attr_index: u8,
+    pub(crate) shareability: u8,
+    pub(crate) mair: u8,
+}
+const NORMAL_NC: MemoryAttributes = MemoryAttributes {attr_index:0,shareability:0,mair:0x44};
 
 #[derive(Clone, Copy)]
 struct TlbEntry {
@@ -181,6 +192,7 @@ struct TlbEntry {
     executable_privileged: bool,
     level: u8,
     descriptor_pa: u64,
+    attributes: Option<MemoryAttributes>,
 }
 
 const TLB_ENTRY: TlbEntry = TlbEntry {
@@ -195,6 +207,7 @@ const TLB_ENTRY: TlbEntry = TlbEntry {
     executable_privileged: false,
     level: 3,
     descriptor_pa: 0,
+    attributes: None,
 };
 
 #[derive(Clone, Copy)]
@@ -210,6 +223,7 @@ pub(crate) struct VfMmu {
     physical_address_mask: u64,
     tlb: [TlbEntry; TLB_ENTRIES],
     next: usize,
+    strict_nc: bool,
 }
 
 impl VfMmu {
@@ -226,6 +240,7 @@ impl VfMmu {
             physical_address_mask: PHYSICAL_ADDRESS_MASK,
             tlb: [TLB_ENTRY; TLB_ENTRIES],
             next: 0,
+            strict_nc: false,
         }
     }
 
@@ -297,6 +312,7 @@ impl VfMmu {
             return false;
         }
         self.enabled = true;
+        self.strict_nc = false;
         self.ttbr0 = ttbr0;
         self.ttbr1 = ttbr1;
         self.tcr_t0sz = t0sz;
@@ -306,6 +322,16 @@ impl VfMmu {
         self.walk_disabled = [tcr & (1 << 7) != 0, tcr & (1 << 23) != 0];
         self.physical_address_mask = (1u64 << physical_bits) - 1;
         self.invalidate();
+        true
+    }
+
+    /// Select the validated immutable Normal-NC descriptor profile. The caller
+    /// validates the complete controls/MAIR snapshot before invoking this.
+    pub(crate) fn configure_strict_nc(&mut self,ttbr0:u64,ttbr1:u64,tcr:u64)->bool {
+        let mut candidate=*self;
+        if !candidate.configure_tcr(ttbr0,ttbr1,tcr,0) {return false;}
+        candidate.strict_nc=true;
+        *self=candidate;
         true
     }
 
@@ -365,9 +391,10 @@ impl VfMmu {
                 Access::Write => entry.writable && (!user || entry.user_accessible),
                 Access::Execute => {
                     if user {
-                        entry.user_accessible && entry.executable_el0
+                        entry.executable_el0
                     } else {
-                        entry.executable_privileged
+                        Self::privileged_execution(current_el,entry.executable_privileged,
+                            entry.writable,entry.user_accessible)
                     }
                 }
             };
@@ -380,12 +407,20 @@ impl VfMmu {
                 executable: if user {
                     entry.executable_el0
                 } else {
-                    entry.executable_privileged
+                    Self::privileged_execution(current_el,entry.executable_privileged,
+                        entry.writable,entry.user_accessible)
                 },
                 page_shift: entry.page_shift,
+                attributes: entry.attributes,
             }));
         }
         Ok(None)
+    }
+
+    fn privileged_execution(el:ExceptionLevel,pxn_allows:bool,writable:bool,user_accessible:bool)->bool {
+        // This is the EL0/EL1 regime correction. Legacy callers at EL2/EL3
+        // retain their previous coarse PXN result, not a modeled EL2/3 regime.
+        pxn_allows && !(el==ExceptionLevel::El1 && writable && user_accessible)
     }
 
     fn descriptor_permissions(
@@ -401,12 +436,11 @@ impl VfMmu {
         // AP[2:1]: 00 = EL1 RW / EL0 no access; 01 = EL0/EL1 RW;
         // 10 = EL1 RO / EL0 no access; 11 = EL0/EL1 RO.
         let ap = ((descriptor >> 6) & 0x3) as u8;
-        let writable = match current_el {
-            ExceptionLevel::El0 => ap == 1,
-            ExceptionLevel::El1 | ExceptionLevel::El2 | ExceptionLevel::El3 => ap == 0 || ap == 1,
-        };
+        // Cache descriptor permissions, not the privileges of the access that
+        // populated the entry (EL0 can execute an AP00 execute-only page).
+        let writable = ap == 0 || ap == 1;
         let user_accessible = ap == 1 || ap == 3;
-        if current_el == ExceptionLevel::El0 && !user_accessible {
+        if current_el == ExceptionLevel::El0 && !user_accessible && !matches!(access,Access::Execute) {
             return Err(Fault::Permission);
         }
         if matches!(access, Access::Write) && !writable {
@@ -420,7 +454,8 @@ impl VfMmu {
         let executable = if current_el == ExceptionLevel::El0 {
             executable_el0
         } else {
-            executable_privileged
+            // DDI0487I.a WXKKQ/LJHZZ: EL0 writable implies EL1 XN.
+            Self::privileged_execution(current_el,executable_privileged,writable,user_accessible)
         };
         if matches!(access, Access::Execute) && !executable {
             return Err(Fault::Permission);
@@ -459,6 +494,7 @@ impl VfMmu {
                 writable: true,
                 executable: true,
                 page_shift: self.granule.page_shift() as u8,
+                attributes: None,
             });
         }
         if !self.canonical_va(va) {
@@ -519,6 +555,22 @@ impl VfMmu {
             }
             let output = descriptor & address_mask;
             if output & !self.physical_address_mask != 0 { return Err(descriptor_fault(Fault::AddressSize).with_output(output)); }
+            if self.strict_nc {
+                let software = 0xfu64 << 55;
+                let table_descriptor = level < MAX_LEVEL && descriptor_type == 3;
+                let allowed = if table_descriptor {
+                    address_mask | software | 3
+                } else {
+                    let leaf_mask = !((1u64 << shift)-1);
+                    (address_mask & leaf_mask) | software | 3 | (3<<6) | AF_BIT |
+                        (1<<11) | (1u64<<PXN_BIT) | (1u64<<UXN_BIT)
+                };
+                if descriptor & !allowed != 0 {
+                    return Err(TranslationFailure {kind:TranslationFailureKind::Unsupported,
+                        level:Some(level as u8),context:if table_descriptor {FaultContext::Walk} else {FaultContext::Leaf},
+                        descriptor_pa:Some(entry_address),output_pa:None});
+                }
+            }
             // Diagnostic leaf PA includes the offset on both cold and cached
             // failures. Compute it without changing descriptor/fault priority.
             let leaf_offset_mask = (1u64 << shift) - 1;
@@ -535,13 +587,14 @@ impl VfMmu {
                 if pa & !self.physical_address_mask != 0 { return Err(leaf_fault(Fault::AddressSize).with_output(pa)); }
                 let translation = Translation {
                     pa,
-                    writable,
+                    writable: writable && (current_el!=ExceptionLevel::El0 || user_accessible),
                     executable: if current_el == ExceptionLevel::El0 {
                         executable_el0
                     } else {
-                        executable_privileged
+                        Self::privileged_execution(current_el,executable_privileged,writable,user_accessible)
                     },
                     page_shift: block_shift as u8,
+                    attributes: self.strict_nc.then_some(NORMAL_NC),
                 };
                 self.cache(
                     va,
@@ -568,13 +621,14 @@ impl VfMmu {
                 let pa_base = output;
                 let translation = Translation {
                     pa: pa_base | (va & ((1u64 << page_shift) - 1)),
-                    writable,
+                    writable: writable && (current_el!=ExceptionLevel::El0 || user_accessible),
                     executable: if current_el == ExceptionLevel::El0 {
                         executable_el0
                     } else {
-                        executable_privileged
+                        Self::privileged_execution(current_el,executable_privileged,writable,user_accessible)
                     },
                     page_shift: page_shift as u8,
+                    attributes: self.strict_nc.then_some(NORMAL_NC),
                 };
                 self.cache(
                     va,
@@ -619,6 +673,7 @@ impl VfMmu {
             executable_privileged,
             level,
             descriptor_pa,
+            attributes: self.strict_nc.then_some(NORMAL_NC),
         };
         self.next = (self.next + 1) % TLB_ENTRIES;
     }
@@ -627,6 +682,72 @@ impl VfMmu {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn el0_execute_only_tlb_fill_preserves_later_el1_write_permission() {
+        for strict in [false,true] {
+            let (mut mmu,entries,count)=detailed_fixture(Granule::FourKiB,3,0x8403);
+            if strict {assert!(mmu.configure_strict_nc(0x1000,0,16));}
+            let execute=mmu.translate(0,Access::Execute,ExceptionLevel::El0,|pa|read_page(&entries[..count],pa)).unwrap();
+            assert!(!execute.writable);
+            assert!(mmu.translate(0,Access::Write,ExceptionLevel::El1,|_|panic!("must hit cached page")).unwrap().writable);
+            assert_eq!(mmu.translate(0,Access::Write,ExceptionLevel::El0,|_|panic!("must hit cached page")),Err(Fault::Permission));
+        }
+    }
+
+    #[test]
+    fn execution_permission_matrix_matches_arm_table_in_cold_and_cached_walks() {
+        for strict in [false,true] {for ap in 0..4 {for pxn in 0..2 {for uxn in 0..2 {
+            for el in [ExceptionLevel::El0,ExceptionLevel::El1,ExceptionLevel::El2,ExceptionLevel::El3] {for hot in [false,true] {
+                let descriptor=0x8403|(ap<<6)|(pxn<<53)|(uxn<<54);
+                let (mut mmu,entries,count)=detailed_fixture(Granule::FourKiB,3,descriptor);
+                if strict {assert!(mmu.configure_strict_nc(0x1000,0,16));}
+                if hot {assert!(mmu.translate(0,Access::Read,ExceptionLevel::El1,|pa|read_page(&entries[..count],pa)).is_ok());}
+                let result=mmu.translate(0,Access::Execute,el,|pa| {
+                    assert!(!hot,"cached permissions must not read tables");read_page(&entries[..count],pa)
+                });
+                let allowed=if el==ExceptionLevel::El0 {uxn==0}else{pxn==0 && (el!=ExceptionLevel::El1 || ap!=1)};
+                assert_eq!(result.is_ok(),allowed,"strict={strict} ap={ap} pxn={pxn} uxn={uxn} el={el:?} hot={hot}");
+                if !allowed {assert_eq!(result,Err(Fault::Permission));}
+            }}
+        }}}}
+    }
+
+    #[test]
+    fn strict_profile_rejects_unmodeled_attributes_and_preserves_legacy_mode() {
+        for bit in [2,5,8,9,50,51,52,59,60,61,62,63] {
+            let (mut mmu,mut entries,count)=detailed_fixture(Granule::FourKiB,3,0x8403|(1u64<<bit));
+            assert!(mmu.configure_strict_nc(0x1000,0,16));
+            let fault=mmu.translate_detailed(0,Access::Read,ExceptionLevel::El1,|pa|
+                read_page(&entries[..count],pa).ok_or(TableReadError::Unavailable)).unwrap_err();
+            assert_eq!(fault.kind,TranslationFailureKind::Unsupported);
+            assert_eq!(fault.descriptor_pa,Some(0x4000));
+            entries[count-1].1=0x8403;
+            let cold=mmu.translate_detailed(0x123,Access::Read,ExceptionLevel::El1,|pa|
+                read_page(&entries[..count],pa).ok_or(TableReadError::Unavailable)).unwrap();
+            assert_eq!(cold.attributes,Some(NORMAL_NC));
+            let hot=mmu.translate_detailed(0x123,Access::Read,ExceptionLevel::El1,|_|panic!("cached" )).unwrap();
+            assert_eq!(hot,cold);
+            assert!(mmu.configure_tcr(0x1000,0,16,0));
+            let legacy=mmu.translate(0,Access::Read,ExceptionLevel::El1,|pa|read_page(&entries[..count],pa)).unwrap();
+            assert_eq!(legacy.attributes,None);
+        }
+    }
+
+    #[test]
+    fn strict_profile_validates_table_hierarchy_and_block_output_bits() {
+        for bit in [59,60,61,62,63] {
+            let (mut mmu,mut entries,count)=detailed_fixture(Granule::FourKiB,3,0x8403);
+            entries[0].1|=1u64<<bit;assert!(mmu.configure_strict_nc(0x1000,0,16));
+            let fault=mmu.translate_detailed(0,Access::Read,ExceptionLevel::El1,|pa|
+                read_page(&entries[..count],pa).ok_or(TableReadError::Unavailable)).unwrap_err();
+            assert_eq!((fault.kind,fault.level,fault.context),(TranslationFailureKind::Unsupported,Some(0),FaultContext::Walk));
+        }
+        let (mut mmu,entries,count)=detailed_fixture(Granule::FourKiB,2,0x204401);
+        assert!(mmu.configure_strict_nc(0x1000,0,16));
+        assert_eq!(mmu.translate_detailed(0,Access::Read,ExceptionLevel::El1,|pa|
+            read_page(&entries[..count],pa).ok_or(TableReadError::Unavailable)).unwrap_err().kind,TranslationFailureKind::Unsupported);
+    }
 
     fn read_page(entries: &[(u64, u64)], address: u64) -> Option<u64> {
         entries
