@@ -8,8 +8,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 2868,
-      "sha256": "9e05a854a4cf8355783745876bd3bcc0729bd8f11fdb9d417aae78b6b2e67f2c"
+      "bytes": 2878,
+      "sha256": "3a8a984f6e5a8b6c53fe59989cdf80ba340aac941e1eb96e5111d454486a2a35"
     },
     {
       "path": ".gitignore",
@@ -99,7 +99,7 @@
     {
       "path": "repository.json",
       "bytes": 1308,
-      "sha256": "7ccb7b565e1ad29ad9ac5f490230987be456922bbbf9d9fd38cddea1eaebb938"
+      "sha256": "7b9227de3c00fba3314f5259506f87d50a115abfa806bb17c1b13a0fa02c14e0"
     },
     {
       "path": "runtime/abi_layout.c",
