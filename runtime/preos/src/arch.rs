@@ -1329,6 +1329,13 @@ impl GuestCpuState {
         }
     }
 
+    fn condition_holds(&self, condition: u32) -> bool {
+        let n=self.pstate&PSTATE_N!=0;let z=self.pstate&PSTATE_Z!=0;
+        let c=self.pstate&PSTATE_C!=0;let v=self.pstate&PSTATE_V!=0;
+        let base=match condition>>1 {0=>z,1=>c,2=>n,3=>v,4=>c&&!z,5=>n==v,6=>n==v&&!z,_=>true};
+        if condition&1!=0 && condition!=15 {!base} else {base}
+    }
+
     fn execute_one<B: GuestBus>(&mut self, bus: &mut B) -> StepResult {
         let pc = self.pc;
         let word = match self.fetch32(bus) {
@@ -1651,6 +1658,17 @@ impl GuestCpuState {
             return StepResult::Continue;
         }
 
+        if word&0x3fe00410==0x3a400000 {
+            if self.condition_holds((word>>12)&15) {
+                let right=if word&(1<<11)!=0 {u64::from((word>>16)&31)}
+                    else {self.read_reg((word>>16)&31,false)};
+                let (value,carry,overflow)=add_sub(self.read_reg(rn,false),right,word&(1<<30)!=0,wide);
+                self.set_nzcv(value,wide,carry,overflow);
+            } else {
+                self.pstate=(self.pstate&!0xf0000000)|((word&15)<<28);
+            }
+            self.pc=pc.wrapping_add(4);return StepResult::Continue;
+        }
         if word&0x1f800000==0x12000000 {
             let Some(mask)=logical_immediate(word) else {
                 self.raise(GuestException {kind:ExceptionKind::UndefinedInstruction,
@@ -2411,6 +2429,51 @@ mod tests {
         cpu.pc=0;cpu.sp=0x9870;
         assert_eq!(cpu.pair_memory(&mut RamBus::new(&mut ram),pair_word(8,true,2,0,3,3,31)),Ok(()));
         assert_eq!(cpu.x[3],0x42);assert_eq!(cpu.sp,0x9870);
+    }
+
+    #[test]
+    fn conditional_comparison_matches_independent_truth_table_and_bounded_math() {
+        fn run(width:u32,sub:bool,immediate:bool,cond:u32,old:u32,fallback:u32,a:u64,b:u64,rn:u32,rm:u32) {
+            let n=old&8!=0;let z=old&4!=0;let c=old&2!=0;let v=old&1!=0;
+            let truth=[z,!z,c,!c,n,!n,v,!v,c&&!z,!c||z,n==v,n!=v,!z&&n==v,z||n!=v,true,true];
+            let mask=if width==64 {u64::MAX}else{u32::MAX as u64};let sign=1u64<<(width-1);
+            let left=if rn==31{0}else{a&mask};let right=(if immediate{b}else if rm==31{0}else{b})&mask;
+            let value=(if sub{left.wrapping_sub(right)}else{left.wrapping_add(right)})&mask;
+            let carry=if sub{left>=right}else{u128::from(left)+u128::from(right)>u128::from(mask)};
+            let signed=|x:u64|i128::from(x)-if x&sign!=0{1i128<<width}else{0};
+            let total=if sub{signed(left)-signed(right)}else{signed(left)+signed(right)};
+            let overflow=total < -(sign as i128)||total>=sign as i128;
+            let expected=if truth[cond as usize]{(u32::from(value&sign!=0)<<3)|(u32::from(value==0)<<2)|(u32::from(carry)<<1)|u32::from(overflow)}else{fallback};
+            let word=0x3a400000|(u32::from(width==64)<<31)|(u32::from(sub)<<30)|(u32::from(immediate)<<11)|
+                (cond<<12)|fallback|(rn<<5)|((if immediate{b as u32}else{rm})<<16);
+            let mut cpu=GuestCpuState::reset(0);for index in 0..31{cpu.x[index]=0xfedc000000000000+index as u64;}
+            cpu.x[0]=a;cpu.x[1]=b;cpu.sp=0x98765430;cpu.pstate=0x3c5|(old<<28);let registers=cpu.x;
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word.to_le_bytes())),StepResult::Continue);
+            assert_eq!(cpu.pstate,0x3c5|(expected<<28));assert_eq!(cpu.pc,4);assert_eq!(cpu.x,registers);assert_eq!(cpu.sp,0x98765430);
+        }
+        let edges=[0,1,31,0x7fffffff,0x80000000,0xffffffff,0x7fffffffffffffff,0x8000000000000000,u64::MAX];
+        for width in [32u32,64]{for sub in [false,true]{for immediate in [false,true]{
+            for cond in 0..16{for old in 0..16{for fallback in 0..16{
+                let at=((cond+old+fallback)%9)as usize;
+                run(width,sub,immediate,cond,old,fallback,edges[at],if immediate{u64::from((old+fallback)%32)}else{edges[(at+3)%9]},0,1);
+            }}}
+        }
+            for imm in 0..32{for a in edges{run(width,sub,true,15,15,0,a,imm,0,1);}}
+            for a in edges{for b in edges{run(width,sub,false,14,15,0,a,b,0,1);}}
+            for rn in [0,31]{for rm in [1,31]{run(width,sub,false,15,0,15,u64::MAX,u64::MAX,rn,rm);}}
+            run(width,sub,true,15,0,15,u64::MAX,31,31,1);
+        }}
+    }
+
+    #[test]
+    fn conditional_comparison_invalid_fixed_fields_leave_flags_and_registers_intact() {
+        for bit in [29,10,4] {
+            let word=0xfa41000fu32^(1<<bit);let mut cpu=GuestCpuState::reset(0);
+            cpu.x[0]=11;cpu.x[1]=12;cpu.sp=0x9870;cpu.pstate=0xb00003c5;
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word.to_le_bytes())),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+            assert_eq!((cpu.x[0],cpu.x[1],cpu.sp,cpu.pc,cpu.pstate),(11,12,0x9870,0,0xb00003c5));
+            assert_eq!(cpu.sys.esr_el1,0);
+        }
     }
 
     #[test]
