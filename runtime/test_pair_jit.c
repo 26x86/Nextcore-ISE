@@ -58,7 +58,7 @@ int main(void){
         reset(&c);c.x[4]=base+128;memcpy(before,ram,sizeof(ram));
         CHECK(run(&c,invalid[i],ram,sizeof(ram),&code)==VF_UNDEFINED_INSTRUCTION);
         CHECK(c.pc==base && c.retired==0 && c.x[4]==base+128 && !memcmp(before,ram,sizeof(ram)));
-        CHECK(c.esr==0 && c.esr_el[VF_EL1]==0 && c.instruction==invalid[i]);
+        CHECK(c.esr==(1u<<25) && c.esr_el[VF_EL1]==(1u<<25) && c.instruction==invalid[i]);
     }
     /* A saved pair-shaped instruction is not a data-access indication for
        unrelated exception kinds. Unknown ISS remains RES0 in both backends. */

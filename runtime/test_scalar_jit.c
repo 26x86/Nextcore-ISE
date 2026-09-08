@@ -96,7 +96,7 @@ int main(void){
         reset(&c);c.x[3]=base+128;c.x[4]=source;memcpy(before,ram,sizeof(ram));
         uint32_t w=scalar(size,opc,0,3,4)|(vector<<26);
         CHECK(run(&c,w,ram,sizeof(ram),&code)==VF_UNDEFINED_INSTRUCTION);
-        CHECK(c.retired==0 && c.pc==base && c.esr==0 && c.instruction==w);
+        CHECK(c.retired==0 && c.pc==base && c.esr==(1u<<25) && c.instruction==w);
         CHECK(c.x[3]==base+128 && c.x[4]==source && !memcmp(before,ram,sizeof(ram)));
     }
     reset(&c);CHECK(vf_cpu_raise_exception(&c,VF_EXCEPTION_INSTRUCTION_ABORT,base,base,0,scalar(3,0,0,3,4))==0);

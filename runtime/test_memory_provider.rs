@@ -143,7 +143,7 @@ fn missing_second_element_and_invalid_encoding_never_partially_commit() {
     }
     for w in [scalar(3,0,0,1,0)|(1<<26),scalar(3,2,0,1,0),pair(true,true,3,1,0,0,1)] {
         let mut ram=payload(&[w,HLT],256);let before=ram.clone();let(r,_)=run(&mut ram,[BASE+128,BASE+128,0,0],BASE+256,8,0);
-        assert_eq!((r.execution.base.status,r.execution.base.retired,r.data_requests,r.execution.esr),(8,0,0,0));assert_eq!(ram,before);
+        assert_eq!((r.execution.base.status,r.execution.base.retired,r.data_requests,r.execution.esr),(8,0,0,1<<25));assert_eq!(ram,before);
     }
 }
 #[test]
@@ -214,4 +214,24 @@ fn public_entry_rejects_missing_callback_overflow_and_known_alias_before_effects
     let mut result=Run{abi_version:99,..Run::default()};let original=result.abi_version;
     let rc=unsafe{vf_boot_run_memory_v1(BASE,256,BASE,BASE+64,BASE+256,code.0,4096,1,Some(protect),core::ptr::null_mut(),(&result as *const Run).cast(),core::ptr::null(),core::ptr::null(),Some(callback),(&mut owner as *mut u64).cast(),&mut result)};
     assert_eq!((rc,result.abi_version),(4,original));
+}
+
+#[path="ubfm_provider_cases.rs"]mod ubfm_cases;
+#[test]fn ubfm_is_native_with_v1_callbacks_and_preserves_state() {
+    for case in ubfm_cases::cases() {
+        let mut ram=payload(&[case.word,HLT],256);let before=ram.clone();
+        let mut expected=[0xaau64,case.source,8,0xfedcba9876543210];let initial=expected;
+        if case.destination!=31 {expected[case.destination]=case.expected;}
+        let(r,requests)=run(&mut ram,initial,BASE+256,4,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks),(1,2,2));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);assert_eq!((b.pc,r.execution.sp,r.execution.pstate),(BASE+8,BASE+256,0x3c5));
+        assert_eq!((r.provider_status,r.fetch_requests,r.data_requests,r.completed_data_operations),(0,2,0,0));
+        assert_eq!((r.execution.esr,r.guest_far),(0,0));assert!(requests.iter().all(|q|q.operation==FETCH));assert_eq!(ram,before);
+    }
+    for word in ubfm_cases::INVALID {
+        let mut ram=payload(&[word,HLT],256);let before=ram.clone();let initial=[1,2,3,4];
+        let(r,_) =run(&mut ram,initial,BASE+256,4,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,r.fetch_requests),(8,0,1,1));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!((b.pc,r.execution.esr,r.data_requests),(BASE,1<<25,0));assert_eq!(ram,before);
+    }
 }

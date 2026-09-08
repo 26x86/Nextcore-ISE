@@ -139,7 +139,8 @@ static uint32_t exception_syndrome(enum vf_exception_kind kind,
     case VF_EXCEPTION_PRIVILEGED_INSTRUCTION:
         /* The internal privilege class is retained even when the current
          * system-register bank cannot yet provide a more specific ISS. */
-        return VF_ESR_EC_UNKNOWN << 26;
+        /* EC0 requires IL=1 and ISS=0, including A64 decode UNDEFINED. */
+        return (VF_ESR_EC_UNKNOWN << 26) | (UINT32_C(1) << 25);
     case VF_EXCEPTION_TIMER_INTERRUPT:
     case VF_EXCEPTION_EXTERNAL_INTERRUPT:
     case VF_EXCEPTION_FIQ_INTERRUPT:
