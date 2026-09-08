@@ -62,6 +62,9 @@ enum vf_exception_level { VF_EL0 = 0, VF_EL1 = 1, VF_EL2 = 2, VF_EL3 = 3 };
 #define VF_SYSREG_KEY_CNTV_CTL_EL0 UINT32_C(0x5f19)
 #define VF_SYSREG_KEY_CNTV_CVAL_EL0 UINT32_C(0x5f1a)
 #define VF_SYSREG_KEY_CURRENT_EL UINT32_C(0x4212)
+#define VF_SYSREG_KEY_TPIDR_EL0 UINT32_C(0x5e82)
+#define VF_SYSREG_KEY_TPIDRRO_EL0 UINT32_C(0x5e83)
+#define VF_SYSREG_KEY_TPIDR_EL1 UINT32_C(0x4684)
 #define VF_SYSREG_KEY_ID_AA64ISAR1_EL1 UINT32_C(0x4031)
 #define VF_SYSREG_KEY_ID_AA64MMFR0_EL1 UINT32_C(0x4038)
 #define VF_SYSREG_KEY_SCTLR_EL1 UINT32_C(0x4080)
@@ -94,6 +97,7 @@ enum vf_sysreg_result {
     VF_SYSREG_PRIVILEGE = -2,
     VF_SYSREG_READ_ONLY = -3,
     VF_SYSREG_INVALID_VALUE = -4,
+    VF_SYSREG_UNDEFINED = -5,
 };
 
 typedef struct {
@@ -121,6 +125,10 @@ typedef struct {
     uint64_t guest_ram_base, compiled_blocks;
     uint64_t pauth_keys[5][2];
     vf_pauth_step pauth_step;
+    /* Software-owned 64-bit values. Architectural reset is UNKNOWN; this
+     * implementation chooses zero. No FGT/AArch32 register aliases exist in
+     * the bounded AArch64 profile. Kept private, outside the C/Rust ABI. */
+    uint64_t tpidr_el0, tpidrro_el0, tpidr_el1;
 } vf_cpu;
 typedef struct { uint8_t *bytes; size_t capacity, used; } vf_code;
 typedef int (VF_ABI *vf_entry)(vf_cpu *, uint8_t *, uint64_t);

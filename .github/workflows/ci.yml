@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang lld qemu-system-arm
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --all-targets
       - name: ARM architectural reference tests
@@ -20,3 +21,5 @@ jobs:
         run: |
           clang -std=c11 -O2 -Wall -Wextra -Werror -fsanitize=address,undefined runtime/gop_scanout.c runtime/test_gop_scanout.c -o /tmp/gop-test
           /tmp/gop-test
+      - name: Check architectural 4K and 16K upper-address translations
+        run: python3 tools/probe_mmu_granules.py

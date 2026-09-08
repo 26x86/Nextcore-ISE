@@ -150,6 +150,7 @@ pub(crate) struct VfMmu {
     pub(crate) tcr_t1sz: u8,
     pub(crate) asid: u16,
     pub(crate) granule: Granule,
+    walk_disabled: [bool; 2],
     tlb: [TlbEntry; TLB_ENTRIES],
     next: usize,
 }
@@ -164,6 +165,7 @@ impl VfMmu {
             tcr_t1sz: 0,
             asid: 0,
             granule: Granule::FourKiB,
+            walk_disabled: [false; 2],
             tlb: [TLB_ENTRY; TLB_ENTRIES],
             next: 0,
         }
@@ -180,7 +182,7 @@ impl VfMmu {
     ///
     /// `tcr` is intentionally passed as a value rather than exposing the
     /// complete control register to this module.  The bounded implementation
-    /// consumes TG0, T0SZ, TG1, T1SZ and EPD1; cacheability/shareability bits
+    /// consumes TG0, T0SZ, TG1, T1SZ and EPD0/EPD1; cacheability/shareability bits
     /// stay in the architectural register bank until the memory-attribute
     /// phase has a backing cache model.
     pub(crate) fn configure_tcr(
@@ -199,17 +201,30 @@ impl VfMmu {
             2 => Granule::SixteenKiB,
             _ => return false,
         };
-        // A single granule is used for both VA halves in this compact stage-1
-        // walker.  A real M1 TCR uses matching 16 KiB TG0/TG1 encodings.
-        if tg1 != tg0 && t1sz != 0 {
+        // TG0 and TG1 do not share an encoding: TG0=10 and TG1=01
+        // both select 16 KiB; TG0=00 and TG1=10 both select 4 KiB.
+        // Keep the single-granule bounded model explicit for both VA halves.
+        // TBI translation is not modeled: accepting it would silently use
+        // different addresses from the configured architectural regime.
+        if tcr & ((1u64 << 37) | (1u64 << 38)) != 0 {
             return false;
+        }
+        if t1sz != 0 {
+            let upper_granule = match tg1 {
+                1 => Granule::SixteenKiB,
+                2 => Granule::FourKiB,
+                _ => return false,
+            };
+            if upper_granule != granule {
+                return false;
+            }
         }
         if granule.start_level(t0sz).is_none()
             || ttbr0 & (granule.root_alignment() - 1) != 0
         {
             return false;
         }
-        let ttbr1_enabled = t1sz != 0 && tcr & (1 << 23) == 0;
+        let ttbr1_enabled = t1sz != 0;
         if ttbr1_enabled
             && (granule.start_level(t1sz).is_none()
                 || ttbr1 & (granule.root_alignment() - 1) != 0)
@@ -223,6 +238,7 @@ impl VfMmu {
         self.tcr_t1sz = if ttbr1_enabled { t1sz } else { 0 };
         self.asid = asid;
         self.granule = granule;
+        self.walk_disabled = [tcr & (1 << 7) != 0, tcr & (1 << 23) != 0];
         self.invalidate();
         true
     }
@@ -241,18 +257,18 @@ impl VfMmu {
         self.select_root(va).is_some()
     }
 
-    fn select_root(&self, va: u64) -> Option<(u64, u8)> {
+    fn select_root(&self, va: u64) -> Option<(u64, u8, bool)> {
         if self.granule.start_level(self.tcr_t0sz).is_some()
             && va >> (64 - u32::from(self.tcr_t0sz)) == 0
         {
-            return Some((self.ttbr0, self.tcr_t0sz));
+            return Some((self.ttbr0, self.tcr_t0sz, self.walk_disabled[0]));
         }
         if self.tcr_t1sz != 0
             && self.granule.start_level(self.tcr_t1sz).is_some()
             && va >> (64 - u32::from(self.tcr_t1sz))
                 == (1u64 << self.tcr_t1sz) - 1
         {
-            return Some((self.ttbr1, self.tcr_t1sz));
+            return Some((self.ttbr1, self.tcr_t1sz, self.walk_disabled[1]));
         }
         None
     }
@@ -344,7 +360,7 @@ impl VfMmu {
         Ok((writable, user_accessible, executable_el0, executable_privileged))
     }
 
-    /// Translate a VA through TTBR0. `read64` reads guest physical memory,
+    /// Translate a VA through the selected TTBR0/TTBR1 range. `read64` reads guest physical memory,
     /// not host memory; returning `None` is a translation fault.
     pub(crate) fn translate<F>(
         &mut self,
@@ -374,7 +390,12 @@ impl VfMmu {
             return Ok(hit);
         }
 
-        let (root, tsz) = self.select_root(va).ok_or(Fault::AddressSize)?;
+        let (root, tsz, walk_disabled) = self.select_root(va).ok_or(Fault::AddressSize)?;
+        // EPD inhibits a table walk on a TLB miss, not canonical-address
+        // recognition. A matching TLB entry was considered above.
+        if walk_disabled {
+            return Err(Fault::Translation);
+        }
         let start_level = self
             .granule
             .start_level(tsz)
@@ -620,7 +641,7 @@ mod tests {
     #[test]
     fn upper_canonical_addresses_use_ttbr1_and_asid_tlb() {
         let mut mmu = VfMmu::disabled();
-        let tcr = 25u64 | (25u64 << 16); // matching 4 KiB TG0/TG1
+        let tcr = 25u64 | (25u64 << 16) | (2u64 << 30); // 4 KiB TG0=00, TG1=10
         assert!(mmu.configure_tcr(0x1000, 0x2000, tcr, 9));
         let upper = (!0u64) << 39;
         let entries = [(0x2000, 0xc000_0441)]; // 1 GiB-aligned L1 block
@@ -704,4 +725,57 @@ mod tests {
             Err(Fault::Permission)
         );
     }
+
+    #[test]
+    fn sixteen_kib_upper_page_uses_distinct_tg1_encoding() {
+        let mut mmu = VfMmu::disabled();
+        let tcr = 28 | (28 << 16) | (2 << 14) | (1 << 30);
+        assert!(mmu.configure_tcr(0x4000, 0x8000, tcr, 3));
+        let upper = u64::MAX << 36;
+        let descriptors = [(0x8000, 0xc003), (0xc000, 0x8000_0443)];
+        let mapped = mmu.translate(upper + 0x1234, Access::Read, ExceptionLevel::El1,
+            |a| read_page(&descriptors, a)).unwrap();
+        assert_eq!(mapped.pa, 0x8000_1234);
+        assert_eq!(mapped.page_shift, 14);
+        assert_eq!(mmu.translate(upper + 0x1234, Access::Read, ExceptionLevel::El1,
+            |_| panic!("expected cached translation")).unwrap(), mapped);
+    }
+
+    #[test]
+    fn disabled_walk_is_translation_fault_without_reading_descriptors() {
+        let tcr = 25 | (25 << 16) | (2 << 30);
+        let upper = u64::MAX << 39;
+        for (disable, blocked, allowed, root) in [(1 << 7, 0, upper, 0x2000),
+                                                (1 << 23, upper, 0, 0x1000)] {
+            let mut mmu = VfMmu::disabled();
+            assert!(mmu.configure_tcr(0x1000, 0x2000, tcr | disable, 0));
+            assert_eq!(mmu.translate(blocked, Access::Read, ExceptionLevel::El1,
+                |_| panic!("disabled walk accessed a descriptor")), Err(Fault::Translation));
+            assert_eq!(mmu.translate(1 << 48, Access::Read, ExceptionLevel::El1,
+                |_| panic!("noncanonical address accessed a descriptor")), Err(Fault::AddressSize));
+            assert_eq!(mmu.translate(allowed, Access::Read, ExceptionLevel::El1,
+                |a| if a == root { Some(0x8000_0441) } else { None }).unwrap().pa, 0x8000_0000);
+        }
+    }
+
+    #[test]
+    fn rejected_tcr_preserves_previous_configuration_and_cached_mapping() {
+        let mut mmu = VfMmu::disabled();
+        let good = 25 | (25 << 16) | (2 << 30);
+        assert!(mmu.configure_tcr(0x1000, 0x2000, good, 9));
+        let upper = u64::MAX << 39;
+        let expected = mmu.translate(upper + 4, Access::Read, ExceptionLevel::El1,
+            |a| if a == 0x2000 { Some(0xc000_0441) } else { None }).unwrap();
+        // Reserved TG1, unsupported 64 KiB, mixed granules, TBI0 and TBI1.
+        for bad in [good & !(3 << 30), good | (1 << 30),
+                    (good & !(3 << 30)) | (1 << 30), good | (1 << 37), good | (1 << 38)] {
+            assert!(!mmu.configure_tcr(0x3000, 0x4000, bad, 12));
+            assert_eq!(mmu.asid, 9);
+            assert_eq!(mmu.translate(upper + 4, Access::Read, ExceptionLevel::El1,
+                |_| panic!("failed configure must preserve the TLB")).unwrap(), expected);
+        }
+        assert!(!mmu.configure_tcr(0x1001, 0x2000, good, 9));
+        assert!(!mmu.configure_tcr(0x1000, 0x2001, good, 9));
+    }
+
 }

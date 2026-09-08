@@ -14,6 +14,8 @@ static void clear(void *memory, size_t bytes) {
 
 static int sysreg_min_el(uint32_t key) {
     switch (key) {
+    case VF_SYSREG_KEY_TPIDR_EL0:
+    case VF_SYSREG_KEY_TPIDRRO_EL0:
     case VF_SYSREG_KEY_CNTFRQ_EL0:
     case VF_SYSREG_KEY_CNTPCT_EL0:
     case VF_SYSREG_KEY_CNTVCT_EL0:
@@ -25,6 +27,7 @@ static int sysreg_min_el(uint32_t key) {
     case VF_SYSREG_KEY_CURRENT_EL:
         return VF_EL0;
     case VF_SYSREG_KEY_ID_AA64ISAR1_EL1:
+    case VF_SYSREG_KEY_TPIDR_EL1:
     case VF_SYSREG_KEY_ID_AA64MMFR0_EL1:
     case VF_SYSREG_KEY_SCTLR_EL1:
     case VF_SYSREG_KEY_TTBR0_EL1:
@@ -315,8 +318,12 @@ int vf_cpu_read_sysreg(const vf_cpu *cpu, uint32_t key, uint64_t *value) {
     if (!cpu || !value || !vf_cpu_state_valid(cpu)) return VF_SYSREG_INVALID_VALUE;
     minimum = sysreg_min_el(key);
     if (minimum < 0) return VF_SYSREG_UNKNOWN;
-    if ((int)cpu->current_el < minimum) return VF_SYSREG_PRIVILEGE;
+    if ((int)cpu->current_el < minimum)
+        return key == VF_SYSREG_KEY_TPIDR_EL1 ? VF_SYSREG_UNDEFINED : VF_SYSREG_PRIVILEGE;
     switch (key) {
+    case VF_SYSREG_KEY_TPIDR_EL0: *value = cpu->tpidr_el0; break;
+    case VF_SYSREG_KEY_TPIDRRO_EL0: *value = cpu->tpidrro_el0; break;
+    case VF_SYSREG_KEY_TPIDR_EL1: *value = cpu->tpidr_el1; break;
     case VF_SYSREG_KEY_CNTFRQ_EL0: *value = cpu->cntfrq; break;
     case VF_SYSREG_KEY_CNTPCT_EL0: *value = cpu->cntpct; break;
     case VF_SYSREG_KEY_CNTVCT_EL0: *value = cpu->cntvct; break;
@@ -361,8 +368,14 @@ int vf_cpu_write_sysreg(vf_cpu *cpu, uint32_t key, uint64_t value) {
     if (!cpu || !vf_cpu_state_valid(cpu)) return VF_SYSREG_INVALID_VALUE;
     minimum = sysreg_min_el(key);
     if (minimum < 0) return VF_SYSREG_UNKNOWN;
-    if ((int)cpu->current_el < minimum) return VF_SYSREG_PRIVILEGE;
+    if ((int)cpu->current_el < minimum)
+        return key == VF_SYSREG_KEY_TPIDR_EL1 ? VF_SYSREG_UNDEFINED : VF_SYSREG_PRIVILEGE;
     switch (key) {
+    case VF_SYSREG_KEY_TPIDR_EL0: cpu->tpidr_el0 = value; break;
+    case VF_SYSREG_KEY_TPIDRRO_EL0:
+        if (cpu->current_el == VF_EL0) return VF_SYSREG_UNDEFINED;
+        cpu->tpidrro_el0 = value; break;
+    case VF_SYSREG_KEY_TPIDR_EL1: cpu->tpidr_el1 = value; break;
     case VF_SYSREG_KEY_CNTFRQ_EL0:
     case VF_SYSREG_KEY_CNTPCT_EL0:
     case VF_SYSREG_KEY_CNTVCT_EL0:

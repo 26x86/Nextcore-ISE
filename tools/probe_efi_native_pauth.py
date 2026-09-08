@@ -27,7 +27,10 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
     sources = [runtime / name for name in (
         "jit.c", "jit.h", "arch.c", "boot_jit.c", "boot_jit.h",
         "test_jit.c", "test_boot_jit.c", "test_pauth_jit.c", "test_flags_jit.c",
-        "preos/src/pauth.rs",
+        "test_thread_jit.c",
+        "abi_layout.c", "preos_abi.h", "preos/src/pauth.rs",
+        "preos/src/lib.rs", "preos/src/arch.rs", "preos/src/mmu.rs",
+        "preos/src/m1.rs", "preos/src/machine.rs", "preos/src/vmapple.rs",
     )]
     for path in sources:
         if not path.is_file():
@@ -57,6 +60,7 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
         for name, needs_boot, needs_pauth in (
             ("test_jit", False, False), ("test_boot_jit", True, False),
             ("test_pauth_jit", True, True), ("test_flags_jit", True, False),
+            ("test_thread_jit", True, False),
         ):
             executable = temporary / name
             command = [clang, "-std=c11", "-D_GNU_SOURCE", "-O2", "-Wall", "-Wextra",
@@ -77,16 +81,33 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
         run([rustc, "--edition=2021", "--test", str(runtime / "preos/src/pauth.rs"),
              "-o", str(primitive_tests)])
         run([str(primitive_tests)])
+        # vf_cpu stays C-private. Compare the actual exported C/Rust ABI,
+        # rather than introducing a second private CPU layout to maintain.
+        layout = temporary / "abi_layout"
+        run([clang, "-std=c11", "-Wall", "-Wextra", "-Werror",
+             str(runtime / "abi_layout.c"), "-o", str(layout)])
+        c_layout = json.loads(run([str(layout)]))
+        reference_tests = temporary / "reference_tests"
+        run([rustc, "--edition=2021", "--test", str(runtime / "preos/src/lib.rs"),
+             "-o", str(reference_tests)])
+        reference_output = run([str(reference_tests), "--nocapture"])
+        rust_layouts = [json.loads(line.split("VF_ABI_LAYOUT ", 1)[1])
+                       for line in reference_output.splitlines() if "VF_ABI_LAYOUT " in line]
+        if rust_layouts != [c_layout]:
+            raise RuntimeError(f"C/Rust ABI mismatch: C={c_layout!r}, Rust={rust_layouts!r}")
     return {
         "schema": "nextcore.efi-native-pauth-proof/1", "passed": True,
         "host": {"system": platform.system(), "machine": platform.machine()},
         "compiler_versions": {"clang": run([clang, "--version"]).splitlines()[0],
                               "rustc": run([rustc, "--version"]).strip()},
         "runtime_sources": {str(path.relative_to(runtime)): digest(path) for path in sources},
-        "tests": tests, "commands": records, "macos_boot_verified": False,
-        "scope": "Native x86_64 C JIT, NZCV/branches, explicit registers, nonzero physical RAM, QARMA5 callback and W^X",
+        "tests": tests, "c_rust_abi": {"passed": True, "values": c_layout},
+        "reference_tests_passed": True,
+        "commands": records, "macos_boot_verified": False,
+        "scope": "Native x86_64 C JIT, NZCV/branches, TPIDR thread registers, explicit registers, nonzero physical RAM, QARMA5 callback and W^X",
         "limitations": ["EL1 PAuth, 48-bit address ranges, TBI disabled",
                         "C JIT stops when the guest enables its MMU",
+                        "Thread registers use baseline AArch64 access rules; FGT and AArch32 aliases absent",
                         "PACGA and enhanced PAuth instruction features unadvertised"],
     }
 

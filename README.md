@@ -26,3 +26,10 @@ branches, and the boot bridge accepts explicit initial argument registers. Guest
 enablement is still a native-JIT boundary. Synthetic PAC execution and GOP
 readback establish component behavior; they do not establish macOS boot or Metal
 hardware acceleration. Previous release metadata is retained in `repository.json`.
+
+
+Thread-pointer MRS/MSR executes natively for the documented baseline EL regime;
+see `docs/EFI_THREAD_REGISTERS.md`. The reference MMU now decodes TG0/TG1
+separately and preserves disabled-walk faults. `python3 tools/probe_mmu_granules.py`
+checks independently authored 4 KiB and 16 KiB TTBR1 translations in QEMU's CPU
+model. This does not enable native-JIT MMU translation.

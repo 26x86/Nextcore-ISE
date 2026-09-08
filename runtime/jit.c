@@ -74,8 +74,8 @@ static int sysreg_el0_visible(uint32_t key) {
     case 0x5802: /* DCZID_EL0 */
     case 0x5a20: /* FPCR */
     case 0x5a21: /* FPSR */
-    case 0x5e82: /* TPIDR_EL0 */
-    case 0x5e83: /* TPIDRRO_EL0 */
+    case VF_SYSREG_KEY_TPIDR_EL0:
+    case VF_SYSREG_KEY_TPIDRRO_EL0:
     case VF_SYSREG_KEY_CNTFRQ_EL0:
     case VF_SYSREG_KEY_CNTPCT_EL0:
     case VF_SYSREG_KEY_CNTVCT_EL0:
@@ -116,6 +116,15 @@ static int is_mrs_msr(uint32_t w) {
            (w & 0xffe00000) == 0xd5000000;
 }
 
+static unsigned thread_offset(uint32_t key) {
+    switch (key) {
+    case VF_SYSREG_KEY_TPIDR_EL0: return offsetof(vf_cpu,tpidr_el0);
+    case VF_SYSREG_KEY_TPIDRRO_EL0: return offsetof(vf_cpu,tpidrro_el0);
+    case VF_SYSREG_KEY_TPIDR_EL1: return offsetof(vf_cpu,tpidr_el1);
+    default: return 0;
+    }
+}
+
 static int known_privileged(uint32_t w, uint32_t current_el) {
     /* ERET is legal only at an exception level that owns an exception bank;
      * EL1+ is still a system-register phase boundary until SPSR/ELR reads are
@@ -151,7 +160,23 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
     for(unsigned n=0;n<limit;n++,pc+=4) {
         if((pc&3) || size<4 || pc<base || pc-base>size-4 || pc>UINT64_MAX-4) { finish(c,pc,n,VF_INSTRUCTION_ABORT);break; }
         uint32_t w=word(guest+(pc-base)); unsigned rd=w&31,rn=(w>>5)&31,wide=w>>31;
-        if((w&0x7f800000)==0x52800000 || (w&0x7f800000)==0x72800000 || (w&0x7f800000)==0x12800000) {
+        unsigned thread = is_mrs_msr(w) ? thread_offset(sysreg_key(w)) : 0;
+        if(thread) {
+            int read = (w & 0x00200000) != 0;
+            if(current_el==VF_EL0 && (sysreg_key(w)==VF_SYSREG_KEY_TPIDR_EL1 ||
+                (!read && sysreg_key(w)==VF_SYSREG_KEY_TPIDRRO_EL0))) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            /* These software thread values have no hardware side effects.
+             * Rt31 is XZR for both directions, never SP. No helper/callback
+             * or native TLS register is involved. Guest NZCV stays intact. */
+            if(read) {
+                b(c,0x48);b(c,0x8b);b(c,0x81);u32(c,thread);save(c,rd,0);
+            } else {
+                load(c,rd,0,1);b(c,0x48);b(c,0x89);b(c,0x81);u32(c,thread);
+            }
+        } else if((w&0x7f800000)==0x52800000 || (w&0x7f800000)==0x72800000 || (w&0x7f800000)==0x12800000) {
             unsigned shift=((w>>21)&3)*16; uint64_t v=(uint64_t)((w>>5)&65535)<<shift;
             if(!wide && shift>=32) {
                 field32(c,offsetof(vf_cpu,instruction),w);

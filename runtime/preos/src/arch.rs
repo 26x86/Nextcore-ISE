@@ -291,6 +291,7 @@ impl ExceptionLevel {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SysRegFault {
+    Undefined,
     Privilege,
     Unknown,
     ReadOnly,
@@ -334,6 +335,9 @@ pub(crate) enum SystemRegister {
     FarEl3 = 32,
     ElrEl3 = 33,
     SpsrEl3 = 34,
+    TpidrEl0 = 35,
+    TpidrroEl0 = 36,
+    TpidrEl1 = 37,
 }
 
 impl SystemRegister {
@@ -342,6 +346,9 @@ impl SystemRegister {
     /// the access direction is decided by the instruction decoder.
     fn from_instruction(word: u32) -> Option<Self> {
         match word & !31 {
+            0xd53b_d040 | 0xd51b_d040 => Some(Self::TpidrEl0),
+            0xd53b_d060 | 0xd51b_d060 => Some(Self::TpidrroEl0),
+            0xd538_d080 | 0xd518_d080 => Some(Self::TpidrEl1),
             0xd538_1000 | 0xd518_1000 => Some(Self::SctlrEl1),
             0xd538_2000 | 0xd518_2000 => Some(Self::Ttbr0El1),
             0xd538_2020 | 0xd518_2020 => Some(Self::Ttbr1El1),
@@ -382,6 +389,7 @@ impl SystemRegister {
 
     fn minimum_el(self) -> ExceptionLevel {
         match self {
+            Self::TpidrEl0 | Self::TpidrroEl0 => ExceptionLevel::El0,
             Self::CntfrqEl0
             | Self::CntpctEl0
             | Self::CntpCtlEl0
@@ -412,6 +420,9 @@ impl SystemRegister {
 
 #[derive(Clone, Copy)]
 pub(crate) struct SystemRegisters {
+    pub(crate) tpidr_el0: u64,
+    pub(crate) tpidrro_el0: u64,
+    pub(crate) tpidr_el1: u64,
     pub(crate) sctlr_el1: u64,
     pub(crate) ttbr0_el1: u64,
     pub(crate) ttbr1_el1: u64,
@@ -450,6 +461,12 @@ pub(crate) struct SystemRegisters {
 impl SystemRegisters {
     pub(crate) const fn reset() -> Self {
         Self {
+            // Architectural reset is UNKNOWN. Choose deterministic zero, as
+            // in the C bank; these software values are not memory addresses
+            // interpreted by the PE. FGT/AArch32 aliases are not implemented.
+            tpidr_el0: 0,
+            tpidrro_el0: 0,
+            tpidr_el1: 0,
             sctlr_el1: 0,
             ttbr0_el1: 0,
             ttbr1_el1: 0,
@@ -820,10 +837,16 @@ impl GuestCpuState {
     }
 
     pub(crate) fn read_sysreg(&mut self, reg: SystemRegister) -> Result<u64, SysRegFault> {
+        if reg == SystemRegister::TpidrEl1 && self.current_el == ExceptionLevel::El0 {
+            return Err(SysRegFault::Undefined);
+        }
         if (self.current_el as u8) < reg.minimum_el() as u8 {
             return Err(SysRegFault::Privilege);
         }
         match reg {
+            SystemRegister::TpidrEl0 => Ok(self.sys.tpidr_el0),
+            SystemRegister::TpidrroEl0 => Ok(self.sys.tpidrro_el0),
+            SystemRegister::TpidrEl1 => Ok(self.sys.tpidr_el1),
             SystemRegister::SctlrEl1 => Ok(self.sys.sctlr_el1),
             SystemRegister::Ttbr0El1 => Ok(self.sys.ttbr0_el1),
             SystemRegister::Ttbr1El1 => Ok(self.sys.ttbr1_el1),
@@ -866,10 +889,18 @@ impl GuestCpuState {
         reg: SystemRegister,
         value: u64,
     ) -> Result<(), SysRegFault> {
+        if self.current_el == ExceptionLevel::El0
+            && matches!(reg, SystemRegister::TpidrEl1 | SystemRegister::TpidrroEl0)
+        {
+            return Err(SysRegFault::Undefined);
+        }
         if (self.current_el as u8) < reg.minimum_el() as u8 {
             return Err(SysRegFault::Privilege);
         }
         match reg {
+            SystemRegister::TpidrEl0 => self.sys.tpidr_el0 = value,
+            SystemRegister::TpidrroEl0 => self.sys.tpidrro_el0 = value,
+            SystemRegister::TpidrEl1 => self.sys.tpidr_el1 = value,
             SystemRegister::SctlrEl1 => {
                 let old = self.sys.sctlr_el1;
                 self.sys.sctlr_el1 = value;
@@ -1445,7 +1476,9 @@ impl GuestCpuState {
                 self.write_sysreg(reg, value)
             };
             if let Err(fault) = result {
-                let kind = if fault == SysRegFault::Privilege {
+                let kind = if fault == SysRegFault::Undefined {
+                    ExceptionKind::UndefinedInstruction
+                } else if fault == SysRegFault::Privilege {
                     ExceptionKind::PrivilegedInstruction
                 } else {
                     ExceptionKind::SystemRegisterTrap
@@ -1910,6 +1943,85 @@ fn write_width(memory: &mut [u8], index: usize, width: usize, value: u64) -> boo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn thread_instruction(read: bool, op1: u32, op2: u32, rt: u32) -> u32 {
+        (if read { 0xd5200000 } else { 0xd5000000 })
+            | (3 << 19) | (op1 << 16) | (13 << 12) | (op2 << 5) | rt
+    }
+
+    #[test]
+    fn thread_register_access_matrix_matches_baseline_aarch64() {
+        let regs = [(SystemRegister::TpidrEl0, 3, 2),
+                    (SystemRegister::TpidrroEl0, 3, 3),
+                    (SystemRegister::TpidrEl1, 0, 4)];
+        for el in 0..4 {
+            for (reg, op1, op2) in regs {
+                let mut cpu = GuestCpuState::reset(0);
+                assert_eq!(cpu.read_sysreg(reg), Ok(0));
+                assert!(cpu.set_exception_level(el));
+                let readable = el != 0 || reg != SystemRegister::TpidrEl1;
+                let writable = el != 0 || reg == SystemRegister::TpidrEl0;
+                for value in [0, 1, u64::MAX, 1 << 63, 0xfedc_ba98_7654_3210] {
+                    let result = cpu.write_sysreg(reg, value);
+                    assert_eq!(result, if writable { Ok(()) } else { Err(SysRegFault::Undefined) });
+                    assert_eq!(cpu.read_sysreg(reg), if readable {
+                        Ok(if writable { value } else { 0 })
+                    } else { Err(SysRegFault::Undefined) });
+                }
+                for read in [false, true] {
+                    let mut cpu = GuestCpuState::reset(0);
+                    cpu.write_sysreg(reg, 0x8877_6655_4433_2211).unwrap();
+                    assert!(cpu.set_exception_level(el));
+                    cpu.x[7] = 0xfedc_ba98_7654_3210;
+                    cpu.sp = 0x9876;
+                    cpu.pstate |= 0xa00003c0;
+                    let pstate = cpu.pstate;
+                    let word = thread_instruction(read, op1, op2, 7);
+                    assert_eq!(SystemRegister::from_instruction(word), Some(reg));
+                    let mut bytes = word.to_le_bytes();
+                    let allowed = if read { readable } else { writable };
+                    let result = cpu.execute_one(&mut RamBus::new(&mut bytes));
+                    assert_eq!(result, if allowed { StepResult::Continue }
+                        else { StepResult::Exception(ExceptionKind::UndefinedInstruction) });
+                    assert_eq!(cpu.pc, if allowed { 4 } else { 0 });
+                    assert_eq!(cpu.sp, 0x9876);
+                    assert_eq!(cpu.pstate, pstate);
+                    if allowed && read { assert_eq!(cpu.x[7], 0x8877_6655_4433_2211); }
+                    if allowed && !read { assert_eq!(cpu.read_sysreg(reg), Ok(cpu.x[7])); }
+                    if !allowed {
+                        assert_eq!(cpu.pending_exception.unwrap().kind, ExceptionKind::UndefinedInstruction);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn thread_values_survive_el_change_and_xzr_never_aliases_sp() {
+        let mut cpu = GuestCpuState::reset(0);
+        cpu.sp = 0x9876;
+        cpu.write_sysreg(SystemRegister::TpidrroEl0, u64::MAX).unwrap();
+        assert!(cpu.set_exception_level(0));
+        assert_eq!(cpu.read_sysreg(SystemRegister::TpidrroEl0), Ok(u64::MAX));
+        assert!(cpu.set_exception_level(1));
+        let saved_sp = cpu.sp;
+        let mut discard = thread_instruction(true, 3, 3, 31).to_le_bytes();
+        assert_eq!(cpu.execute_one(&mut RamBus::new(&mut discard)), StepResult::Continue);
+        assert_eq!(cpu.read_sysreg(SystemRegister::TpidrroEl0), Ok(u64::MAX));
+        cpu.pc = 0;
+        let mut zero = thread_instruction(false, 3, 3, 31).to_le_bytes();
+        assert_eq!(cpu.execute_one(&mut RamBus::new(&mut zero)), StepResult::Continue);
+        assert_eq!(cpu.read_sysreg(SystemRegister::TpidrroEl0), Ok(0));
+        assert_eq!(cpu.sp, saved_sp);
+        assert_eq!(GuestCpuState::reset(1).sys.tpidrro_el0, 0);
+        for (op1, op2) in [(0, 1), (3, 5), (0, 7)] {
+            cpu.pc = 0;
+            let mut unknown = thread_instruction(true, op1, op2, 0).to_le_bytes();
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut unknown)),
+                StepResult::Exception(ExceptionKind::SystemRegisterTrap));
+            assert_eq!(cpu.pc, 0);
+        }
+    }
 
     fn movz(rd: u32, immediate: u32) -> u32 {
         0xd2800000 | ((immediate & 0xffff) << 5) | rd
