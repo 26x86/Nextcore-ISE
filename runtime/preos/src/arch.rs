@@ -38,6 +38,10 @@ pub(crate) trait GuestBus {
         access: Access,
     ) -> Result<(), ExceptionKind>;
 
+    /// Pair operations require RAM preflight before either transfer. A bus
+    /// with MMIO must explicitly opt in; scalar accesses are not a preflight.
+    fn pair_ram(&mut self) -> Option<(&mut [u8], u64)> { None }
+
     /// Device graphs use this hook to observe an architecturally committed
     /// instruction.  The default RAM bus has no device clock to update.
     fn after_instruction(&mut self, _state: &mut GuestCpuState) {}
@@ -55,6 +59,7 @@ impl<'a> RamBus<'a> {
 }
 
 impl GuestBus for RamBus<'_> {
+    fn pair_ram(&mut self) -> Option<(&mut [u8], u64)> { Some((self.ram, self.base)) }
     fn load_code(&mut self, code: &[u8]) -> bool {
         if code.len() > self.ram.len() {
             return false;
@@ -144,6 +149,7 @@ pub(crate) enum ExceptionKind {
     GuestHalt = 11,
     SupervisorCall = 12,
     FiqInterrupt = 13,
+    SpAlignmentFault = 14,
 }
 
 const ESR_EC_UNKNOWN: u64 = 0x00;
@@ -166,6 +172,7 @@ fn encoded_ec(syndrome: u64) -> u64 {
 
 fn expected_ec(kind: ExceptionKind, source_el: ExceptionLevel) -> Option<u64> {
     match kind {
+        ExceptionKind::SpAlignmentFault => Some(0x26),
         ExceptionKind::SupervisorCall => Some(ESR_EC_SVC64),
         ExceptionKind::SystemRegisterTrap => Some(ESR_EC_SYSREG),
         ExceptionKind::InstructionAbort => Some(if source_el == ExceptionLevel::El0 {
@@ -200,6 +207,7 @@ fn exception_syndrome(
         }
     }
     match kind {
+        ExceptionKind::SpAlignmentFault => (0x26 << 26) | (1 << 25),
         ExceptionKind::SupervisorCall => {
             (ESR_EC_SVC64 << 26) | (supplied & 0xffff)
         }
@@ -1173,6 +1181,61 @@ impl GuestCpuState {
             .map_err(|_| ExceptionKind::InstructionAbort)
     }
 
+    fn pair_memory<B: GuestBus>(&mut self, bus: &mut B, word: u32)
+        -> Result<(), (ExceptionKind, u64)> {
+        let (opc, mode, load) = (word >> 30, (word >> 23) & 3, word & (1 << 22) != 0);
+        let (rt, rn, rt2) = (word & 31, (word >> 5) & 31, (word >> 10) & 31);
+        let wback = mode != 2;
+        if word & (1 << 26) != 0 || !matches!(opc, 0 | 2) || mode == 0 ||
+            (wback && rn != 31 && (rn == rt || rn == rt2)) || (load && rt == rt2) {
+            return Err((ExceptionKind::UndefinedInstruction, self.pc));
+        }
+        let endian = if self.current_el == ExceptionLevel::El0 { 24 } else { 25 };
+        if self.current_el as u8 > ExceptionLevel::El1 as u8 || self.mmu.enabled ||
+            self.sys.sctlr_el1 & (SCTLR_M | (1 << endian)) != 0 ||
+            self.sys.hcr_el2 != 0 || self.sys.scr_el3 != 0 {
+            return Err((ExceptionKind::SystemRegisterTrap, self.pc));
+        }
+        let size = if opc == 2 { 8usize } else { 4 };
+        let raw_base = self.read_reg(rn, true);
+        let sa = if self.current_el == ExceptionLevel::El0 { 16 } else { 8 };
+        if rn == 31 && self.sys.sctlr_el1 & sa != 0 && raw_base & 15 != 0 {
+            return Err((ExceptionKind::SpAlignmentFault, raw_base));
+        }
+        let signed_imm = (((word >> 15) & 127) as i8) << 1 >> 1;
+        let offset = (i64::from(signed_imm) * size as i64) as u64;
+        let updated_base = raw_base.wrapping_add(offset);
+        let address = if mode == 1 { raw_base } else { updated_base };
+        if self.sys.sctlr_el1 & SCTLR_A != 0 && address & (size as u64 - 1) != 0 {
+            return Err((ExceptionKind::AlignmentFault, address));
+        }
+        let source = [self.read_reg(rt, false), self.read_reg(rt2, false)];
+        let (ram, base) = bus.pair_ram().ok_or((ExceptionKind::SystemRegisterTrap, self.pc))?;
+        let mut indices = [0usize; 2];
+        for (element, index) in indices.iter_mut().enumerate() {
+            let at = address.checked_add((element * size) as u64)
+                .ok_or((ExceptionKind::DataAbort, address.wrapping_add(size as u64)))?;
+            *index = at.checked_sub(base).and_then(|v| usize::try_from(v).ok())
+                .filter(|v| ram.len() >= size && *v <= ram.len() - size)
+                .ok_or((ExceptionKind::DataAbort, at))?;
+        }
+        if load {
+            let values = [read_width(ram, indices[0], size).unwrap(),
+                          read_width(ram, indices[1], size).unwrap()];
+            self.write_reg(rt, values[0], false, size == 8);
+            self.write_reg(rt2, values[1], false, size == 8);
+        } else {
+            for element in 0..2 {
+                let written = write_width(ram, indices[element], size, source[element]);
+                debug_assert!(written);
+                self.exclusive.clear_on_store(address + (element * size) as u64, size as u8);
+            }
+        }
+        if wback { self.write_reg(rn, updated_base, true, true); }
+        self.pc = self.pc.wrapping_add(4);
+        Ok(())
+    }
+
     fn read_reg(&self, index: u32, sp_allowed: bool) -> u64 {
         if index == 31 {
             if sp_allowed {
@@ -1630,6 +1693,26 @@ impl GuestCpuState {
             return StepResult::Continue;
         }
 
+        if word & 0x3a000000 == 0x28000000 {
+            return match self.pair_memory(bus, word) {
+                Ok(()) => StepResult::Continue,
+                Err((kind, far)) => {
+                    let mut syndrome = match kind {
+                        ExceptionKind::DataAbort | ExceptionKind::AlignmentFault => {
+                            let fsc = if kind == ExceptionKind::AlignmentFault { ESR_FSC_ALIGNMENT }
+                                else { ESR_FSC_TRANSLATION_L3 };
+                            (expected_ec(kind, self.current_el).unwrap() << 26) | (1 << 25) | fsc |
+                                if word & (1 << 22) == 0 { ESR_ISS_WNR } else { 0 }
+                        }
+                        _ => word as u64,
+                    };
+                    if kind == ExceptionKind::SpAlignmentFault { syndrome = (0x26 << 26) | (1 << 25); }
+                    self.raise(GuestException { kind, instruction: word, syndrome, far, pc });
+                    StepResult::Exception(kind)
+                }
+            };
+        }
+
         // Unsigned-immediate LDR/STR for byte, halfword, word, and X forms.
         if word & 0x3b000000 == 0x39000000 {
             let size_code = (word >> 30) & 3;
@@ -2008,6 +2091,116 @@ fn write_width(memory: &mut [u8], index: usize, width: usize, value: u64) -> boo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn pair_word(bytes: usize, read: bool, mode: u32, displacement: i32,
+                 rn: u32, rt: u32, rt2: u32) -> u32 {
+        0x28000000 | if bytes == 8 { 1 << 31 } else { 0 } | (mode << 23) |
+            (u32::from(read) << 22) | ((displacement as u32 & 127) << 15) |
+            (rt2 << 10) | (rn << 5) | rt
+    }
+
+    #[test]
+    fn integer_pair_modes_match_independent_byte_memory() {
+        let base = 0x80000000u64;
+        for bytes in [4usize,8] { for read in [false,true] { for mode in 1..=3 {
+        for displacement in -64..64 { for rn in [3,31] {
+            let mut ram=[0u8;4096];
+            for (at, byte) in ram.iter_mut().enumerate() { *byte=(at*37+19) as u8; }
+            let mut cpu=GuestCpuState::reset(0);
+            cpu.pc=base;cpu.sp=base+1024;cpu.x[3]=base+1024;cpu.pstate=0xb00003c5;
+            cpu.x[4]=0xfedcba9876543210;cpu.x[5]=0x89abcdef12345678;
+            let source=[cpu.x[4],cpu.x[5]];
+            let address=(1024i64+if mode==1 {0} else {i64::from(displacement)*bytes as i64}) as usize;
+            let mut expected=ram;
+            let mut values=[0u64;2];
+            for element in 0..2 { for byte in 0..bytes {
+                if read { values[element] |= u64::from(expected[address+element*bytes+byte]) << (byte*8); }
+                else { expected[address+element*bytes+byte]=(source[element] >> (byte*8)) as u8; }
+            }}
+            let word=pair_word(bytes,read,mode,displacement,rn,4,5);
+            ram[..4].copy_from_slice(&word.to_le_bytes());expected[..4].copy_from_slice(&word.to_le_bytes());
+            let result=cpu.execute_one(&mut RamBus{ram:&mut ram,base});
+            assert_eq!(result,StepResult::Continue);
+            assert_eq!(ram,expected);
+            assert_eq!([cpu.x[4],cpu.x[5]],if read {values} else {source});
+            let updated=(base+1024).wrapping_add(if mode==2 {0} else {(i64::from(displacement)*bytes as i64) as u64});
+            assert_eq!(cpu.sp,if rn==31 {updated} else {base+1024});
+            assert_eq!(cpu.x[3],if rn==3 {updated} else {base+1024});
+            assert_eq!(cpu.pc,base+4);assert_eq!(cpu.pstate,0xb00003c5);
+        }}}}}
+    }
+
+    #[test]
+    fn pair_faults_preserve_memory_writeback_and_encode_alignment() {
+        for read in [false,true] { for mode in 1..=3 { for address in [248u64,252,u64::MAX-7] {
+            let mut ram=[0xa5u8;256];let mut cpu=GuestCpuState::reset(0);
+            cpu.x[3]=address;cpu.x[4]=0x1111;cpu.x[5]=0x2222;
+            let word=pair_word(8,read,mode,0,3,4,5);ram[..4].copy_from_slice(&word.to_le_bytes());
+            let before=ram;
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut ram)),StepResult::Exception(ExceptionKind::DataAbort));
+            assert_eq!(ram,before);assert_eq!(cpu.pc,0);
+            assert_eq!([cpu.x[3],cpu.x[4],cpu.x[5]],[address,0x1111,0x2222]);
+            assert_eq!(cpu.pending_exception.unwrap().far,if address==248 {256} else {address});
+            assert_eq!(cpu.sys.esr_el1,(0x25<<26)|(1<<25)|if read {0} else {64}|7);
+        }}}
+        for el in [ExceptionLevel::El0,ExceptionLevel::El1] { for sa in [false,true] { for a in [false,true] {
+            let mut ram=[0u8;256];let mut cpu=GuestCpuState::reset(0);
+            cpu.current_el=el;cpu.pstate=if el==ExceptionLevel::El0 {0} else {5};cpu.sp=129;
+            cpu.sys.sctlr_el1=if sa {if el==ExceptionLevel::El0 {16} else {8}} else {0} | if a {2} else {0};
+            let word=pair_word(8,false,2,0,31,4,5);ram[..4].copy_from_slice(&word.to_le_bytes());
+            let before=ram;
+            let result=cpu.execute_one(&mut RamBus::new(&mut ram));
+            if sa || a {
+                assert_eq!(result,StepResult::Exception(if sa {ExceptionKind::SpAlignmentFault} else {ExceptionKind::AlignmentFault}));
+                assert_eq!(ram,before);assert_eq!(cpu.sp,129);assert_eq!(cpu.pc,0);
+                if sa {assert_eq!(cpu.sys.esr_el1,(0x26<<26)|(1<<25));}
+            } else {assert_eq!(result,StepResult::Continue);}
+        }}}
+    }
+
+    #[test]
+    fn pair_rejects_unmodeled_bus_mmu_and_overlaps_without_side_effects() {
+        struct DeviceBus {word:u32,reads:usize}
+        impl GuestBus for DeviceBus {
+            fn load_code(&mut self,_:&[u8])->bool {false}
+            fn read(&mut self,_:u64,_:usize,access:Access)->Result<u64,ExceptionKind>{
+                assert_eq!(access,Access::Execute);self.reads+=1;Ok(u64::from(self.word))
+            }
+            fn write(&mut self,_:u64,_:usize,_:u64,_:Access)->Result<(),ExceptionKind>{panic!("pair touched MMIO")}
+        }
+        let word=pair_word(8,false,3,1,3,4,5);
+        let mut device=DeviceBus{word,reads:0};let mut cpu=GuestCpuState::reset(0);cpu.x[3]=128;
+        assert_eq!(cpu.execute_one(&mut device),StepResult::Exception(ExceptionKind::SystemRegisterTrap));
+        assert_eq!(device.reads,1);assert_eq!(cpu.x[3],128);assert_eq!(cpu.pc,0);
+        for regime in 0..6 {
+            let mut cpu=GuestCpuState::reset(0);let mut ram=[0x55;256];let before=ram;
+            match regime {0=>cpu.mmu.enabled=true,1=>cpu.sys.sctlr_el1=1,2=>cpu.sys.sctlr_el1=1<<25,
+                3=>cpu.sys.hcr_el2=8,4=>cpu.sys.scr_el3=2,_=>cpu.current_el=ExceptionLevel::El2}
+            assert_eq!(cpu.pair_memory(&mut RamBus::new(&mut ram),word),Err((ExceptionKind::SystemRegisterTrap,0)));
+            assert_eq!(ram,before);
+        }
+        for invalid in [pair_word(8,false,3,1,4,4,5),pair_word(8,true,1,1,4,4,5),
+            pair_word(8,true,2,0,3,4,4),pair_word(8,true,0,0,3,4,5),
+            pair_word(8,true,2,0,3,4,5)|(1<<26),pair_word(4,true,2,0,3,4,5)|(1<<30)] {
+            let mut cpu=GuestCpuState::reset(0);let mut ram=[0x55;256];
+            ram[..4].copy_from_slice(&invalid.to_le_bytes());let before=ram;
+            assert_eq!(cpu.pair_memory(&mut RamBus::new(&mut ram),invalid),Err((ExceptionKind::UndefinedInstruction,0)));
+            assert_eq!(ram,before);
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut ram)),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+            assert_eq!(cpu.sys.esr_el1,0);
+            assert_eq!(cpu.pending_exception.unwrap().instruction,invalid);
+            assert_eq!(ram,before);assert_eq!(cpu.pc,0);
+        }
+        assert_eq!(exception_syndrome(ExceptionKind::InstructionAbort,ExceptionLevel::El1,
+            u64::from(pair_word(8,false,2,0,3,4,5))),(ESR_EC_IABT_SAME<<26)|7);
+        let mut cpu=GuestCpuState::reset(0);let mut ram=[0u8;256];cpu.x[3]=128;cpu.x[4]=0x42;
+        cpu.exclusive.reserve(136,8,0);
+        assert_eq!(cpu.pair_memory(&mut RamBus::new(&mut ram),pair_word(8,false,2,0,3,4,4)),Ok(()));
+        assert!(!cpu.exclusive.valid);assert_eq!(&ram[128..136],&ram[136..144]);
+        cpu.pc=0;cpu.sp=0x9870;
+        assert_eq!(cpu.pair_memory(&mut RamBus::new(&mut ram),pair_word(8,true,2,0,3,3,31)),Ok(()));
+        assert_eq!(cpu.x[3],0x42);assert_eq!(cpu.sp,0x9870);
+    }
 
     #[test]
     fn shifted_arithmetic_matches_unsigned_wide_math_at_every_shift_count() {

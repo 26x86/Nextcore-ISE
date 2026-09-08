@@ -479,7 +479,7 @@ fn termination_for_arch_exception(kind: arch::ExceptionKind) -> u32 {
         arch::ExceptionKind::DataAbort => TERMINATION_DATA_ABORT,
         arch::ExceptionKind::TranslationFault => TERMINATION_TRANSLATION_FAULT,
         arch::ExceptionKind::PermissionFault => TERMINATION_PERMISSION_FAULT,
-        arch::ExceptionKind::AlignmentFault => TERMINATION_ALIGNMENT_FAULT,
+        arch::ExceptionKind::AlignmentFault | arch::ExceptionKind::SpAlignmentFault => TERMINATION_ALIGNMENT_FAULT,
         arch::ExceptionKind::SystemRegisterTrap => TERMINATION_SYSTEM_REGISTER_TRAP,
         arch::ExceptionKind::TimerInterrupt => TERMINATION_TIMER_INTERRUPT,
         arch::ExceptionKind::ExternalInterrupt => TERMINATION_EXTERNAL_INTERRUPT,

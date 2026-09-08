@@ -8,8 +8,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 989,
-      "sha256": "b0ce1b7a6dbdafb6eeabdb5ea797e723ee60a76ba4027ed1f3fee0f5786406e3"
+      "bytes": 1110,
+      "sha256": "ca0e2352c29b56063e0c6ac63fe2f074f142ec7b66e2cac5196ee0ab9888882e"
     },
     {
       "path": ".gitignore",
@@ -52,6 +52,11 @@
       "sha256": "bf44f9a73457cf4181e91f96dfda398f02ab80f7281452ad0cb557842213367e"
     },
     {
+      "path": "docs/AARCH64_PAIR_MEMORY.md",
+      "bytes": 3183,
+      "sha256": "347b32a1afbd4127239dc894ab78725bedd87485b3d954800a8ababaa297e0af"
+    },
+    {
       "path": "docs/EFI_PLATFORM_IRQ_V2.md",
       "bytes": 4754,
       "sha256": "da30e8cc04075c68ed2176b50c49ecfa87c12d8b8ea068dbde80e78b07064500"
@@ -68,8 +73,8 @@
     },
     {
       "path": "repository.json",
-      "bytes": 1305,
-      "sha256": "11824ebd1da43d19cc1a5da6f0f5c9afedb510b5c506ef42c99faee03fca4983"
+      "bytes": 1306,
+      "sha256": "3217f4d666b73c27c5120fdcde150907f38b556520af7a2a587e7b831bac52c6"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -78,13 +83,13 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 20507,
-      "sha256": "072cf0589d18a53e33d06bf1d243c141ce8095e4cce9adcf7f1250b52f06e427"
+      "bytes": 21102,
+      "sha256": "98d33389eaec57f86659c0b2388a1d68f11cfd6221c243aded1dbb4ac98807ed"
     },
     {
       "path": "runtime/boot_jit.c",
-      "bytes": 4255,
-      "sha256": "e8fe05a83dafb3930a76b442d059556ddf832dd92a65d2ed5220da91b0f5b311"
+      "bytes": 4287,
+      "sha256": "3be7b556c06f9dff5796cb2773ca4f6086bbb5eb70fb6554d2ba3e612dbae337"
     },
     {
       "path": "runtime/boot_jit.h",
@@ -108,13 +113,13 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 24861,
-      "sha256": "5883e2cfa2dfc5dde9456da5f6599c113ec1a634c3457e84c02d6941538589e6"
+      "bytes": 28505,
+      "sha256": "63efaa3e1f60a875dda34f21d39fe6b8ca2599a4e756d8dca91d976dfa83ded5"
     },
     {
       "path": "runtime/jit.h",
-      "bytes": 8685,
-      "sha256": "d0cc9748d6c7d0968c1675f24a4dced9644384b130f276ba76937c9f93249e31"
+      "bytes": 8767,
+      "sha256": "9327da6d548a5bcd41cad940fc0ba56cd569f0eb62b0736b45ba8243c4cf81cd"
     },
     {
       "path": "runtime/jit_protection.c",
@@ -148,13 +153,13 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 109462,
-      "sha256": "16542a6e54147ca9a90a832af12572f3308d5bc757c8e9fca6ff343836bcd294"
+      "bytes": 120943,
+      "sha256": "6c6873d4d69b7dc03c2378bb2e907aa3946ecef2c8f287afab48cffcaa53f668"
     },
     {
       "path": "runtime/preos/src/lib.rs",
-      "bytes": 33578,
-      "sha256": "8aaf42e8ae1c971cce07aa6a88b266d3c3c1bd3210eff7ca39d50d2b766b8727"
+      "bytes": 33618,
+      "sha256": "64f5b38068319f7f3043d709edd7414182877ccda89ade97b797b2b84e18c793"
     },
     {
       "path": "runtime/preos/src/m1.rs",
@@ -193,8 +198,8 @@
     },
     {
       "path": "runtime/preos_bridge.c",
-      "bytes": 8726,
-      "sha256": "b2ad8426208c296fdd3da1b49f98e50c855e67a38f97b55a5797606c627c5065"
+      "bytes": 8878,
+      "sha256": "7f03662ef58fd4969c4d34c006a3ba69454c81b64f3753a6612caaf95f0c050c"
     },
     {
       "path": "runtime/preos_bridge.h",
@@ -237,9 +242,14 @@
       "sha256": "2f53c9c225b08ecd7a9122b42398c624a8ac6b39357c5d2e5dc308d1bc509766"
     },
     {
+      "path": "runtime/test_pair_jit.c",
+      "bytes": 6596,
+      "sha256": "c60a61a28e8d1ffef8af46a845718ad1a0516fd7e90035a6a7a43730e182ba14"
+    },
+    {
       "path": "runtime/test_pauth_jit.c",
-      "bytes": 2924,
-      "sha256": "c076301752be3a6c627de552962b28963583828a7c03f2727943bd2cee00b8ef"
+      "bytes": 3753,
+      "sha256": "bf6ad778a24182ed128d69334a7cbceed3f8fa79e684955b536a353f5906fe1e"
     },
     {
       "path": "runtime/test_shift_jit.c",
@@ -297,9 +307,14 @@
       "sha256": "3e1af639bc8811c8aa326117e303c96423957874c9de701b5b59a2ef3bd6abff"
     },
     {
+      "path": "tools/pair_memory_probe.S",
+      "bytes": 2399,
+      "sha256": "d095535afde71a2e1127a4cd5fdbff6d6b9405cefd043db23ee7d827d7932b97"
+    },
+    {
       "path": "tools/probe_efi_native_pauth.py",
-      "bytes": 8231,
-      "sha256": "6a3cf14bb65e4bd3736ed707222efa1e297688cf575726934385587361aff8bf"
+      "bytes": 8302,
+      "sha256": "4d0887ffd6bd44de67b44a9f3bc18331c1a634c6dadd664d65c96c30cbb12983"
     },
     {
       "path": "tools/probe_mmu_granules.py",
@@ -310,6 +325,11 @@
       "path": "tools/probe_mmu_physical.py",
       "bytes": 2620,
       "sha256": "c002177b1dea3f04e5e9909f52fa4a748096e475d9b217fff3bf175f097180f8"
+    },
+    {
+      "path": "tools/probe_pair_memory.py",
+      "bytes": 2491,
+      "sha256": "42ff68f215e114dfd49f63319a56a76ba02873361b190192b3fd0d7092fb5d8d"
     }
   ]
 }

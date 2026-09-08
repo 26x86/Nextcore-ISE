@@ -248,6 +248,73 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             b(c,0x49);b(c,0x89);b(c,0xc1);
             load(c,rn,0,wide);b(c,wide?0x4c:0x44);b(c,((w>>30)&1)?0x29:0x01);b(c,0xc8);save(c,rd,0);
             if((w>>29)&1)save_arithmetic_flags(c,(w>>30)&1);
+        } else if((w&0x3a000000)==0x28000000) {
+            unsigned opc=w>>30,mode=(w>>23)&3,read=(w>>22)&1,rt2=(w>>10)&31;
+            int writeback=mode!=2;
+            field32(c,offsetof(vf_cpu,instruction),w);
+            if((w&(1u<<26)) || (opc!=0 && opc!=2) || !mode ||
+               (writeback && rn!=31 && (rn==rd || rn==rt2)) || (read && rd==rt2)) {
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            uint64_t sctlr=cpu?cpu->sctlr:0;
+            if(current_el>VF_EL1 || (cpu && (cpu->hcr_el2 || cpu->scr_el3)) ||
+               (sctlr&(UINT64_C(1)<<(current_el==VF_EL0?24:25)))) {
+                finish(c,pc,n,VF_SYSTEM_REGISTER_TRAP);break;
+            }
+            unsigned bytes=opc==2?8:4;
+            int32_t displacement=(int32_t)(sext((w>>15)&127,7)*bytes);
+            size_t sp_align=0,align=0;
+            if(rn==31 && (sctlr&(current_el==VF_EL0?16u:8u))) {
+                load(c,31,1,1);b(c,0x49);b(c,0x89);b(c,0xc3); /* r11=SP */
+                b(c,0xa8);b(c,15);sp_align=jcc(c,0x85);
+            }
+            load(c,rn,1,1);
+            if(mode!=1) {b(c,0x48);b(c,0x05);u32(c,(uint32_t)displacement);}
+            b(c,0x49);b(c,0x89);b(c,0xc3); /* r11=guest element address */
+            b(c,0x49);b(c,0x89);b(c,0xc1); /* r9=address, then RAM offset */
+            if(sctlr&2) {b(c,0xa8);b(c,bytes-1);align=jcc(c,0x85);}
+            imm(c,base);b(c,0x49);b(c,0x29);b(c,0xc1);
+            size_t below=jcc(c,0x82);
+            b(c,0x49);b(c,0x83);b(c,0xf8);b(c,bytes);
+            size_t short_first=jcc(c,0x82);
+            b(c,0x4d);b(c,0x89);b(c,0xc2); /* r10=RAM size */
+            b(c,0x49);b(c,0x83);b(c,0xea);b(c,bytes);
+            b(c,0x4d);b(c,0x39);b(c,0xd1);
+            size_t first=jcc(c,0x87);
+            b(c,0x49);b(c,0x83);b(c,0xc3);b(c,bytes); /* FAR of second element */
+            size_t wrapped=jcc(c,0x82);
+            b(c,0x49);b(c,0x83);b(c,0xf8);b(c,2*bytes);
+            size_t short_second=jcc(c,0x82);
+            b(c,0x49);b(c,0x83);b(c,0xea);b(c,bytes);
+            b(c,0x4d);b(c,0x39);b(c,0xd1);
+            size_t second=jcc(c,0x87);
+            b(c,0x49);b(c,0x83);b(c,0xeb);b(c,bytes); /* retain original EA */
+            /* No memory operation precedes both complete element checks. */
+            for(unsigned element=0;element<2;element++) {
+                unsigned reg=element?rt2:rd;
+                if(!read)load(c,reg,0,bytes==8);
+                b(c,bytes==8?0x4a:0x42);b(c,read?0x8b:0x89);
+                b(c,element?0x44:0x04);b(c,0x0a);if(element)b(c,bytes);
+                if(read)save(c,reg,0);
+            }
+            if(writeback) {
+                b(c,0x4c);b(c,0x89);b(c,0xd8); /* rax=EA */
+                if(mode==1){b(c,0x48);b(c,0x05);u32(c,(uint32_t)displacement);}
+                save(c,rn,1);
+            }
+            b(c,0xe9);size_t next=c->used;u32(c,0);
+            size_t sp_target=c->used;
+            if(sp_align){save_host_r11(c,offsetof(vf_cpu,far));finish(c,pc,n,VF_SP_ALIGNMENT_FAULT);}
+            size_t align_target=c->used;
+            if(align){save_host_r11(c,offsetof(vf_cpu,far));finish(c,pc,n,VF_ALIGNMENT_FAULT);}
+            size_t data_target=c->used;
+            save_host_r11(c,offsetof(vf_cpu,far));finish(c,pc,n,VF_DATA_ABORT);
+            if(sp_align)fix_to(c,sp_align,sp_target);
+            if(align)fix_to(c,align,align_target);
+            fix_to(c,below,data_target);fix_to(c,short_first,data_target);
+            fix_to(c,first,data_target);fix_to(c,wrapped,data_target);
+            fix_to(c,short_second,data_target);fix_to(c,second,data_target);
+            fix(c,next);
         } else if((w&0xffc00000)==0xf9000000 || (w&0xffc00000)==0xf9400000) {
             /* Preserve the guest PA for faults and separately derive the
              * checked host-RAM offset. Host pointers never become guest PAs. */
