@@ -3,13 +3,13 @@
   "files": [
     {
       "path": ".gitattributes",
-      "bytes": 28,
-      "sha256": "4b0f1fc438f30f25abe421b7542e9f3803b8b5c15ca3695614222e2bc547a9fe"
+      "bytes": 141,
+      "sha256": "ad8e80256ed5d796222583c41f5b874b0d22afe2030df8883ce4002f0588f19e"
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 1110,
-      "sha256": "ca0e2352c29b56063e0c6ac63fe2f074f142ec7b66e2cac5196ee0ab9888882e"
+      "bytes": 1811,
+      "sha256": "5ad57bbd335a45a7526eee4fa627efc0b6bc4b867a7bd8b903a5787684ffe7fa"
     },
     {
       "path": ".gitignore",
@@ -57,6 +57,11 @@
       "sha256": "5d8c9bf2decff046da5baa7d234a35ff19371ad6f66d36c145f3eb057d56310e"
     },
     {
+      "path": "docs/AARCH64_SCALAR_MEMORY.md",
+      "bytes": 5307,
+      "sha256": "5eee3d3c4d6babbbf2b3108fc4dec4b16ff0bde84d8461a9bbb6bbe3beae4f0c"
+    },
+    {
       "path": "docs/EFI_PLATFORM_IRQ_V2.md",
       "bytes": 4754,
       "sha256": "da30e8cc04075c68ed2176b50c49ecfa87c12d8b8ea068dbde80e78b07064500"
@@ -67,14 +72,19 @@
       "sha256": "a1b5e8669d3fb624a4e99738fd04cf0cb31538dd888fb272616b68ecf6cfd650"
     },
     {
+      "path": "docs/MMU_FAULT_METADATA.md",
+      "bytes": 4668,
+      "sha256": "ff7107620b7c31755392cd5e0ffd3b81e03463c12550775f03f7610af7ecf72b"
+    },
+    {
       "path": "docs/MMU_OUTPUT_WIDTH.md",
       "bytes": 2970,
       "sha256": "82af44990e851c6920428e6e647722927055509885393bf0287ee522a062cecc"
     },
     {
       "path": "repository.json",
-      "bytes": 1306,
-      "sha256": "df9670435ef19f8653d9982d66b04feb1e0c2367c15a5426ee7383d7a986a9d5"
+      "bytes": 1308,
+      "sha256": "89bb4f799d3ef48a42cfbc3f8270f35912a1a23114cea86d1222635b53d893e3"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -83,8 +93,8 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 21102,
-      "sha256": "98d33389eaec57f86659c0b2388a1d68f11cfd6221c243aded1dbb4ac98807ed"
+      "bytes": 21562,
+      "sha256": "99b5cf138ed60b7a98a6d94036567aa3538d5d05f880ce7bcb742c375eb2fbf9"
     },
     {
       "path": "runtime/boot_jit.c",
@@ -113,8 +123,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 28567,
-      "sha256": "08146f4381a3254077fd2187dd307fb0583315453006fed4b936fabd06d2cfe3"
+      "bytes": 29496,
+      "sha256": "2cb75b4deb7efdc43bd3993432cd3a95e75ce493ee2540f61d3de4d3434afd68"
     },
     {
       "path": "runtime/jit.h",
@@ -153,8 +163,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 121981,
-      "sha256": "b39b462253bbb9ab275ae35485f7ce9389843dcea5ffb512ba6aa06b60041fff"
+      "bytes": 135046,
+      "sha256": "893135b745f122fbe19360d9c014e4b3ac8cc2242c57b9668f950c4226b294d4"
     },
     {
       "path": "runtime/preos/src/lib.rs",
@@ -173,8 +183,8 @@
     },
     {
       "path": "runtime/preos/src/mmu.rs",
-      "bytes": 36495,
-      "sha256": "bf53ae078a719011418904a708e128b5027ddb7f0864ff70548ee7d6e74575b7"
+      "bytes": 52282,
+      "sha256": "4b275a53ed1543e58e849e918f5c644a49da81f7bcf5fb55c7ea8f0314d8f3df"
     },
     {
       "path": "runtime/preos/src/pauth.rs",
@@ -233,8 +243,8 @@
     },
     {
       "path": "runtime/test_jit.c",
-      "bytes": 7905,
-      "sha256": "3d7ee8e6ef74c474eb9e53bae3b70a4552a87dcb4343e54a78c31b5c4156212a"
+      "bytes": 7894,
+      "sha256": "dffedb72d4d3706d0dfd4b975be279db3f140a7d821eff16b7a2172fabe7c726"
     },
     {
       "path": "runtime/test_logical_jit.c",
@@ -250,6 +260,11 @@
       "path": "runtime/test_pauth_jit.c",
       "bytes": 3753,
       "sha256": "bf6ad778a24182ed128d69334a7cbceed3f8fa79e684955b536a353f5906fe1e"
+    },
+    {
+      "path": "runtime/test_scalar_jit.c",
+      "bytes": 6789,
+      "sha256": "b0ac953e238ac06c2d6c7c7c87d94d3fda9bd53860a92949001d5874360dacdd"
     },
     {
       "path": "runtime/test_shift_jit.c",
@@ -297,6 +312,81 @@
       "sha256": "d6d278cfb7005e041b0fbaf130e7a4e6983797c65c496ee6e5dabd4af543212a"
     },
     {
+      "path": "tools/mmu_fault_levels/README.md",
+      "bytes": 7833,
+      "sha256": "b9ab310556d2934543b683f70a1a78bebb83b8fcd54472801503659fc5f40c8d"
+    },
+    {
+      "path": "tools/mmu_fault_levels/abort_oracle.c",
+      "bytes": 3278,
+      "sha256": "fff9af94deb18b1cc96f132b4c008807cd4363dae2104395f408b2723dfaf879"
+    },
+    {
+      "path": "tools/mmu_fault_levels/abort_start.S",
+      "bytes": 1520,
+      "sha256": "7bb9fc87363f259200ea456a44dd401957b515fdffbaf82c91a332b2bae29f4a"
+    },
+    {
+      "path": "tools/mmu_fault_levels/captured-abort/report.json",
+      "bytes": 103021,
+      "sha256": "8f3a5410b0a53aabd28a8c559c0e9b759d14a4d5ce11c6ccbc3210fda468eff0"
+    },
+    {
+      "path": "tools/mmu_fault_levels/captured-at/report.json",
+      "bytes": 243056,
+      "sha256": "e4315a02a0019a41cf7950b2917b1bcdd6f858e3a54745da129e109c758a3155"
+    },
+    {
+      "path": "tools/mmu_fault_levels/compare_walker.py",
+      "bytes": 6333,
+      "sha256": "401de50aceefb77ece6824cf0eaf5cf03478a4eb23438dac14f16d44c8164fd8"
+    },
+    {
+      "path": "tools/mmu_fault_levels/contract.md",
+      "bytes": 2837,
+      "sha256": "f46a796d1c36db8aff30666ed60fbfbfde38661e2c1e1cad44ac5d440df7fa06"
+    },
+    {
+      "path": "tools/mmu_fault_levels/differential-final/report.json",
+      "bytes": 129021,
+      "sha256": "e3f613aba00fd4cd1434e3a263b8e468f8654cbc75d7f2435f38cfbd13954a9c"
+    },
+    {
+      "path": "tools/mmu_fault_levels/differential-r1/report.json",
+      "bytes": 115704,
+      "sha256": "768ad7b5ee5fb9f38ebcbee5a2508af76c9869527bd1aca21ccab430ec580e08"
+    },
+    {
+      "path": "tools/mmu_fault_levels/oracle.c",
+      "bytes": 3621,
+      "sha256": "bf7781065729a78ae67b116b7f89dd1af1a6b1053ff3631c680baaac6188794e"
+    },
+    {
+      "path": "tools/mmu_fault_levels/oracle.ld",
+      "bytes": 172,
+      "sha256": "bda09dbcfbd0b5580ecb0121f524e8f95267c8433e643928603ccd810daf539a"
+    },
+    {
+      "path": "tools/mmu_fault_levels/oracle_start.S",
+      "bytes": 425,
+      "sha256": "1dfb16a3276b936111a0741388192dd469917aa7b8e6cac889f8075a4cec01bb"
+    },
+    {
+      "path": "tools/mmu_fault_levels/probe_abort_levels.py",
+      "bytes": 4821,
+      "sha256": "6db0dd4d5f76b2a4235e9165e4a9bd0be5e1f668510803a2b0553853debd3d86"
+    },
+    {
+      "path": "tools/mmu_fault_levels/probe_fault_levels.py",
+      "bytes": 6205,
+      "sha256": "2b2ca2aeb15e48896cc75e2068ea145ce0ed4715ba2831c25da6477366b7f045"
+    },
+    {
+      "path": "tools/mmu_fault_levels/results.json",
+      "bytes": 1936,
+      "sha256": "b8622996b98bea4c6833dce887aee9d9f8b9b3770352ccc3bc3f3ab5ce9c9c20"
+    },
+    {
       "path": "tools/mmu_granule_probe.S",
       "bytes": 2886,
       "sha256": "4ada14f9eb69cda0e1c366ceb7676860f847ce4f14a2e857eb4a5cb3e04d3964"
@@ -313,8 +403,8 @@
     },
     {
       "path": "tools/probe_efi_native_pauth.py",
-      "bytes": 8302,
-      "sha256": "4d0887ffd6bd44de67b44a9f3bc18331c1a634c6dadd664d65c96c30cbb12983"
+      "bytes": 8377,
+      "sha256": "61996bc68580dfaa9ff83c284beaf835933b9f05db5883f7b9cfdeaec6f3950a"
     },
     {
       "path": "tools/probe_mmu_granules.py",
@@ -330,6 +420,16 @@
       "path": "tools/probe_pair_memory.py",
       "bytes": 2694,
       "sha256": "860ea813e881dc511d9bcba452149ff786015601a6701d6d16feb7f2f6b8ef36"
+    },
+    {
+      "path": "tools/probe_scalar_memory.py",
+      "bytes": 3522,
+      "sha256": "c3109d178c5404a2ebd602b4139612c7d2c9c44971cfdc5279d4c4c84119df18"
+    },
+    {
+      "path": "tools/scalar_memory_probe.S",
+      "bytes": 2582,
+      "sha256": "4b7f1380282c3e64cf8a912f0fdc180cfa9c9b3f157b20f54af4b7d481612b16"
     }
   ]
 }

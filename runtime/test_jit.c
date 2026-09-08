@@ -56,7 +56,7 @@ int main(void) {
     CHECK((s.esr>>26)==VF_ESR_EC_DABT_LOWER);CHECK((s.esr&0x3f)==VF_ESR_FSC_TRANSLATION_L3);
     vf_cpu_clear_exception(&s);s.x[1]=UINT64_MAX-7;CHECK(run(&s,store,2,ram,&c,10)==VF_DATA_ABORT);
     const uint32_t wrap[]={0xf9000420};vf_cpu_clear_exception(&s);s.x[1]=UINT64_MAX-7;
-    CHECK(run(&s,wrap,1,ram,&c,10)==VF_DATA_ABORT);CHECK(s.exception_pending==VF_EXCEPTION_DATA_ABORT);
+    CHECK(run(&s,wrap,1,ram,&c,1)==VF_BUDGET);CHECK(s.retired==1 && s.pc==4 && ram[0]==123);
     const uint32_t unaligned[]={0xf9000020};vf_cpu_reset(&s,VF_EL0);s.x[1]=1;
     CHECK(run(&s,unaligned,1,ram,&c,10)==VF_ALIGNMENT_FAULT);CHECK(s.far==1);
     CHECK(s.exception_pending==VF_EXCEPTION_ALIGNMENT_FAULT);CHECK((s.esr&0x3f)==VF_ESR_FSC_ALIGNMENT);
