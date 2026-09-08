@@ -76,7 +76,8 @@ static void update_timer_status(vf_cpu *cpu) {
 
 static int valid_exception_kind(enum vf_exception_kind kind) {
     return (kind >= VF_EXCEPTION_UNDEFINED_INSTRUCTION &&
-           kind <= VF_EXCEPTION_EXTERNAL_INTERRUPT) || kind == VF_EXCEPTION_FIQ_INTERRUPT;
+           kind <= VF_EXCEPTION_EXTERNAL_INTERRUPT) || kind == VF_EXCEPTION_FIQ_INTERRUPT ||
+           kind == VF_EXCEPTION_SP_ALIGNMENT_FAULT;
 }
 
 static uint32_t mode_for_el(uint32_t el) {
@@ -132,6 +133,8 @@ static uint32_t exception_syndrome(enum vf_exception_kind kind,
         ec = current_el == VF_EL0 ? VF_ESR_EC_DABT_LOWER : VF_ESR_EC_DABT_SAME;
         fsc = VF_ESR_FSC_ALIGNMENT;
         break;
+    case VF_EXCEPTION_SP_ALIGNMENT_FAULT:
+        return (UINT32_C(0x26) << 26) | (UINT32_C(1) << 25);
     case VF_EXCEPTION_UNDEFINED_INSTRUCTION:
     case VF_EXCEPTION_PRIVILEGED_INSTRUCTION:
         /* The internal privilege class is retained even when the current
@@ -144,7 +147,13 @@ static uint32_t exception_syndrome(enum vf_exception_kind kind,
     case VF_EXCEPTION_NONE:
         return 0;
     }
-    return (ec << 26) | fsc;
+    uint32_t extra = 0;
+    if ((kind == VF_EXCEPTION_DATA_ABORT || kind == VF_EXCEPTION_ALIGNMENT_FAULT) &&
+        (instruction & UINT32_C(0x3e000000)) == UINT32_C(0x28000000)) {
+        extra = UINT32_C(1) << 25; /* A64 pair abort: IL=1, ISV=0. */
+        if (!(instruction & UINT32_C(0x00400000))) extra |= UINT32_C(1) << 6;
+    }
+    return (ec << 26) | extra | fsc;
 }
 
 void vf_cpu_reset(vf_cpu *cpu, uint32_t initial_el) {
@@ -304,6 +313,9 @@ int vf_cpu_commit_status(vf_cpu *cpu, int status) {
         break;
     case VF_ALIGNMENT_FAULT:
         kind = VF_EXCEPTION_ALIGNMENT_FAULT;
+        break;
+    case VF_SP_ALIGNMENT_FAULT:
+        kind = VF_EXCEPTION_SP_ALIGNMENT_FAULT;
         break;
     case VF_PRIVILEGE_FAULT:
         kind = VF_EXCEPTION_PRIVILEGED_INSTRUCTION;

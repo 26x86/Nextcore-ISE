@@ -57,6 +57,16 @@ int main(void) {
     CHECK(vf_boot_run(ram,sizeof(ram),base,entry,args,base+sizeof(ram),
                      code,16384,64,perms,0,&result)==VF_SYSTEM_REGISTER_TRAP);
     CHECK(result.retired==8 && result.pc==entry+32);
+    /* The same real Rust system-register callback enables SA, then actual
+     * native ADD/SP and STP expose the new SP-fault result through ABI v2. */
+    const uint32_t sp_fault_program[]={0xd2800104,0xd5181004,0x910007ff,0xa90007e0};
+    memcpy(ram+0x100,sp_fault_program,sizeof(sp_fault_program));
+    const uint64_t registers[4]={0,0,0,0};vf_boot_result_v2 extended;
+    CHECK(vf_boot_run_v2(ram,sizeof(ram),base,entry,args,base+sizeof(ram),code,16384,
+              8,perms,0,registers,vf_preos_pauth_step,0,&extended)==VF_SP_ALIGNMENT_FAULT);
+    CHECK(extended.base.status==19 && extended.base.fault_instruction==sp_fault_program[3]);
+    CHECK(extended.base.retired==3 && extended.base.pc==entry+12 && extended.base.compiled_blocks>0);
+    CHECK(extended.esr==UINT64_C(0x9a000000) && extended.sp==base+sizeof(ram)+1);
     CHECK(munmap(code,16384)==0);
     printf("{\"passed\":true,\"assertions\":%u,\"native_jit_executed\":true,\"software_qarma5\":true,\"wx_enforced\":true}\n",checks);
     return 0;
