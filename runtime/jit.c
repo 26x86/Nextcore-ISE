@@ -707,6 +707,7 @@ int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
 }
 
 #include "memory_stage1.inc"
+#include "memory_dynamic.inc"
 
 int vf_run_boot(vf_cpu *cpu,uint8_t *ram,size_t ram_size,uint64_t base,
                 uint64_t entry,uint64_t args,uint64_t stack,vf_code *code,

@@ -5,6 +5,7 @@ use crate::exception_level::ExceptionLevel;
 use crate::mmu::{Access,Fault,FaultContext,MemoryAttributes,TableReadError,
     TranslationFailure,TranslationFailureKind,VfMmu};
 use core::ffi::c_void;
+#[path="dynamic.rs"]pub mod dynamic;
 
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum Error {InvalidRange,InvalidControls}
@@ -76,8 +77,7 @@ impl<'a> MemoryServiceV2<'a> {
         }
         out
     }
-    pub fn execute(&mut self,r:&Request)->Reply {
-        let invalid=self.empty(INVALID_REQUEST);
+    fn request_valid(&self,r:&Request)->bool {
         let mode=r.pstate&15;
         if r.abi_version!=VERSION || r.struct_size!=160 || r.flags!=0 || r.reserved0!=0 || r.reserved1!=0 ||
             r.controls!=self.controls || !matches!(r.operation,FETCH|LOAD|STORE) ||
@@ -85,10 +85,14 @@ impl<'a> MemoryServiceV2<'a> {
             (r.operation==FETCH && (r.width!=4 || r.count!=1 || r.address!=r.pc)) ||
             (r.operation!=STORE && (r.value0!=0 || r.value1!=0)) || (r.count==1 && r.value1!=0) ||
             r.pstate&!0xf00003cf!=0 || !((r.current_el==0 && mode==0) || (r.current_el==1 && (mode==4 || mode==5))) {
-            return invalid;
+            return false;
         }
         let mask=if r.width==8 {u64::MAX} else {(1u64<<(r.width*8))-1};
-        if r.value0&!mask!=0 || r.value1&!mask!=0 {return invalid;}
+        r.value0&!mask==0 && r.value1&!mask==0
+    }
+    pub fn execute(&mut self,r:&Request)->Reply {self.execute_counted(r,&mut 0)}
+    fn execute_counted(&mut self,r:&Request,table_reads:&mut u64)->Reply {
+        if !self.request_valid(r) {return self.empty(INVALID_REQUEST);}
         if r.address&(u64::from(r.width)-1)!=0 {
             let mut out=self.empty(GUEST_FAULT);out.address=r.address;out.context=INPUT;
             if r.operation==FETCH {out.fault=PC_ALIGNMENT;out.esr=0x8a000000;}
@@ -110,6 +114,7 @@ impl<'a> MemoryServiceV2<'a> {
             // the aligned instruction start, then use its validated page span.
             let query=if r.operation==FETCH {r.address} else {va};
             let result=self.mmu.translate_detailed(query,access,el,|pa| {
+                *table_reads=table_reads.saturating_add(1);
                 let i=offset(pa,8,table_base,tables.len()).ok_or(TableReadError::Unavailable)?;
                 Ok(u64::from_le_bytes(tables[i..i+8].try_into().unwrap()))
             });
