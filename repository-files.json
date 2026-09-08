@@ -13,8 +13,8 @@
     },
     {
       "path": ".gitignore",
-      "bytes": 72,
-      "sha256": "202f276964ddc5ea54daf9020312f4dd234dd18517436088a1d9dfc506b60333"
+      "bytes": 96,
+      "sha256": "a1fcc8ce567becadc74ded3ef57f32d6774c219e94da8ff788ea2cde0c95de5f"
     },
     {
       "path": "Cargo.toml",
@@ -54,7 +54,7 @@
     {
       "path": "repository.json",
       "bytes": 1305,
-      "sha256": "0db121c89d6042a3ce430f964c4e18ad47bcc5c976d1cc80444c937b08775720"
+      "sha256": "090ef389681c9089d223af69419fec87de78eef7639c19bae995e2f1ccd37950"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -240,11 +240,6 @@
       "path": "src/trap.rs",
       "bytes": 2571,
       "sha256": "d6d278cfb7005e041b0fbaf130e7a4e6983797c65c496ee6e5dabd4af543212a"
-    },
-    {
-      "path": "tools/__pycache__/probe_mmu_granules.cpython-312.pyc",
-      "bytes": 4474,
-      "sha256": "7690bd8212023d2204e4a418491a9bafcaaeba473338bce35dc662389cb47dd6"
     },
     {
       "path": "tools/mmu_granule_probe.S",
