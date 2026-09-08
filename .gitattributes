@@ -1,2 +1,5 @@
 * text=auto
 *.S text eol=lf
+
+# Preserve captured architectural inputs and exact oracle receipts.
+tools/mmu_fault_levels/** -text -whitespace

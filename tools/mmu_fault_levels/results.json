@@ -1,0 +1,34 @@
+{
+  "schema": "nextcore.mmu-level-evidence-bundle.v2",
+  "at_cases": 118,
+  "actual_abort_cases": 40,
+  "walker_differential_cases": 158,
+  "passed": true,
+  "epd_aarch64_fsc": 4,
+  "root_address_size_fsc": 0,
+  "noncanonical_aarch64_fsc": 4,
+  "descriptor_address_size_level": "current descriptor level",
+  "negative_controls_detected": true,
+  "files": {
+    "oracle_start.S": "1dfb16a3276b936111a0741388192dd469917aa7b8e6cac889f8075a4cec01bb",
+    "oracle.c": "bf7781065729a78ae67b116b7f89dd1af1a6b1053ff3631c680baaac6188794e",
+    "oracle.ld": "bda09dbcfbd0b5580ecb0121f524e8f95267c8433e643928603ccd810daf539a",
+    "probe_fault_levels.py": "2b2ca2aeb15e48896cc75e2068ea145ce0ed4715ba2831c25da6477366b7f045",
+    "abort_start.S": "7bb9fc87363f259200ea456a44dd401957b515fdffbaf82c91a332b2bae29f4a",
+    "abort_oracle.c": "fff9af94deb18b1cc96f132b4c008807cd4363dae2104395f408b2723dfaf879",
+    "probe_abort_levels.py": "6db0dd4d5f76b2a4235e9165e4a9bd0be5e1f668510803a2b0553853debd3d86",
+    "compare_walker.py": "401de50aceefb77ece6824cf0eaf5cf03478a4eb23438dac14f16d44c8164fd8",
+    "contract.md": "f46a796d1c36db8aff30666ed60fbfbfde38661e2c1e1cad44ac5d440df7fa06",
+    "README.md": "b9ab310556d2934543b683f70a1a78bebb83b8fcd54472801503659fc5f40c8d"
+  },
+  "receipt_sha256": {
+    "captured-at/report.json": "e4315a02a0019a41cf7950b2917b1bcdd6f858e3a54745da129e109c758a3155",
+    "captured-abort/report.json": "8f3a5410b0a53aabd28a8c559c0e9b759d14a4d5ce11c6ccbc3210fda468eff0",
+    "differential-r1/report.json": "768ad7b5ee5fb9f38ebcbee5a2508af76c9869527bd1aca21ccab430ec580e08",
+    "differential-final/report.json": "e3f613aba00fd4cd1434e3a263b8e468f8654cbc75d7f2435f38cfbd13954a9c"
+  },
+  "walker_source_sha256": "4b275a53ed1543e58e849e918f5c644a49da81f7bcf5fb55c7ea8f0314d8f3df",
+  "qemu_version": "QEMU emulator version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)",
+  "apple_assets_used": false,
+  "native_jit_mmu_verified": false
+}

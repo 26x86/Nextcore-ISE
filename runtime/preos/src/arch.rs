@@ -38,6 +38,8 @@ pub(crate) trait GuestBus {
         access: Access,
     ) -> Result<(), ExceptionKind>;
 
+    /// Each scalar read/write validates its entire element before committing
+    /// side effects. The caller supplies one complete 1/2/4/8-byte transfer.
     /// Pair operations require RAM preflight before either transfer. A bus
     /// with MMIO must explicitly opt in; scalar accesses are not a preflight.
     fn pair_ram(&mut self) -> Option<(&mut [u8], u64)> { None }
@@ -1181,6 +1183,52 @@ impl GuestCpuState {
             .map_err(|_| ExceptionKind::InstructionAbort)
     }
 
+    fn scalar_memory<B: GuestBus>(&mut self, bus: &mut B, word: u32)
+        -> Result<(), (ExceptionKind, u64)> {
+        let (size_code, opc) = (word >> 30, (word >> 22) & 3);
+        let (rn, rt) = ((word >> 5) & 31, word & 31);
+        if word & (1 << 26) != 0 ||
+            (opc >= 2 && (size_code == 3 || (opc == 3 && size_code == 2))) {
+            return Err((ExceptionKind::UndefinedInstruction, self.pc));
+        }
+        let endian = if self.current_el == ExceptionLevel::El0 {24} else {25};
+        if self.current_el as u8 > ExceptionLevel::El1 as u8 ||
+            self.sys.hcr_el2 != 0 || self.sys.scr_el3 != 0 ||
+            self.sys.sctlr_el1 & (1 << endian) != 0 ||
+            (self.sys.sctlr_el1 & SCTLR_M != 0 && !self.mmu.enabled) {
+            return Err((ExceptionKind::SystemRegisterTrap, self.pc));
+        }
+        let size = 1usize << size_code;
+        let base = self.read_reg(rn, true);
+        let sa = if self.current_el == ExceptionLevel::El0 {16} else {8};
+        if rn == 31 && self.sys.sctlr_el1 & sa != 0 && base & 15 != 0 {
+            return Err((ExceptionKind::SpAlignmentFault, base));
+        }
+        let address = base.wrapping_add(u64::from((word >> 10) & 4095) << size_code);
+        if address & (size as u64 - 1) != 0 {
+            // Device-nGnRnE when MMU-off. Translated A=0 requires memory
+            // attributes and a spanning transaction, neither exposed yet.
+            let kind = if !self.mmu.enabled || self.sys.sctlr_el1 & SCTLR_A != 0 {
+                ExceptionKind::AlignmentFault
+            } else {ExceptionKind::SystemRegisterTrap};
+            return Err((kind, address));
+        }
+        let access = if opc == 0 {Access::Write} else {Access::Read};
+        // Natural alignment and <=8 bytes mean no supported page crossing.
+        let physical = self.mmu_address(bus, address, size, access).map_err(|kind|(kind,address))?;
+        if opc == 0 {
+            let mask = if size == 8 {u64::MAX} else {(1u64 << (size * 8)) - 1};
+            bus.write(physical, size, self.read_reg(rt, false) & mask, access).map_err(|kind|(kind,address))?;
+            self.exclusive.clear_on_store(physical, size as u8);
+        } else {
+            let value = bus.read(physical, size, access).map_err(|kind|(kind,address))?;
+            let value = if opc >= 2 {sign_extend(value, (size * 8) as u32) as u64} else {value};
+            self.write_reg(rt, value, false, opc == 2 || size == 8);
+        }
+        self.pc = self.pc.wrapping_add(4);
+        Ok(())
+    }
+
     fn pair_memory<B: GuestBus>(&mut self, bus: &mut B, word: u32)
         -> Result<(), (ExceptionKind, u64)> {
         let (opc, mode, load) = (word >> 30, (word >> 23) & 3, word & (1 << 22) != 0);
@@ -1715,73 +1763,29 @@ impl GuestCpuState {
             };
         }
 
-        // Unsigned-immediate LDR/STR for byte, halfword, word, and X forms.
+        // Integer unsigned-offset stores, zero loads and signed W/X loads.
         if word & 0x3b000000 == 0x39000000 {
-            let size_code = (word >> 30) & 3;
-            let size = 1usize << size_code;
-            let address = self
-                .read_reg(rn, true)
-                .checked_add(u64::from((word >> 10) & 0xfff) << size_code);
-            let Some(address) = address else {
-                self.raise(GuestException {
-                    kind: ExceptionKind::DataAbort,
-                    instruction: word,
-                    syndrome: access_syndrome(if word & (1 << 22) != 0 {
-                        Access::Read
-                    } else {
-                        Access::Write
-                    }),
-                    far: pc,
-                    pc,
-                });
-                return StepResult::Exception(ExceptionKind::DataAbort);
-            };
-            let load = word & (1 << 22) != 0;
-            let access = if load { Access::Read } else { Access::Write };
-            let physical = match self.mmu_address(bus, address, size, access) {
-                Ok(value) => value,
-                Err(kind) => {
-                    self.raise(GuestException {
-                        kind,
-                        instruction: word,
-                        syndrome: access_syndrome(access),
-                        far: address,
-                        pc,
-                    });
-                    return StepResult::Exception(kind);
+            return match self.scalar_memory(bus, word) {
+                Ok(()) => StepResult::Continue,
+                Err((kind, far)) => {
+                    let syndrome = match kind {
+                        ExceptionKind::DataAbort | ExceptionKind::TranslationFault |
+                        ExceptionKind::PermissionFault | ExceptionKind::AlignmentFault => {
+                            let fsc = match kind {
+                                ExceptionKind::PermissionFault => ESR_FSC_PERMISSION_L3,
+                                ExceptionKind::AlignmentFault => ESR_FSC_ALIGNMENT,
+                                _ => ESR_FSC_TRANSLATION_L3,
+                            };
+                            (expected_ec(kind, self.current_el).unwrap() << 26) | (1 << 25) | fsc |
+                                if word & (3 << 22) == 0 {ESR_ISS_WNR} else {0}
+                        }
+                        ExceptionKind::SpAlignmentFault => (0x26 << 26) | (1 << 25),
+                        _ => u64::from(word),
+                    };
+                    self.raise(GuestException {kind, instruction:word, syndrome, far, pc});
+                    StepResult::Exception(kind)
                 }
             };
-            if load {
-                let value = match bus.read(physical, size, Access::Read) {
-                    Ok(value) => value,
-                    Err(kind) => {
-                        self.raise(GuestException {
-                            kind,
-                            instruction: word,
-                            syndrome: access_syndrome(Access::Read),
-                            far: address,
-                            pc,
-                        });
-                        return StepResult::Exception(kind);
-                    }
-                };
-                self.write_reg(rd, value, false, size == 8);
-            } else {
-                let value = self.read_reg(rd, false);
-                if let Err(kind) = bus.write(physical, size, value, Access::Write) {
-                    self.raise(GuestException {
-                        kind,
-                        instruction: word,
-                        syndrome: access_syndrome(Access::Write),
-                        far: address,
-                        pc,
-                    });
-                    return StepResult::Exception(kind);
-                }
-                self.exclusive.clear_on_store(physical, size as u8);
-            }
-            self.pc = pc.wrapping_add(4);
-            return StepResult::Continue;
         }
 
         if word & 0xfc000000 == 0x14000000 {
@@ -2093,6 +2097,196 @@ fn write_width(memory: &mut [u8], index: usize, width: usize, value: u64) -> boo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn scalar_word(size:u32,opc:u32,offset:u32,rn:u32,rt:u32)->u32 {
+        0x39000000 | (size<<30) | (opc<<22) | (offset<<10) | (rn<<5) | rt
+    }
+    fn scalar_valid(size:u32,opc:u32)->bool {opc<2 || (size<3 && !(size==2 && opc==3))}
+    fn scalar_expected(value:u64,bytes:usize,opc:u32)->u64 {
+        let signed=if opc>=2 && value&(1<<(bytes*8-1))!=0 {
+            (i128::from(value)-(1i128<<(bytes*8))) as u64
+        } else {value};
+        if opc==3 || (opc==1 && bytes<8) {signed as u32 as u64} else {signed}
+    }
+
+    #[test]
+    fn scalar_width_sign_and_every_imm12_match_independent_byte_model() {
+        let mut ram=[0xa5;65536];let base=0x80000000;
+        for size in 0..4 {for opc in 0..4 {if !scalar_valid(size,opc) {continue;}
+        for offset in 0..4096 {for rn in [3,31] {
+            let bytes=1usize<<size;let at=1024+(offset as usize)*bytes;
+            for i in 0..bytes {ram[at+i]=(offset as usize*37+i*19) as u8;}
+            ram[at-1]=0x52;ram[at+bytes]=0xe7;
+            let mut raw=0u64;for i in 0..bytes {raw |= u64::from(ram[at+i])<<(i*8);}
+            let expected=scalar_expected(raw,bytes,opc);
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=base;cpu.sp=base+1024;cpu.x[3]=base+1024;
+            cpu.pstate=0xb00003c5;cpu.x[4]=0x89abcdef76543280;
+            ram[..4].copy_from_slice(&scalar_word(size,opc,offset,rn,4).to_le_bytes());
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram,base}),StepResult::Continue);
+            assert_eq!(cpu.x[4],if opc!=0 {expected} else {0x89abcdef76543280});
+            if opc==0 {for i in 0..bytes {assert_eq!(ram[at+i],(0x89abcdef76543280u64>>(i*8)) as u8);}}
+            assert_eq!((ram[at-1],ram[at+bytes]),(0x52,0xe7));
+            assert_eq!((cpu.sp,cpu.x[3],cpu.pc,cpu.pstate),(base+1024,base+1024,base+4,0xb00003c5));
+        }}}}
+    }
+
+    #[test]
+    fn scalar_invalid_vector_prefetch_and_reserved_do_not_read_or_write() {
+        struct GuardBus {word:u32,fetches:u32}
+        impl GuestBus for GuardBus {
+            fn load_code(&mut self,_:&[u8])->bool {false}
+            fn read(&mut self,_:u64,_:usize,access:Access)->Result<u64,ExceptionKind>{
+                assert_eq!(access,Access::Execute);self.fetches+=1;Ok(u64::from(self.word))
+            }
+            fn write(&mut self,_:u64,_:usize,_:u64,_:Access)->Result<(),ExceptionKind>{panic!("invalid scalar wrote memory")}
+        }
+        for size in 0..4 {for opc in 0..4 {for vector in 0..2 {
+            if vector==0 && scalar_valid(size,opc) {continue;}
+            let mut bus=GuardBus{word:scalar_word(size,opc,0,3,4)|(vector<<26),fetches:0};
+            let mut cpu=GuestCpuState::reset(0);cpu.x[3]=128;cpu.x[4]=0x1122334455667788;
+            assert_eq!(cpu.execute_one(&mut bus),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+            assert_eq!(bus.fetches,1);assert_eq!((cpu.pc,cpu.x[3],cpu.x[4]),(0,128,0x1122334455667788));
+            assert_eq!(cpu.sys.esr_el1,0);assert_eq!(cpu.pending_exception.unwrap().instruction,bus.word);
+        }}}
+        assert_eq!(exception_syndrome(ExceptionKind::InstructionAbort,ExceptionLevel::El1,
+            u64::from(scalar_word(3,0,0,3,4))),(ESR_EC_IABT_SAME<<26)|7);
+    }
+
+    #[test]
+    fn scalar_bounds_alignment_and_sp_faults_are_precise_for_every_width() {
+        for size in 0..4 {for opc in 0..4 {if !scalar_valid(size,opc) {continue;}
+            let bytes=1usize<<size;
+            for el in [ExceptionLevel::El0,ExceptionLevel::El1] {for where_at in 0..3 {
+                let mut ram=[0xa5;256];let mut cpu=GuestCpuState::reset(0);
+                cpu.current_el=el;cpu.pstate=if el==ExceptionLevel::El0 {0} else {5};
+                let address=if where_at==0 {u64::MAX-(bytes as u64-1)} else if where_at==1 {256} else {128};
+                let length=if where_at==2 {128+bytes-1} else {256};
+                cpu.x[3]=address;cpu.x[4]=0x123456789abcdef0;
+                ram[..4].copy_from_slice(&scalar_word(size,opc,0,3,4).to_le_bytes());let before=ram;
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut ram[..length])),StepResult::Exception(ExceptionKind::DataAbort));
+                assert_eq!(ram,before);assert_eq!((cpu.pc,cpu.x[3],cpu.x[4]),(0,address,0x123456789abcdef0));
+                assert_eq!(cpu.sys.far_el1,address);
+                assert_eq!(cpu.sys.esr_el1,((0x24+el as u64)<<26)|(1<<25)|if opc==0 {64} else {0}|7);
+            }}
+            for a in [false,true] {for offset in 1..bytes {
+                let mut ram=[0xa5;256];let mut cpu=GuestCpuState::reset(0);
+                cpu.sys.sctlr_el1=if a {2} else {0};cpu.x[3]=128+offset as u64;cpu.x[4]=0x123456789abcdef0;
+                ram[..4].copy_from_slice(&scalar_word(size,opc,1,3,4).to_le_bytes());let before=ram;
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut ram)),StepResult::Exception(ExceptionKind::AlignmentFault));
+                assert_eq!(ram,before);assert_eq!((cpu.pc,cpu.x[3],cpu.x[4]),(0,128+offset as u64,0x123456789abcdef0));
+                assert_eq!(cpu.sys.far_el1,128+offset as u64+bytes as u64);
+                assert_eq!(cpu.sys.esr_el1,(0x25<<26)|(1<<25)|if opc==0 {64} else {0}|0x21);
+            }}
+            for el in [ExceptionLevel::El0,ExceptionLevel::El1] {
+                let mut ram=[0xa5;256];let mut cpu=GuestCpuState::reset(0);
+                cpu.current_el=el;cpu.pstate=if el==ExceptionLevel::El0 {0} else {5};
+                cpu.sys.sctlr_el1=if el==ExceptionLevel::El0 {16} else {8};cpu.sp=129;cpu.x[4]=0x123456789abcdef0;
+                ram[..4].copy_from_slice(&scalar_word(size,opc,1,31,4).to_le_bytes());let before=ram;
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut ram)),StepResult::Exception(ExceptionKind::SpAlignmentFault));
+                assert_eq!(ram,before);assert_eq!((cpu.pc,cpu.sp,cpu.x[4]),(0,129,0x123456789abcdef0));
+                assert_eq!((cpu.sys.esr_el1,cpu.sys.far_el1),(0x9a000000,129));
+            }
+        }}
+    }
+
+    #[test]
+    fn scalar_zero_base_overlap_wrap_and_store_exclusives_are_consistent() {
+        for size in 0..4 {for opc in 0..4 {if !scalar_valid(size,opc) {continue;}
+            let bytes=1usize<<size;let mut ram=[0xff;256];let mut cpu=GuestCpuState::reset(0);
+            cpu.x[3]=128;cpu.sp=0x9870;
+            assert_eq!(cpu.scalar_memory(&mut RamBus::new(&mut ram),scalar_word(size,opc,0,3,31)),Ok(()));
+            assert_eq!((cpu.sp,cpu.x[3]),(0x9870,128));
+            assert_eq!(&ram[128..128+bytes],&[if opc==0 {0} else {0xff};8][..bytes]);
+            if opc!=0 {
+                ram[128..136].fill(0x80);cpu.pc=0;
+                let mut raw=0u64;for i in 0..bytes {raw|=0x80u64<<(i*8);}
+                assert_eq!(cpu.scalar_memory(&mut RamBus::new(&mut ram),scalar_word(size,opc,0,3,3)),Ok(()));
+                assert_eq!(cpu.x[3],scalar_expected(raw,bytes,opc));
+            }
+            cpu.pc=0;cpu.x[3]=u64::MAX-(bytes as u64-1);cpu.x[4]=0x123456789abcdef0;
+            cpu.exclusive.reserve(0,bytes as u8,0);
+            assert_eq!(cpu.scalar_memory(&mut RamBus::new(&mut ram),scalar_word(size,opc,1,3,4)),Ok(()));
+            assert_eq!(cpu.x[3],u64::MAX-(bytes as u64-1));assert_eq!(cpu.pc,4);
+            assert_eq!(cpu.exclusive.valid,opc!=0);
+        }}
+    }
+
+    #[test]
+    fn scalar_translated_aligned_access_retains_permissions_and_no_span_guessing() {
+        for write in [false,true] {for scenario in 0..5 {
+            let mut ram=[0u8;65536];let mut cpu=GuestCpuState::reset(0);
+            // Distinct guest VA/data PA and a noncontiguous following page.
+            for (at,value) in [(0x1000,0x2003u64),(0x2000,0x3003),(0x3000,0x4003),
+                (0x4000,0x5403),(0x4008,if scenario==1 {0x8483} else {0x8403}),(0x4010,0xc403)] {
+                ram[at..at+8].copy_from_slice(&value.to_le_bytes());
+            }
+            assert!(cpu.mmu.configure(0x1000,16,0));cpu.mmu.enabled=true;cpu.sys.sctlr_el1=1;
+            let address=if scenario>=2 {0x1ffcu64} else {0x1ff8};cpu.x[3]=address;cpu.x[4]=0x123456789abcdef0;
+            if scenario==3 {cpu.sys.sctlr_el1|=2;}
+            if scenario==4 {cpu.x[3]=0x3000;}
+            let word=scalar_word(3,if write {0} else {1},0,3,4);
+            ram[0x5000..0x5004].copy_from_slice(&word.to_le_bytes());ram[0x8ff8..0x9000].fill(0x81);
+            let before=ram;
+            let result=cpu.execute_one(&mut RamBus::new(&mut ram));
+            let fault=match scenario {1 if write=>Some(ExceptionKind::PermissionFault),
+                2=>Some(ExceptionKind::SystemRegisterTrap),3=>Some(ExceptionKind::AlignmentFault),
+                4=>Some(ExceptionKind::TranslationFault),_=>None};
+            if let Some(kind)=fault {
+                assert_eq!(result,StepResult::Exception(kind));assert_eq!(ram,before);
+                assert_eq!(cpu.pc,0);assert_eq!(cpu.x[4],0x123456789abcdef0);
+                assert_eq!(cpu.pending_exception.unwrap().far,cpu.x[3]);
+                if kind!=ExceptionKind::SystemRegisterTrap {
+                    // Preserve the existing class-only walker adapter's
+                    // legacy permission FSC=0x0d, not a measured walk level.
+                    let fsc=match kind {ExceptionKind::PermissionFault=>13,ExceptionKind::AlignmentFault=>0x21,_=>7};
+                    assert_eq!(cpu.sys.esr_el1,(0x25<<26)|(1<<25)|if write {64} else {0}|fsc);
+                }
+            } else {
+                assert_eq!(result,StepResult::Continue);assert_eq!(cpu.pc,4);
+                if write {assert_eq!(&ram[0x8ff8..0x9000],&0x123456789abcdef0u64.to_le_bytes());}
+                else {assert_eq!(cpu.x[4],0x8181818181818181);assert_eq!(ram,before);}
+            }
+        }}
+    }
+
+    #[test]
+    fn scalar_bus_direction_width_and_rejected_regimes_are_explicit() {
+        struct ProbeBus {reads:usize,writes:usize,width:usize,value:u64}
+        impl GuestBus for ProbeBus {
+            fn load_code(&mut self,_:&[u8])->bool {false}
+            fn read(&mut self,address:u64,size:usize,access:Access)->Result<u64,ExceptionKind>{
+                assert_eq!(address,0x10000000);assert_eq!(access,Access::Read);
+                self.reads+=1;self.width=size;Ok(1u64<<(size*8-1))
+            }
+            fn write(&mut self,address:u64,size:usize,value:u64,access:Access)->Result<(),ExceptionKind>{
+                assert_eq!(address,0x10000000);assert_eq!(access,Access::Write);
+                self.writes+=1;self.width=size;self.value=value;Ok(())
+            }
+        }
+        for size in 0..4 {for opc in 0..4 {if !scalar_valid(size,opc) {continue;}
+            for regime in 0..6 {
+                let mut bus=ProbeBus{reads:0,writes:0,width:0,value:0};let mut cpu=GuestCpuState::reset(0);
+                cpu.x[3]=0x10000000;cpu.x[4]=u64::MAX;
+                match regime {1=>cpu.sys.hcr_el2=8,2=>cpu.sys.scr_el3=2,3=>cpu.sys.sctlr_el1=1<<25,
+                    4=>cpu.current_el=ExceptionLevel::El2,5=>cpu.sys.sctlr_el1=1,_=>{}}
+                let result=cpu.scalar_memory(&mut bus,scalar_word(size,opc,0,3,4));
+                if regime!=0 {
+                    assert_eq!(result,Err((ExceptionKind::SystemRegisterTrap,0)));
+                    assert_eq!((bus.reads,bus.writes,cpu.pc),(0,0,0));assert_eq!(cpu.x[4],u64::MAX);
+                } else {
+                    let bytes=1usize<<size;
+                    assert_eq!(result,Ok(()));assert_eq!(bus.width,bytes);
+                    if opc==0 {
+                        assert_eq!((bus.reads,bus.writes),(0,1));
+                        assert_eq!(bus.value,if bytes==8 {u64::MAX} else {(1u64<<(bytes*8))-1});
+                    } else {
+                        assert_eq!((bus.reads,bus.writes),(1,0));
+                        assert_eq!(cpu.x[4],scalar_expected(1u64<<(bytes*8-1),bytes,opc));
+                    }
+                }
+            }
+        }}
+    }
 
     fn pair_word(bytes: usize, read: bool, mode: u32, displacement: i32,
                  rn: u32, rt: u32, rt2: u32) -> u32 {
@@ -2654,7 +2848,7 @@ mod tests {
         assert_eq!(cpu.sys.far_el1, 0x1000_0000);
         assert_eq!(
             cpu.sys.esr_el1,
-            (ESR_EC_DABT_SAME << 26) | ESR_ISS_WNR | ESR_FSC_TRANSLATION_L3
+            (ESR_EC_DABT_SAME << 26) | (1 << 25) | ESR_ISS_WNR | ESR_FSC_TRANSLATION_L3
         );
     }
 
@@ -2912,7 +3106,7 @@ mod tests {
         // ESR must be DABT_SAME with WnR set (store direction).
         assert_eq!(
             cpu.sys.esr_el1,
-            (ESR_EC_DABT_SAME << 26) | ESR_ISS_WNR | ESR_FSC_TRANSLATION_L3
+            (ESR_EC_DABT_SAME << 26) | (1 << 25) | ESR_ISS_WNR | ESR_FSC_TRANSLATION_L3
         );
         // The pending exception is latched, not committed: EL is unchanged.
         assert_eq!(cpu.current_el, ExceptionLevel::El1);

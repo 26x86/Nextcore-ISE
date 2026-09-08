@@ -32,6 +32,7 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
         "test_logical_jit.c",
         "test_shift_jit.c",
         "test_pair_jit.c",
+        "test_scalar_jit.c",
         "abi_layout.c", "preos_abi.h", "preos/src/pauth.rs",
         "preos/src/lib.rs", "preos/src/arch.rs", "preos/src/mmu.rs",
         "preos/src/m1.rs", "preos/src/machine.rs", "preos/src/vmapple.rs",
@@ -69,6 +70,7 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
             ("test_logical_jit", False, False),
             ("test_shift_jit", False, False),
             ("test_pair_jit", True, False),
+            ("test_scalar_jit", True, False),
         ):
             executable = temporary / name
             command = [clang, "-std=c11", "-D_GNU_SOURCE", "-O2", "-Wall", "-Wextra",
