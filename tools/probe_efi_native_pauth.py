@@ -26,7 +26,7 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
     runtime = runtime.resolve(strict=True)
     sources = [runtime / name for name in (
         "jit.c", "jit.h", "arch.c", "boot_jit.c", "boot_jit.h",
-        "memory_abi.h", "memory_boot.h",
+        "memory_abi.h", "memory_boot.h", "memory_abi_v2.h", "memory_boot_v2.h", "memory_stage1.inc",
         "test_jit.c", "test_boot_jit.c", "test_pauth_jit.c", "test_flags_jit.c",
         "test_thread_jit.c",
         "test_irq_jit.c", "platform_abi.h", "platform_layout.c", "preos/src/platform.rs",
@@ -36,7 +36,7 @@ def probe(runtime: Path, clang: str, rustc: str) -> dict:
         "test_pair_jit.c",
         "test_scalar_jit.c",
         "abi_layout.c", "preos_abi.h", "preos/src/pauth.rs",
-        "preos/src/lib.rs", "preos/src/arch.rs", "preos/src/mmu.rs",
+        "preos/src/lib.rs", "preos/src/arch.rs", "preos/src/mmu.rs", "preos/src/exception_level.rs",
         "preos/src/m1.rs", "preos/src/machine.rs", "preos/src/vmapple.rs",
     )]
     for path in sources:
