@@ -4,6 +4,9 @@
  * RAX/R9/R10/R11 and flags are modified; no stack or helper calls in JIT code.
  */
 #include "jit.h"
+#include "memory_boot.h"
+/* Private dispatcher signal, never an exported terminal execution status. */
+#define VF_MEMORY_DISPATCH UINT32_C(0x7ffffffe)
 static void b(vf_code *c, unsigned x) { if (c->used < c->capacity) c->bytes[c->used] = (uint8_t)x; ++c->used; }
 static void u32(vf_code *c, uint32_t x) { for (int i=0;i<4;i++) b(c,x>>(8*i)); }
 static void u64(vf_code *c, uint64_t x) { for (int i=0;i<8;i++) b(c,(unsigned)(x>>(8*i))); }
@@ -168,16 +171,45 @@ static int system_boundary(uint32_t w, uint32_t current_el) {
     return VF_SYSTEM_REGISTER_TRAP;
 }
 
+typedef struct {
+    unsigned width,count,read,signed_load,result64,mode,rn,rt,rt2;
+    int32_t displacement;
+} memory_shape;
+static int memory_family(uint32_t w) {
+    return (w&0x3a000000)==0x28000000 || (w&0x3b000000)==0x39000000;
+}
+static int decode_memory(uint32_t w,memory_shape *d) {
+    *d=(memory_shape){0};d->rn=(w>>5)&31;d->rt=w&31;
+    if((w&0x3a000000)==0x28000000) {
+        unsigned opc=w>>30;d->mode=(w>>23)&3;d->read=(w>>22)&1;d->rt2=(w>>10)&31;
+        if((w&(1u<<26)) || (opc!=0 && opc!=2) || !d->mode ||
+           (d->mode!=2 && d->rn!=31 && (d->rn==d->rt || d->rn==d->rt2)) ||
+           (d->read && d->rt==d->rt2))return 0;
+        d->width=opc==2?8:4;d->count=2;d->result64=opc==2;
+        d->displacement=(int32_t)(sext((w>>15)&127,7)*d->width);return 1;
+    }
+    if((w&0x3b000000)==0x39000000) {
+        unsigned size=w>>30,opc=(w>>22)&3;
+        if((w&(1u<<26)) || (opc>=2 && (size==3 || (opc==3 && size==2))))return 0;
+        d->width=1u<<size;d->count=1;d->read=opc!=0;d->signed_load=opc>=2;
+        d->result64=opc==2 || size==3;d->mode=2;
+        d->displacement=((w>>10)&4095)*d->width;return 1;
+    }
+    return 0;
+}
 static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
-                          size_t size,uint64_t pc,unsigned limit) {
+                          size_t size,uint64_t pc,unsigned limit,int provider) {
     uint32_t current_el = cpu ? cpu->current_el : VF_EL0;
     uint64_t base = cpu ? cpu->guest_ram_base : 0;
     c->used=0;
     for(unsigned n=0;n<limit;n++,pc+=4) {
-        if((pc&3) || size<4 || pc<base || pc-base>size-4 || pc>UINT64_MAX-4) { finish(c,pc,n,VF_INSTRUCTION_ABORT);break; }
-        uint32_t w=word(guest+(pc-base)); unsigned rd=w&31,rn=(w>>5)&31,wide=w>>31;
+        if(!provider && ((pc&3) || size<4 || pc<base || pc-base>size-4 || pc>UINT64_MAX-4)) { finish(c,pc,n,VF_INSTRUCTION_ABORT);break; }
+        uint32_t w=word(guest+(provider?0:pc-base)); unsigned rd=w&31,rn=(w>>5)&31,wide=w>>31;
         unsigned thread = is_mrs_msr(w) ? thread_offset(sysreg_key(w)) : 0;
-        if((w&0x1f800000)==0x12000000) {
+        if(provider && memory_family(w)) {
+            field32(c,offsetof(vf_cpu,instruction),w);
+            finish(c,pc,n,VF_MEMORY_DISPATCH);break;
+        } else if((w&0x1f800000)==0x12000000) {
             uint64_t mask;unsigned op=(w>>29)&3;
             if(!logical_mask(w,&mask)) {
                 field32(c,offsetof(vf_cpu,instruction),w);
@@ -249,11 +281,11 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             load(c,rn,0,wide);b(c,wide?0x4c:0x44);b(c,((w>>30)&1)?0x29:0x01);b(c,0xc8);save(c,rd,0);
             if((w>>29)&1)save_arithmetic_flags(c,(w>>30)&1);
         } else if((w&0x3a000000)==0x28000000) {
-            unsigned opc=w>>30,mode=(w>>23)&3,read=(w>>22)&1,rt2=(w>>10)&31;
+            memory_shape shape;int valid=decode_memory(w,&shape);
+            unsigned mode=shape.mode,read=shape.read,rt2=shape.rt2;
             int writeback=mode!=2;
             field32(c,offsetof(vf_cpu,instruction),w);
-            if((w&(1u<<26)) || (opc!=0 && opc!=2) || !mode ||
-               (writeback && rn!=31 && (rn==rd || rn==rt2)) || (read && rd==rt2)) {
+            if(!valid) {
                 finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
             }
             uint64_t sctlr=cpu?cpu->sctlr:0;
@@ -261,8 +293,8 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                (sctlr&(UINT64_C(1)<<(current_el==VF_EL0?24:25)))) {
                 finish(c,pc,n,VF_SYSTEM_REGISTER_TRAP);break;
             }
-            unsigned bytes=opc==2?8:4;
-            int32_t displacement=(int32_t)(sext((w>>15)&127,7)*bytes);
+            unsigned bytes=shape.width;
+            int32_t displacement=shape.displacement;
             size_t sp_align=0,align=0;
             if(rn==31 && (sctlr&(current_el==VF_EL0?16u:8u))) {
                 load(c,31,1,1);b(c,0x49);b(c,0x89);b(c,0xc3); /* r11=SP */
@@ -317,12 +349,13 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             fix_to(c,short_second,data_target);fix_to(c,second,data_target);
             fix(c,next);
         } else if((w&0x3b000000)==0x39000000) {
-            unsigned size_code=w>>30,opc=(w>>22)&3,bytes=1u<<size_code;
-            int read=opc!=0,signed_load=opc>=2,result64=opc==2 || bytes==8;
+            memory_shape shape;int valid=decode_memory(w,&shape);
+            unsigned bytes=shape.width;
+            int read=shape.read,signed_load=shape.signed_load,result64=shape.result64;
             field32(c,offsetof(vf_cpu,instruction),w);
             /* V=1 belongs to SIMD/FP. size=3/opc=2 is PRFM; other
              * rejected size/opc combinations are reserved integer forms. */
-            if((w&(1u<<26)) || (opc>=2 && (size_code==3 || (opc==3 && size_code==2)))) {
+            if(!valid) {
                 finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
             }
             uint64_t sctlr=cpu?cpu->sctlr:0;
@@ -336,7 +369,7 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                 b(c,0x49);b(c,0x89);b(c,0xc3);
                 b(c,0xa8);b(c,15);sp_align=jcc(c,0x85);
             }
-            b(c,0x48);b(c,0x05);u32(c,((w>>10)&4095)*bytes);
+            b(c,0x48);b(c,0x05);u32(c,(uint32_t)shape.displacement);
             b(c,0x49);b(c,0x89);b(c,0xc3); /* r11=guest EA, r9=checked offset */
             b(c,0x49);b(c,0x89);b(c,0xc1);
             /* Supported native regime is MMU-off Device-nGnRnE. */
@@ -430,7 +463,7 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
     return c->used>c->capacity?VF_CODE_FULL:VF_NEXT;
 }
 int vf_translate(vf_code *c,const uint8_t *guest,size_t size,uint64_t pc,unsigned limit) {
-    return translate_impl(c,0,guest,size,pc,limit);
+    return translate_impl(c,0,guest,size,pc,limit,0);
 }
 int vf_translate_cpu(vf_code *c,vf_cpu *cpu,const uint8_t *guest,size_t size,
                      uint64_t pc,unsigned limit) {
@@ -438,7 +471,7 @@ int vf_translate_cpu(vf_code *c,vf_cpu *cpu,const uint8_t *guest,size_t size,
     /* This native path addresses caller RAM physically. A table walker is
      * not connected here: never execute an enabled guest MMU as identity. */
     if(cpu->sctlr&1) {cpu->instruction=0;return VF_SYSTEM_REGISTER_TRAP;}
-    return translate_impl(c,cpu,guest,size,pc,limit);
+    return translate_impl(c,cpu,guest,size,pc,limit,0);
 }
 int vf_host_supported(void) {
     uint32_t a=1,bv,c,d;
@@ -487,6 +520,13 @@ static int pstate_slow_step(vf_cpu *cpu) {
     } else return 0;
     cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
 }
+static int execute_native_block(vf_cpu *cpu,vf_code *code,uint8_t *ram,uint64_t size) {
+    uint32_t a=0,bv,cv,d;__asm__ volatile("cpuid":"+a"(a),"=b"(bv),"=c"(cv),"=d"(d)::"memory");
+    uint64_t before=cpu->retired;
+    int status=((vf_entry)(void *)code->bytes)(cpu,ram,size);
+    vf_cpu_advance_counter(cpu,cpu->retired-before);cpu->compiled_blocks++;
+    return status;
+}
 int vf_run(vf_cpu *cpu,const uint8_t *guest,size_t size,uint8_t *ram,size_t ram_size,
            vf_code *code,uint64_t budget,vf_protect protect,void *opaque) {
     if(!cpu||!guest||!ram||ram_size<8||!code||!code->bytes||!protect||
@@ -509,17 +549,140 @@ int vf_run(vf_cpu *cpu,const uint8_t *guest,size_t size,uint8_t *ram,size_t ram_
         }
         if(protect(code->bytes,code->capacity,1,opaque))return cpu->status=VF_PROTECTION;
         /* CPUID serializes stores before execution on x86; no I-cache invalidate needed. */
-        uint32_t a=0,bv,cv,d;__asm__ volatile("cpuid":"+a"(a),"=b"(bv),"=c"(cv),"=d"(d)::"memory");
-        uint64_t before=cpu->retired;
-        status=((vf_entry)(void *)code->bytes)(cpu,ram,ram_size);
-        vf_cpu_advance_counter(cpu,cpu->retired-before);
-        cpu->compiled_blocks++;
+        status=execute_native_block(cpu,code,ram,ram_size);
         if((status==VF_UNDEFINED_INSTRUCTION || status==VF_SYSTEM_REGISTER_TRAP)
             && (platform_slow_step(cpu) || pstate_slow_step(cpu) || pauth_slow_step(cpu)))continue;
         if(status!=VF_NEXT) {
             if(vf_cpu_commit_status(cpu,status)) return cpu->status=status;
             return cpu->status=status;
         }
+    }
+    return cpu->status=VF_BUDGET;
+}
+
+static int provider_error(vf_memory_run_result_v1 *result,unsigned reason) {
+    result->provider_status=reason;return VF_DATA_FAULT;
+}
+static int memory_exchange(vf_cpu *cpu,vf_memory_callback_v1 callback,void *owner,
+                          const vf_memory_request_v1 *request,vf_memory_reply_v1 *reply,
+                          vf_memory_run_result_v1 *result) {
+    *reply=(vf_memory_reply_v1){0};result->last_address=request->address;
+    if(request->operation==VF_MEMORY_FETCH)result->fetch_requests++;else result->data_requests++;
+    if(callback(owner,request,reply))return provider_error(result,VF_PROVIDER_CALLBACK_FAILURE);
+    if(reply->abi_version!=1 || reply->struct_size!=sizeof(*reply) || reply->epoch ||
+       reply->reserved[0] || reply->reserved[1] || reply->reserved[2] || reply->result>VF_MEMORY_INVALID_REQUEST)
+        return provider_error(result,VF_PROVIDER_INVALID_REPLY);
+    uint64_t mask=request->width==8?UINT64_MAX:(UINT64_C(1)<<(request->width*8))-1;
+    if(reply->result==VF_MEMORY_OK) {
+        if(reply->fault || reply->address || reply->esr || (reply->value0&~mask) || (reply->value1&~mask) ||
+           (request->count==1 && reply->value1) ||
+           (request->operation==VF_MEMORY_STORE && (reply->value0 || reply->value1)))
+            return provider_error(result,VF_PROVIDER_INVALID_REPLY);
+        return VF_NEXT;
+    }
+    if(reply->value0 || reply->value1)return provider_error(result,VF_PROVIDER_INVALID_REPLY);
+    if(reply->result==VF_MEMORY_INVALID_REQUEST) {
+        if(reply->fault || reply->address || reply->esr)return provider_error(result,VF_PROVIDER_INVALID_REPLY);
+        return provider_error(result,VF_PROVIDER_INVALID_REQUEST);
+    }
+    if(reply->result==VF_MEMORY_UNSUPPORTED) {
+        if(reply->fault || reply->esr || (reply->address!=request->address &&
+           !(request->count==2 && reply->address==request->address+request->width)))
+            return provider_error(result,VF_PROVIDER_INVALID_REPLY);
+        result->last_address=reply->address;return provider_error(result,VF_PROVIDER_UNSUPPORTED);
+    }
+    enum vf_exception_kind kind;int status;uint64_t expected;
+    if(request->operation==VF_MEMORY_FETCH) {
+        kind=VF_EXCEPTION_INSTRUCTION_ABORT;status=VF_INSTRUCTION_ABORT;expected=UINT64_C(0x8a000000);
+        if(reply->fault!=VF_MEMORY_PC_ALIGNMENT || !(request->pc&3))
+            return provider_error(result,VF_PROVIDER_INVALID_REPLY);
+    } else {
+        kind=VF_EXCEPTION_ALIGNMENT_FAULT;status=VF_ALIGNMENT_FAULT;
+        expected=((UINT64_C(0x24)+request->current_el)<<26)|(UINT64_C(1)<<25)|0x21|
+            (request->operation==VF_MEMORY_STORE?64:0);
+        if(reply->fault!=VF_MEMORY_DATA_ALIGNMENT || !(request->address&(request->width-1)))
+            return provider_error(result,VF_PROVIDER_INVALID_REPLY);
+    }
+    if(reply->address!=request->address || reply->esr!=expected)
+        return provider_error(result,VF_PROVIDER_INVALID_REPLY);
+    if(vf_cpu_raise_exception(cpu,kind,cpu->pc,reply->address,(uint32_t)expected,
+                             request->operation==VF_MEMORY_FETCH?0:cpu->instruction))
+        return provider_error(result,VF_PROVIDER_INVALID_REPLY);
+    result->last_address=reply->address;return status;
+}
+static uint64_t memory_register(const vf_cpu *cpu,unsigned reg,int sp) {
+    return reg==31?(sp?cpu->sp:0):cpu->x[reg];
+}
+static void memory_save(vf_cpu *cpu,unsigned reg,uint64_t value,int wide) {
+    if(reg!=31)cpu->x[reg]=wide?value:(uint32_t)value;
+}
+static int memory_data_step(vf_cpu *cpu,vf_memory_callback_v1 callback,void *owner,
+                            vf_memory_run_result_v1 *result) {
+    memory_shape shape;
+    if(!decode_memory(cpu->instruction,&shape)) {
+        (void)vf_cpu_commit_status(cpu,VF_UNDEFINED_INSTRUCTION);return VF_UNDEFINED_INSTRUCTION;
+    }
+    uint64_t base=memory_register(cpu,shape.rn,1);
+    if(shape.rn==31 && (cpu->sctlr&(cpu->current_el==VF_EL0?16u:8u)) && (base&15)) {
+        cpu->far=base;(void)vf_cpu_commit_status(cpu,VF_SP_ALIGNMENT_FAULT);return VF_SP_ALIGNMENT_FAULT;
+    }
+    uint64_t updated=base+(int64_t)shape.displacement;
+    uint64_t address=shape.mode==1?base:updated;
+    uint64_t mask=shape.width==8?UINT64_MAX:(UINT64_C(1)<<(shape.width*8))-1;
+    vf_memory_request_v1 request={1,sizeof(request),shape.read?VF_MEMORY_LOAD:VF_MEMORY_STORE,0,
+        cpu->pc,address,0,0,cpu->sctlr,0,shape.width,shape.count,cpu->current_el,0};
+    if(!shape.read) {
+        request.value0=memory_register(cpu,shape.rt,0)&mask;
+        if(shape.count==2)request.value1=memory_register(cpu,shape.rt2,0)&mask;
+    }
+    vf_memory_reply_v1 reply;
+    int status=memory_exchange(cpu,callback,owner,&request,&reply,result);
+    if(status!=VF_NEXT)return status;
+    if(shape.read) {
+        uint64_t value=shape.signed_load?(uint64_t)sext(reply.value0,shape.width*8):reply.value0;
+        memory_save(cpu,shape.rt,value,shape.result64);
+        if(shape.count==2)memory_save(cpu,shape.rt2,reply.value1,shape.result64);
+    }
+    if(shape.mode!=2) {
+        if(shape.rn==31)cpu->sp=updated;else cpu->x[shape.rn]=updated;
+    }
+    cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);result->completed_data_operations++;
+    return VF_NEXT;
+}
+int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
+    vf_protect protect,void *protect_opaque,vf_memory_callback_v1 callback,void *owner,
+    vf_memory_run_result_v1 *result) {
+    if(!result)return VF_DATA_FAULT;
+    if(!cpu || !code || !code->bytes || !protect || !callback || !owner || !budget ||
+       !vf_cpu_state_valid(cpu) || cpu->exception_pending!=VF_EXCEPTION_NONE)
+        return provider_error(result,VF_PROVIDER_INVALID_REQUEST);
+    uint64_t start=cpu->retired;
+    while(cpu->retired-start<budget) {
+        if((cpu->sctlr&1) || cpu->current_el>VF_EL1 || cpu->hcr_el2 || cpu->scr_el3) {
+            cpu->instruction=0;return cpu->status=VF_SYSTEM_REGISTER_TRAP;
+        }
+        int status=vf_cpu_poll_interrupt(cpu);
+        if(status!=VF_NEXT)return cpu->status=status;
+        vf_memory_request_v1 request={1,sizeof(request),VF_MEMORY_FETCH,0,cpu->pc,cpu->pc,
+            0,0,cpu->sctlr,0,4,1,cpu->current_el,0};
+        vf_memory_reply_v1 reply;
+        status=memory_exchange(cpu,callback,owner,&request,&reply,result);
+        if(status!=VF_NEXT)return cpu->status=status;
+        uint32_t instruction=(uint32_t)reply.value0;
+        if(protect(code->bytes,code->capacity,0,protect_opaque))return cpu->status=VF_PROTECTION;
+        status=translate_impl(code,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
+        if(status!=VF_NEXT)return cpu->status=status;
+        if(protect(code->bytes,code->capacity,1,protect_opaque))return cpu->status=VF_PROTECTION;
+        /* No guest RAM host pointer is supplied to the generated entry. */
+        status=execute_native_block(cpu,code,0,0);
+        if((uint32_t)status==VF_MEMORY_DISPATCH) {
+            status=memory_data_step(cpu,callback,owner,result);
+            if(status!=VF_NEXT)return cpu->status=status;
+            continue;
+        }
+        if((status==VF_UNDEFINED_INSTRUCTION || status==VF_SYSTEM_REGISTER_TRAP) &&
+           (platform_slow_step(cpu) || pstate_slow_step(cpu) || pauth_slow_step(cpu)))continue;
+        if(status!=VF_NEXT) {(void)vf_cpu_commit_status(cpu,status);return cpu->status=status;}
     }
     return cpu->status=VF_BUDGET;
 }
@@ -552,7 +715,16 @@ int vf_run_boot_v2(vf_cpu *cpu,uint8_t *ram,size_t ram_size,uint64_t base,
                 uint64_t budget,vf_protect protect,void *opaque,
                 const uint64_t registers[4],vf_pauth_step pauth,
                 const vf_boot_options_v2 *options) {
-    if(!cpu || !ram || ram_size<8 || base>UINT64_MAX-ram_size ||
+    if(!ram)return VF_DATA_FAULT;
+    int status=vf_cpu_prepare_boot(cpu,ram_size,base,entry,args,stack,registers,pauth,options,budget);
+    if(status!=VF_NEXT)return status;
+    return vf_run(cpu,ram,ram_size,ram,ram_size,code,budget,protect,opaque);
+}
+int vf_cpu_prepare_boot(vf_cpu *cpu,uint64_t ram_size,uint64_t base,
+                uint64_t entry,uint64_t args,uint64_t stack,
+                const uint64_t registers[4],vf_pauth_step pauth,
+                const vf_boot_options_v2 *options,uint64_t budget) {
+    if(!cpu || ram_size<8 || base>UINT64_MAX-ram_size ||
        (base&0x3fff) || (entry&3) || entry<base || entry-base>ram_size-4 ||
        (args&7) || args<base || args-base>=ram_size ||
        (stack&15) || stack<=base || stack-base>ram_size || !budget || !registers)
@@ -575,5 +747,5 @@ int vf_run_boot_v2(vf_cpu *cpu,uint8_t *ram,size_t ram_size,uint64_t base,
     vf_cpu_set_interrupt_lines(cpu,(unsigned)config.irq_level,(unsigned)config.fiq_level);
     cpu->guest_ram_base=base;
     cpu->pauth_step=pauth;
-    return vf_run(cpu,ram,ram_size,ram,ram_size,code,budget,protect,opaque);
+    return VF_NEXT;
 }
