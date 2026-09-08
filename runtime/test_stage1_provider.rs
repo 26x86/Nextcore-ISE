@@ -234,3 +234,25 @@ fn run_with_stack(c:Controls,tables:&[u8],ram:&mut[u8],entry:u64,stack:u64,initi
         assert_eq!(r.base.execution.esr,0);assert_eq!(r.base.execution.base.fault_instruction,0);assert_eq!(ram,before);
     }
 }
+
+#[path="ubfm_provider_cases.rs"]mod ubfm_cases;
+#[test]fn ubfm_is_native_after_v2_nonidentity_fetch_without_data_requests() {
+    for sixteen in [false,true] {for case in ubfm_cases::cases() {
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[case.word,HLT]);let before=ram.clone();
+        let mut expected=[0xaau64,case.source,8,0xfedcba9876543210];let initial=expected;
+        if case.destination!=31 {expected[case.destination]=case.expected;}
+        let options=platform::BootOptionsV2{abi_version:2,struct_size:64,initial_pstate:0x3c5|(case.flags<<28),..Default::default()};
+        let(r,requests)=run_with_options(c,&tables,&mut ram,VA,initial,0,Some(&options));let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks),(1,2,2));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);
+        assert_eq!((b.pc,r.base.execution.sp,r.base.execution.pstate),(VA+8,VA+0x400,options.initial_pstate));
+        assert_eq!((r.base.provider_status,r.base.fetch_requests,r.base.data_requests,r.base.completed_data_operations),(0,2,0,0));
+        assert_eq!((r.base.execution.esr,r.base.guest_far),(0,0));assert!(requests.iter().all(|q|q.operation==FETCH));assert_eq!(ram,before);
+    }
+        for word in ubfm_cases::INVALID {
+            let(c,tables,mut ram,_,_)=fixture(sixteen,&[word,HLT]);let before=ram.clone();let initial=[1,2,3,4];
+            let(r,_)=run(c,&tables,&mut ram,VA,initial,0);let b=r.base.execution.base;
+            assert_eq!((b.status,b.retired,b.compiled_blocks,r.base.fetch_requests),(8,0,1,1));
+            assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!((b.pc,r.base.execution.esr,r.base.data_requests),(VA,1<<25,0));assert_eq!(ram,before);
+        }
+    }
+}
