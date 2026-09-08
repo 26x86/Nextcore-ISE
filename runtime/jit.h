@@ -10,7 +10,8 @@ enum vf_status { VF_NEXT, VF_HALT, VF_BAD_INSTRUCTION, VF_FETCH_FAULT, VF_DATA_F
                  VF_UNDEFINED_INSTRUCTION, VF_PRIVILEGE_FAULT,
                  VF_TRANSLATION_FAULT, VF_PERMISSION_FAULT, VF_ALIGNMENT_FAULT,
                  VF_SYSTEM_REGISTER_TRAP, VF_TIMER_INTERRUPT, VF_EXTERNAL_INTERRUPT,
-                 VF_INSTRUCTION_ABORT, VF_DATA_ABORT, VF_FIQ_INTERRUPT };
+                 VF_INSTRUCTION_ABORT, VF_DATA_ABORT, VF_FIQ_INTERRUPT,
+                 VF_SP_ALIGNMENT_FAULT };
 
 /* These are guest architectural exceptions.  They are deliberately separate
  * from vf_status: a terminal JIT result is an execution-layer status, while a
@@ -28,6 +29,7 @@ enum vf_exception_kind {
     VF_EXCEPTION_TIMER_INTERRUPT = 9,
     VF_EXCEPTION_EXTERNAL_INTERRUPT = 10,
     VF_EXCEPTION_FIQ_INTERRUPT = 13,
+    VF_EXCEPTION_SP_ALIGNMENT_FAULT = 14,
 };
 
 enum vf_exception_level { VF_EL0 = 0, VF_EL1 = 1, VF_EL2 = 2, VF_EL3 = 3 };
