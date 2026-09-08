@@ -28,7 +28,9 @@ def main() -> None:
     runtime=args.runtime.resolve(strict=True);work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
     paths=[runtime/name for name in ("jit.c","jit.h","arch.c","boot_jit.c","boot_jit.h","platform_abi.h",
         "memory_abi.h","memory_boot.h","memory_boot.c","memory_boot.rs","memory_layout.c","test_memory_provider.rs",
-        "preos/src/platform.rs","memory-service/Cargo.toml","memory-service/src/lib.rs","memory-service/src/abi.rs")]
+        "memory_abi_v2.h","memory_boot_v2.h","memory_stage1.inc","preos/src/mmu.rs","preos/src/exception_level.rs",
+        "preos/src/platform.rs","memory-service/Cargo.toml","memory-service/src/lib.rs","memory-service/src/abi.rs",
+        "memory-service/src/abi_v2.rs","memory-service/src/stage1.rs","memory-service/src/stage1_tests.rs")]
     before={str(p.relative_to(runtime)):digest(p) for p in paths}
     records=[]
     def run(command: list[str]) -> None:

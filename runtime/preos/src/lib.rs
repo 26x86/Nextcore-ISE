@@ -14,6 +14,7 @@ use core::ptr;
 
 mod machine;
 use machine::VfMachine;
+mod exception_level;
 mod arch;
 mod pauth;
 mod platform;

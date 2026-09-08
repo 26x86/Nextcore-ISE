@@ -5,6 +5,7 @@
  */
 #include "jit.h"
 #include "memory_boot.h"
+#include "memory_boot_v2.h"
 /* Private dispatcher signal, never an exported terminal execution status. */
 #define VF_MEMORY_DISPATCH UINT32_C(0x7ffffffe)
 static void b(vf_code *c, unsigned x) { if (c->used < c->capacity) c->bytes[c->used] = (uint8_t)x; ++c->used; }
@@ -704,6 +705,8 @@ int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
     }
     return cpu->status=VF_BUDGET;
 }
+
+#include "memory_stage1.inc"
 
 int vf_run_boot(vf_cpu *cpu,uint8_t *ram,size_t ram_size,uint64_t base,
                 uint64_t entry,uint64_t args,uint64_t stack,vf_code *code,
