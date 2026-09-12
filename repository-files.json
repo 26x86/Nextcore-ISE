@@ -117,6 +117,11 @@
       "sha256": "a1b5e8669d3fb624a4e99738fd04cf0cb31538dd888fb272616b68ecf6cfd650"
     },
     {
+      "path": "docs/MAPPED_PAUTH_V2.md",
+      "bytes": 3275,
+      "sha256": "61dd097dd51116f48ed1d869aaa21716ecc7100979023032c3892350c6f21f7d"
+    },
+    {
       "path": "docs/MMU_FAULT_METADATA.md",
       "bytes": 4668,
       "sha256": "ff7107620b7c31755392cd5e0ffd3b81e03463c12550775f03f7610af7ecf72b"
@@ -133,13 +138,13 @@
     },
     {
       "path": "docs/NATIVE_MMU_PROVIDER_V2.md",
-      "bytes": 29265,
-      "sha256": "cee821743db333bbf08fe9cf6dd1bbb8b6642f6e3707bfbeb77ca73522a02a68"
+      "bytes": 29506,
+      "sha256": "4748a2412710355043a3bfc62b53c24b249b112f1e74fe26c843e2f84cbddf3f"
     },
     {
       "path": "docs/PROVIDER_NATIVE_CACHE.md",
-      "bytes": 4739,
-      "sha256": "d58bb5c7b6a3ebbfdd0b7854178fefa588cb453d783a41a0b18e16309db69dd7"
+      "bytes": 4877,
+      "sha256": "c3db9de034eb4ca71fd60c945911dd550cfb8655aa295475c5c20d4433101a96"
     },
     {
       "path": "docs/UNDEFINED_A64_SYNDROME.md",
@@ -154,7 +159,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "d1f2486004427cce6b28cc216dc6fc53f307219ca4dead95b5818e1eb53ab168"
+      "sha256": "029afbf12fe1bf2ebda85c4a73a4360c81380336e6d7b518b5446e050f8629ba"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -288,13 +293,13 @@
     },
     {
       "path": "runtime/memory_boot_v2.c",
-      "bytes": 3878,
-      "sha256": "eb07fea6ab40567c38616fd12822146e61be84e4fa6806398832935b6753938c"
+      "bytes": 5122,
+      "sha256": "9c84f287e8f89d05777806f2c0c6b117add7ccc875ab6cf9f0e605c73d1a41d4"
     },
     {
       "path": "runtime/memory_boot_v2.h",
-      "bytes": 2231,
-      "sha256": "aca5bced2619550b8cd636f27f65b2125ad49daf1c73a0341be41db6192bf33c"
+      "bytes": 2672,
+      "sha256": "fae6514d32a5104400f912c03570ec18e90a5ff483d77fd84e2a8050e0cb3cad"
     },
     {
       "path": "runtime/memory_boot_v2.rs",
@@ -338,8 +343,8 @@
     },
     {
       "path": "runtime/memory_stage1.inc",
-      "bytes": 14106,
-      "sha256": "4fdcc900e1fbaac75bb92d88aad1908f6ede7fb61e9e058a0b591c3daa599e4a"
+      "bytes": 17638,
+      "sha256": "4ee1b1f2051617dab15d59095c720071d3ef8d5b3aa82992998c3e91f5f0f73b"
     },
     {
       "path": "runtime/multiply_add_cases.rs",
@@ -398,8 +403,8 @@
     },
     {
       "path": "runtime/preos/src/pauth.rs",
-      "bytes": 15447,
-      "sha256": "f0c93ce49e3b8fa27bc28805d60fd6689edb41acd299bc914b192c329938604c"
+      "bytes": 16017,
+      "sha256": "dc0379c365cf6c1fca77d1c4c344c2a5c82daabb480c30e7c681a646197990ee"
     },
     {
       "path": "runtime/preos/src/platform.rs",
@@ -492,6 +497,16 @@
       "sha256": "2f53c9c225b08ecd7a9122b42398c624a8ac6b39357c5d2e5dc308d1bc509766"
     },
     {
+      "path": "runtime/test_mapped_provider.rs",
+      "bytes": 7647,
+      "sha256": "b7229310cdb9f0b6a53da36aae6a3e7de0ad39299621d283e84000626ec90417"
+    },
+    {
+      "path": "runtime/test_mapped_snapshot.c",
+      "bytes": 1886,
+      "sha256": "d75695be0e5d4bfe4ccfced30e91498536da843aa881265e6c36584aef7ff653"
+    },
+    {
       "path": "runtime/test_memory_provider.rs",
       "bytes": 23659,
       "sha256": "76b1a9baf5ff2ad082f29d5c48cd85981a083a990c6067f07702fd14a6757249"
@@ -508,8 +523,8 @@
     },
     {
       "path": "runtime/test_pauth_jit.c",
-      "bytes": 3753,
-      "sha256": "bf6ad778a24182ed128d69334a7cbceed3f8fa79e684955b536a353f5906fe1e"
+      "bytes": 4929,
+      "sha256": "a045ed6b2eaa44d33c3b500f71b7a5007035e2c219c5a2f115e7d8d4316051ef"
     },
     {
       "path": "runtime/test_provider_cache.c",
@@ -533,8 +548,8 @@
     },
     {
       "path": "runtime/test_stage1_provider.rs",
-      "bytes": 26667,
-      "sha256": "dcc6629bed94d07eef4bdc9f5b5b6977ae7b449226769ef472bb63f603dd65cb"
+      "bytes": 26721,
+      "sha256": "e71ce27f0afe570766b03698c22af0add0da252a1591e293638330a1e281a22c"
     },
     {
       "path": "runtime/test_test_bit_branch_jit.c",
@@ -560,6 +575,26 @@
       "path": "runtime/test_wx.c",
       "bytes": 693,
       "sha256": "afa4209e70d3c566493865b49c315295503ed0787f0e64dfb1338e713b23c6e4"
+    },
+    {
+      "path": "runtime/tests/capture_pauth_width_oracle.py",
+      "bytes": 6768,
+      "sha256": "5e7c614149e6676c545d6fa27651a6cbca756d36ae9de882ba0a1477000a3fa7"
+    },
+    {
+      "path": "runtime/tests/pauth_width_oracle.h",
+      "bytes": 7007,
+      "sha256": "d7b8de8dc9222ba49a2a12ccd3cbc15ef0fa6f11b7057693f55cd5c2214542ce"
+    },
+    {
+      "path": "runtime/tests/pauth_width_oracle.json",
+      "bytes": 10380,
+      "sha256": "9e86e33434f4c18504754fa5ac4dc08f50b0b85b8c95f8befaa526562b5b35a4"
+    },
+    {
+      "path": "runtime/tests/verify_mapped_native.py",
+      "bytes": 5611,
+      "sha256": "856fb1eb8653051e87c54ff398a028d1d517c322452d8a2a11a7d180cf420a30"
     },
     {
       "path": "runtime/tests/verify_provider_cache.py",
