@@ -334,3 +334,14 @@ fn test_bit_branch(op:u32,bit:u32,imm:i32,rt:u32)->u32 {
     assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(requests[1].address,VA-32768);assert_eq!(ram,before);
     }
 }
+
+#[path="multiply_add_cases.rs"] mod multiply_add_cases;
+#[test]fn multiply_add_v2_executes_through_both_granules() {
+    for sixteen in [false,true] {multiply_add_cases::each(|case| {
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[case.word,HLT]);let before=ram.clone();let expected=multiply_add_cases::expected(case,case.initial);
+        let(r,requests)=run(c,&tables,&mut ram,VA,case.initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,VA+8));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);
+        assert_eq!((r.base.execution.pstate,r.base.fetch_requests,r.base.data_requests),(0x3c5,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[VA,VA+4]);assert_eq!(ram,before);
+    });}
+}

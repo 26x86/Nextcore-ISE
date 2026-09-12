@@ -1651,6 +1651,17 @@ impl GuestCpuState {
             return StepResult::Continue;
         }
 
+        // Ordinary MADD/MSUB only; widened and high-half encodings stay gated.
+        if word & 0x7fe00000 == 0x1b000000 {
+            let product = self.read_reg(rn, false).wrapping_mul(self.read_reg((word >> 16) & 31, false));
+            let addend = self.read_reg((word >> 10) & 31, false);
+            let result = if word & (1 << 15) != 0 { addend.wrapping_sub(product) }
+                else { addend.wrapping_add(product) };
+            self.write_reg(rd, result, false, wide);
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
+        }
+
         // Conditional selection reads ZR for every register31 operand.
         if word & 0x3fe00800 == 0x1a800000 {
             let value = if self.condition_holds((word >> 12) & 15) {
@@ -2746,6 +2757,40 @@ mod tests {
             let mut cpu=GuestCpuState::reset(0);let mut ram=[0u8;12];let result=cpu.run_bounded(&code,&mut ram,8);
             assert_eq!((result.status,result.retired,result.pc),(if op==0 {ArchRunStatus::Halt}else{ArchRunStatus::Exception},if op==0 {2}else{1},if op==0 {12}else{4}));
         }
+    }
+
+    #[test]
+    fn multiply_add_matches_wider_unsigned_oracle_and_preserves_state() {
+        let values=[0u64,1,u64::MAX,0x7fffffff,0x80000000,0xffffffff,0x8000000000000000,0xabcdef0187654321];
+        let roles=[(0u32,1u32,2u32,3u32),(31,1,2,3),(0,31,2,3),(0,1,31,3),(0,1,2,31),(0,1,2,0),
+            (0,1,2,1),(0,1,2,2),(0,0,0,0),(31,31,31,31),(30,29,28,27),(1,1,1,1)];
+        let mut cases=0;
+        for wide in [false,true] {for sub in [false,true] {for flags in 0..16u32 {for (rn,rm,ra,rd) in roles {
+        for a in values {for b in values {for c in values {
+            let mut cpu=GuestCpuState::reset(0);for (i,r) in cpu.x.iter_mut().enumerate(){*r=0xfedcba9800000000+i as u64;}
+            if rn!=31{cpu.x[rn as usize]=a;}if rm!=31{cpu.x[rm as usize]=b;}if ra!=31{cpu.x[ra as usize]=c;}
+            cpu.sp=0x8765432100;cpu.pstate=0x3c5|(flags<<28);let mut expected=cpu.x;
+            let mask=if wide {u64::MAX}else{u32::MAX as u64};
+            let read=|r:u32|if r==31{0u128}else{u128::from(expected[r as usize]&mask)};
+            let product=read(rn)*read(rm);let total=if sub{u128::from(mask)+1+read(ra)-(product&u128::from(mask))}else{read(ra)+product};
+            if rd!=31{expected[rd as usize]=total as u64&mask;}
+            let word=0x1b000000|(u32::from(wide)<<31)|(u32::from(sub)<<15)|(rm<<16)|(ra<<10)|(rn<<5)|rd;
+            let mut bytes=word.to_le_bytes();let before=bytes;
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),StepResult::Continue);
+            assert_eq!(cpu.x,expected);assert_eq!((cpu.pc,cpu.sp,cpu.pstate),(4,0x8765432100,0x3c5|(flags<<28)));assert_eq!(bytes,before);cases+=1;
+        }}}}}}}
+        assert_eq!(cases,393216);
+    }
+
+    #[test]
+    fn multiply_add_neighboring_families_remain_rejected() {
+        for sf in 0..2 {for op54 in 0..4 {for op31 in 0..8 {for sub in 0..2 {
+            if op54==0&&op31==0{continue;}
+            let word=0x1b017c02u32|(sf<<31)|(op54<<29)|(op31<<21)|(sub<<15);
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=17;cpu.x[1]=23;cpu.x[2]=31;cpu.sp=0x1000;cpu.pstate=0xb00003c5;let before=cpu.x;
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word.to_le_bytes())),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+            assert_eq!(cpu.x,before);assert_eq!((cpu.pc,cpu.sp,cpu.pstate,cpu.sys.esr_el1),(0,0x1000,0xb00003c5,1<<25));
+        }}}}
     }
 
     #[test]
