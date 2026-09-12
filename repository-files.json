@@ -177,9 +177,14 @@
       "sha256": "014814ca240751941e9365f06992a533113de30bea9a12b75208dc808013a127"
     },
     {
+      "path": "docs/ZFR0_SCALAR_PROFILE.md",
+      "bytes": 3579,
+      "sha256": "6c73cc22f656ea58e0bbafa9f3fe3b36ce4923abcc70e8264523416a4432c527"
+    },
+    {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "f8ac18a6312c4367b0e168955e401988687b63b3ea5c287e7c0b3837497ddd52"
+      "sha256": "0189e392d417c265e7c126a65ac9f2a8557a18534a5c25f515a86bc1a5eee848"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -188,8 +193,8 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 21931,
-      "sha256": "28daa65f1c0fda541617ada7a17fcaa74ebc1d206985155bb4b7e44b5a3632da"
+      "bytes": 22174,
+      "sha256": "3f153365e35552eacdbb6fa7e5a0194f483bdf0ee1adbdf0b4a5ed9219cef52b"
     },
     {
       "path": "runtime/bfm_cases.rs",
@@ -223,8 +228,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 50700,
-      "sha256": "4405a2bec13d608bf210e25f31f1be2f97d4e78fb5c91b83b304d054fa55dfc7"
+      "bytes": 51348,
+      "sha256": "5ed4e865979959975ece6498bd7bc65088dff0c8918f393ed61097daf135bb04"
     },
     {
       "path": "runtime/jit.h",
@@ -393,8 +398,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 178724,
-      "sha256": "fae52464948d4540b671a41a22504b81e710a133e45454d2b619a89bfe3bbb63"
+      "bytes": 179115,
+      "sha256": "977ae8208aed578e091a9e6f76eec1209cf40e4c8523d4c0877143d547efb7ed"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -657,6 +662,21 @@
       "sha256": "afa4209e70d3c566493865b49c315295503ed0787f0e64dfb1338e713b23c6e4"
     },
     {
+      "path": "runtime/test_zfr0_jit.c",
+      "bytes": 2998,
+      "sha256": "3f83cd7da8191226d541cb108a9d41a9e4a814fe6e9545025f724aa674d72ef6"
+    },
+    {
+      "path": "runtime/test_zfr0_provider.rs",
+      "bytes": 2136,
+      "sha256": "8a4a1d59489a7c403844c19994f156eb41118665551e5b2932bb7514d88f9dda"
+    },
+    {
+      "path": "runtime/test_zfr0_reference.rs",
+      "bytes": 1338,
+      "sha256": "1254421367428ac993c15b6a273b874655d1036a8e78f822662a8c213a66c1e1"
+    },
+    {
       "path": "runtime/tests/capture_pauth_width_oracle.py",
       "bytes": 6768,
       "sha256": "5e7c614149e6676c545d6fa27651a6cbca756d36ae9de882ba0a1477000a3fa7"
@@ -700,6 +720,11 @@
       "path": "runtime/tests/verify_variable_shift_native.py",
       "bytes": 8662,
       "sha256": "705534c7598188164bd4a4c1b98284dd8d0da9e1e1f8e3169b70bfcadd4e7fce"
+    },
+    {
+      "path": "runtime/tests/verify_zfr0_native.py",
+      "bytes": 8010,
+      "sha256": "114a101f8da857ebe6953ef781e793d523c7a8e46020023f8f670bf214898dfd"
     },
     {
       "path": "runtime/ubfm_provider_cases.rs",
