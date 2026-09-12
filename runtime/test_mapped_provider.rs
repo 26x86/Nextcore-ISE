@@ -11,6 +11,7 @@ unsafe extern "C" {
         initial:*const u64,pauth:Option<Pauth>,options:*const platform::BootOptionsV2,controls:*const Controls,
         callback:Option<Callback>,owner:*mut c_void,result:*mut Run)->i32;
     fn test_mapped_cpu_size()->usize;
+    fn test_mapped_stack_state(snapshot:*const u8,c:*const Controls)->i32;
     fn test_mapped_snapshot(c:*const Controls,code:*mut u8,capacity:usize,budget:u64,
         protect:Protect,protect_owner:*mut c_void,callback:Callback,owner:*mut c_void,
         initial:*const u64,pauth:Option<Pauth>,change_el:u32,snapshot:*mut u8,result:*mut Run)->i32;
@@ -103,5 +104,30 @@ unsafe extern "C" fn counted(p:*mut c_void,n:usize,x:i32,owner:*mut c_void)->i32
         bytes.extend_from_slice(&recorder.events);drop(recorder);bytes.extend_from_slice(&ram);
         std::fs::write(std::path::Path::new(&directory).join(format!("case-{kind}.bin")),bytes).unwrap();
         std::fs::write(std::path::Path::new(&directory).join(format!("case-{kind}.calls")),p.calls.to_string()).unwrap();
+    }
+}
+
+#[cfg(nextcore_mapped_snapshot)]
+#[test]fn mapped_spsel_banks_preserve_controls_and_following_stack_memory() {
+    // MSR SPSel,#0/#1; STR/LDR using SP. Encodings checked with LLVM AArch64 assembler.
+    let words=[0xd50041bf,0xd50040bf,0xf90003e0,0xf94003e2,0xd50040bf,
+               0xd50041bf,0xf90003e0,0xf94003e3,0xd50041bf,HLT];
+    for (program,mode,retired) in [(&words[..],2,10),(&[0xd50042bf,HLT][..],2,0),(&[0xd50040bf,HLT][..],3,0)] {
+        let(c,t,mut ram)=controls(true,program);let before=ram.clone();let code=Code::new();
+        let mut recorder=Recorder{service:MemoryServiceV2::new(&mut ram,RAM,&t,TABLES,c).unwrap(),events:Vec::new(),fetches:0,failure:false};
+        let mut permissions=Permissions{calls:0,fail:0};let mut cpu=vec![0u8;unsafe{test_mapped_cpu_size()}];let mut result=Run::default();
+        let initial=[0x1122334455667788,22,33,44];
+        let status=unsafe{test_mapped_snapshot(&c,code.0,4096,32,counted,(&mut permissions as *mut Permissions).cast(),
+            recorded,(&mut recorder as *mut Recorder<'_>).cast(),initial.as_ptr(),Some(vf_preos_pauth_step),mode,cpu.as_mut_ptr(),&mut result)};
+        let execution=result.base.execution.base;
+        assert_eq!(execution.retired,retired);assert_eq!(recorder.fetches,if retired==10 {10}else{1});
+        if retired==10 {
+            assert_eq!((status,execution.x2,execution.x3),(1,initial[0],initial[0]));
+            assert_eq!(unsafe{test_mapped_stack_state(cpu.as_ptr(),&c)},1);
+        } else {assert_eq!(status,if mode==3 {9}else{13}); // EL0 privilege fault / reserved system-register trap.
+            assert_eq!((execution.x0,execution.x1,execution.x2,execution.x3),(initial[0],22,33,44));}
+        drop(recorder);
+        if retired==10 {for offset in [0x400,0x800] {assert_eq!(&ram[offset..offset+8],&initial[0].to_le_bytes());}}
+        else {assert_eq!(ram,before);}
     }
 }

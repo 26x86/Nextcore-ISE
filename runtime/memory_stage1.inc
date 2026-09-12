@@ -187,6 +187,15 @@ static int memory_control_read_v2(vf_cpu *cpu) {
     if((w&31)!=31)cpu->x[w&31]=value;
     cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
 }
+static int stack_select_immutable_step(vf_cpu *cpu) {
+    uint32_t word=cpu->instruction;
+    if(cpu->current_el!=VF_EL1 || (word&UINT32_C(0xfffffeff))!=UINT32_C(0xd50040bf))return 0;
+    unsigned previous=(cpu->pstate&1)?VF_EL1:VF_EL0;
+    cpu->sp_el[previous]=cpu->sp;
+    cpu->pstate=(cpu->pstate&~UINT64_C(1))|((word>>8)&1);
+    cpu->sp=cpu->sp_el[(cpu->pstate&1)?VF_EL1:VF_EL0];
+    cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
+}
 static int pauth_immutable_step(vf_cpu *cpu) {
     if(!cpu->pauth_step || cpu->current_el!=VF_EL1)return 0;
     vf_pauth_context context={0};
@@ -272,7 +281,8 @@ static int run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
             if(status!=VF_NEXT)return cpu->status=status;continue;
         }
         if((status==VF_UNDEFINED_INSTRUCTION || status==VF_SYSTEM_REGISTER_TRAP) &&
-           (platform_slow_step(cpu) || memory_control_read_v2(cpu) || (allow_pauth && pauth_immutable_step(cpu))))continue;
+           (platform_slow_step(cpu) || memory_control_read_v2(cpu) || stack_select_immutable_step(cpu) ||
+            (allow_pauth && pauth_immutable_step(cpu))))continue;
         if(status!=VF_NEXT){(void)vf_cpu_commit_status(cpu,status);return cpu->status=status;}
     }
     return cpu->status=VF_BUDGET;

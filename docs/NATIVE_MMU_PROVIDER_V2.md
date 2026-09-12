@@ -434,3 +434,22 @@ Historical BP29 `tools/mmu_fault_levels/compare_walker.py`, its README and
 `results.json` describe their original source revision and remain unchanged.
 Use `compare_current_walker.py` for the extracted canonical enum and current
 walker; it records both current source hashes and never rewrites old receipts.
+
+### Immutable EL1 stack selection
+
+Both immutable v2 entries accept only the two immediate SPSel selections at
+EL1, independently of PAC callback availability. The handler saves the live SP
+to the currently selected bank, changes only PSTATE.SP, then loads SP_EL0 or
+SP_EL1. Selecting the same bank preserves the live SP even if its saved bank
+copy was stale. Subsequent instructions observe the selected stack immediately,
+without an added barrier; see [Arm's public PSTATE synchronization discussion](https://community.arm.com/forums/f/architectures-and-processors-forum/8141/is-any-synchronization-barrier-instruction-necessary-after-writing-spsel-to-switch-to-sp0-on-armv8).
+
+The step preserves current EL, NZCV, DAIF, immutable memory controls, PAC keys,
+and other registers. It advances PC with unsigned wrap, retires once and updates
+the counter once. It makes no data request and does not fault merely because
+the selected SP is unaligned; a subsequent stack access applies its existing
+alignment policy. The next iteration retains control, interrupt and fresh-fetch
+validation. EL0 and reserved immediate encodings retain their prior failure
+paths. This handler does not accept DAIF, TLBI, ERET or arbitrary system writes;
+M0 and dynamic paths remain unchanged. Authored bank-switch and following-access
+checks are required before any claim about original execution progress.
