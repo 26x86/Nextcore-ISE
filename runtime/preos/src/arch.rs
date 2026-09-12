@@ -1196,6 +1196,8 @@ impl GuestCpuState {
                 _ => raw,
             };
             extended << if word & (1 << 12) != 0 {size_code} else {0}
+        } else if word & 0x3b200c00 == 0x38000000 {
+            ((((word >> 12) & 511) as i64) << 55 >> 55) as u64
         } else {u64::from((word >> 10) & 4095) << size_code};
         let address = base.wrapping_add(offset);
         if address & (size as u64 - 1) != 0 {
@@ -1867,8 +1869,9 @@ impl GuestCpuState {
             };
         }
 
-        // Integer immediate/register-offset stores, zero loads and signed W/X loads.
-        if word & 0x3b000000 == 0x39000000 || word & 0x3b200c00 == 0x38200800 {
+        // Integer scaled/unscaled immediate and register-offset scalar transfers.
+        if word & 0x3b000000 == 0x39000000 || word & 0x3b200c00 == 0x38200800 ||
+            word & 0x3b200c00 == 0x38000000 {
             return match self.scalar_memory(bus, word) {
                 Ok(()) => StepResult::Continue,
                 Err((kind, far)) => {
