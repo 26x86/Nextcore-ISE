@@ -137,6 +137,11 @@
       "sha256": "420462fa96aae5c90269cfe53b13210715154b83983de9c68f2c43246a807b18"
     },
     {
+      "path": "docs/PROVIDER_NATIVE_CACHE.md",
+      "bytes": 4739,
+      "sha256": "d58bb5c7b6a3ebbfdd0b7854178fefa588cb453d783a41a0b18e16309db69dd7"
+    },
+    {
       "path": "docs/UNDEFINED_A64_SYNDROME.md",
       "bytes": 3176,
       "sha256": "bd485111a1417bfd9001cdc02fc2042a47b2ce95a92a4099528b0b249e6294e7"
@@ -149,7 +154,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "3514fc33502ad3939331cee0aa8349a35d40cba10ffbada38422295a8d604afc"
+      "sha256": "04172665f7ef5782a9e7baf99c407e33d339af075355e11e1ce4833e7a5ba4a2"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -193,8 +198,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 45957,
-      "sha256": "403b47a4aab0012b1406088928ade91c37b74cbb4210d87bdff7e013308bb120"
+      "bytes": 48231,
+      "sha256": "f23a9381c05969b0677681eab53640b77860acbe2c3c8c51ac4ba6fdacdb206d"
     },
     {
       "path": "runtime/jit.h",
@@ -507,6 +512,11 @@
       "sha256": "bf6ad778a24182ed128d69334a7cbceed3f8fa79e684955b536a353f5906fe1e"
     },
     {
+      "path": "runtime/test_provider_cache.c",
+      "bytes": 7826,
+      "sha256": "9692bc5e8792737f896ec17b6745e6c1060409ee4ddf84f93aa8cb58dcd86ae5"
+    },
+    {
       "path": "runtime/test_register_offset_jit.c",
       "bytes": 6380,
       "sha256": "028fa176fed6cc1342fa81de502fe9da099c396d5cfdbde1077f5ff78dfea1a1"
@@ -545,6 +555,11 @@
       "path": "runtime/test_wx.c",
       "bytes": 693,
       "sha256": "afa4209e70d3c566493865b49c315295503ed0787f0e64dfb1338e713b23c6e4"
+    },
+    {
+      "path": "runtime/tests/verify_provider_cache.py",
+      "bytes": 5525,
+      "sha256": "6b9e7d98e480ecf66621e142591f81c36300c0f932f2b93566bfc6cda6e240ec"
     },
     {
       "path": "runtime/ubfm_provider_cases.rs",
