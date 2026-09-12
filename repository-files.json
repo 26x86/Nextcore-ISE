@@ -47,6 +47,11 @@
       "sha256": "97519be005272a7fa4d7d1338f06db8d6a3acda6caab16bd5173a23dea97892a"
     },
     {
+      "path": "docs/AARCH64_EXTENDED_ARITHMETIC.md",
+      "bytes": 3618,
+      "sha256": "e0ee241fbfaf3ecc8ed948b789cf90f45e9e1b3ac14f467a3853c3d376eca760"
+    },
+    {
       "path": "docs/AARCH64_LOGICAL_IMMEDIATE.md",
       "bytes": 2258,
       "sha256": "bf44f9a73457cf4181e91f96dfda398f02ab80f7281452ad0cb557842213367e"
@@ -113,8 +118,8 @@
     },
     {
       "path": "repository.json",
-      "bytes": 1299,
-      "sha256": "05e27f1dba968358e70a9de3e253cd4745b6cfd8df7c2ea3fa2f168b3c10b4fc"
+      "bytes": 1317,
+      "sha256": "e7364918c1866a9dba9a97b1aeffde684ef9d8ee8f0968bee268c87152bcaad8"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -153,8 +158,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 40849,
-      "sha256": "1be35e85b38ea43034cb214e99f064d68b4d69bc3ea811be4bf8d5a6cf87270f"
+      "bytes": 41986,
+      "sha256": "f41ae3f64c4dae96027bc145be53ae511ac1d3c122fddb3011fbf18f5fc4e59e"
     },
     {
       "path": "runtime/jit.h",
@@ -318,8 +323,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 143695,
-      "sha256": "5432bac0814d8014851412f72f598c16ce6b5255eac46540f65c1eb4b4fa42ee"
+      "bytes": 148486,
+      "sha256": "47ce4c174cbdd367ee48e6d31f88adc4608897a350ac0d3749de52f41dc1b8e7"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -393,8 +398,13 @@
     },
     {
       "path": "runtime/test_dynamic_provider.rs",
-      "bytes": 20566,
-      "sha256": "ed0cd251af018bdb5196a637a98d0248a616f098c2f2735b6d7ee084ec467ace"
+      "bytes": 21573,
+      "sha256": "9dccb700be8a260b0d20eb91fdd9122866fc2775fbb8e8013ea453949caac9ab"
+    },
+    {
+      "path": "runtime/test_extended_arithmetic_jit.c",
+      "bytes": 4239,
+      "sha256": "2d38b4b8eb53d845ae2c208673c56b4a886df136185b066152d0fbae891fec73"
     },
     {
       "path": "runtime/test_flags_jit.c",
@@ -423,8 +433,8 @@
     },
     {
       "path": "runtime/test_memory_provider.rs",
-      "bytes": 16522,
-      "sha256": "5acc1ca5dacd20209db806d4621eec64d10db2a199f6816ec89e09441245d194"
+      "bytes": 17100,
+      "sha256": "b10b356894117d6c1b444a5a541f86707970da6f7f37b25371c385db1fe3d2c1"
     },
     {
       "path": "runtime/test_pair_jit.c",
@@ -448,8 +458,8 @@
     },
     {
       "path": "runtime/test_stage1_provider.rs",
-      "bytes": 18853,
-      "sha256": "07ce03784d0325f1f3496cee8e0a87c7c46996a74b9a025dbbe5d763739e71a7"
+      "bytes": 19517,
+      "sha256": "549b33b5f1abec95d47a438aaa97c9e9c4762ccecf369bd9ac7f04d96f7e1816"
     },
     {
       "path": "runtime/test_thread_jit.c",
@@ -625,6 +635,11 @@
       "path": "tools/probe_efi_stage1_provider.py",
       "bytes": 9215,
       "sha256": "c1e178ce982a53ac4d82ad50f4d22b9ca7a1e067b96722d816b07628272b5708"
+    },
+    {
+      "path": "tools/probe_extended_arithmetic_native.py",
+      "bytes": 5592,
+      "sha256": "88f2e79e9155920f4da8217a6ddcf7a38e0ae972e669daedc17289eb2620655b"
     },
     {
       "path": "tools/probe_mmu_granules.py",
