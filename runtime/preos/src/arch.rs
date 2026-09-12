@@ -1169,7 +1169,9 @@ impl GuestCpuState {
         -> Result<(), (ExceptionKind, u64)> {
         let (size_code, opc) = (word >> 30, (word >> 22) & 3);
         let (rn, rt) = ((word >> 5) & 31, word & 31);
-        if word & (1 << 26) != 0 ||
+        let register_offset = word & 0x3b200c00 == 0x38200800;
+        let option = (word >> 13) & 7;
+        if (register_offset && option & 2 == 0) || word & (1 << 26) != 0 ||
             (opc >= 2 && (size_code == 3 || (opc == 3 && size_code == 2))) {
             return Err((ExceptionKind::UndefinedInstruction, self.pc));
         }
@@ -1186,7 +1188,16 @@ impl GuestCpuState {
         if rn == 31 && self.sys.sctlr_el1 & sa != 0 && base & 15 != 0 {
             return Err((ExceptionKind::SpAlignmentFault, base));
         }
-        let address = base.wrapping_add(u64::from((word >> 10) & 4095) << size_code);
+        let offset = if register_offset {
+            let raw = self.read_reg((word >> 16) & 31, false);
+            let extended = match option {
+                2 => u64::from(raw as u32),
+                6 => (raw as u32 as i32 as i64) as u64,
+                _ => raw,
+            };
+            extended << if word & (1 << 12) != 0 {size_code} else {0}
+        } else {u64::from((word >> 10) & 4095) << size_code};
+        let address = base.wrapping_add(offset);
         if address & (size as u64 - 1) != 0 {
             // Device-nGnRnE when MMU-off. Translated A=0 requires memory
             // attributes and a spanning transaction, neither exposed yet.
@@ -1829,8 +1840,8 @@ impl GuestCpuState {
             };
         }
 
-        // Integer unsigned-offset stores, zero loads and signed W/X loads.
-        if word & 0x3b000000 == 0x39000000 {
+        // Integer immediate/register-offset stores, zero loads and signed W/X loads.
+        if word & 0x3b000000 == 0x39000000 || word & 0x3b200c00 == 0x38200800 {
             return match self.scalar_memory(bus, word) {
                 Ok(()) => StepResult::Continue,
                 Err((kind, far)) => {
@@ -2190,6 +2201,75 @@ mod tests {
             (i128::from(value)-(1i128<<(bytes*8))) as u64
         } else {value};
         if opc==3 || (opc==1 && bytes<8) {signed as u32 as u64} else {signed}
+    }
+
+    fn register_memory_word(size:u32,opc:u32,option:u32,scale:u32,rn:u32,rm:u32,rt:u32)->u32 {
+        0x38200800 | size<<30 | opc<<22 | rm<<16 | option<<13 | scale<<12 | rn<<5 | rt
+    }
+    fn independent_index(raw:u64,option:u32,shift:u32)->u64 {
+        let mut value=if option&1!=0 {i128::from(raw)} else {i128::from(raw&0xffffffff)};
+        if option==6 && raw&0x80000000!=0 {value-=1i128<<32;}
+        (value*(1i128<<shift)) as u64
+    }
+    #[test]
+    fn register_offset_scalar_all_forms_extensions_scaling_and_aliases() {
+        let indices=[0u64,1,u64::MAX,0x80000000,0xdeadbeefffffffff,0xdeadbeef00000001,0x8000000000000000,0x1234000000000040];
+        let base=0x40000000u64;let mut cases=0;
+        for size in 0..4 {for opc in 0..4 {if !scalar_valid(size,opc) {continue;}
+        for option in [2u32,3,6,7] {for scale in 0..2 {for (sample,&raw) in indices.iter().enumerate() {
+        for rn in [3u32,31] {for rm in [4u32,31] {for rt in [2u32,3,4,31] {
+            let bytes=1usize<<size;
+            let disp=independent_index(if rm==31 {0} else {raw},option,if scale!=0 {size} else {0});
+            let pointer=(base+512).wrapping_sub(disp);
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=base;cpu.sp=pointer;cpu.pstate=0xb00003c5;
+            for index in 0..31 {cpu.x[index]=0xabcdef1200000000+index as u64;}
+            cpu.x[3]=pointer;cpu.x[4]=raw;
+            let mut ram=[0u8;1024];for (index,byte) in ram.iter_mut().enumerate(){*byte=(index*19+sample*37)as u8;}
+            ram[..4].copy_from_slice(&register_memory_word(size,opc,option,scale,rn,rm,rt).to_le_bytes());
+            let mut expected=ram;let mut regs=cpu.x;
+            if opc!=0 {let mut value=0u64;for i in 0..bytes {value|=u64::from(ram[512+i])<<(i*8);}
+                if rt!=31 {regs[rt as usize]=scalar_expected(value,bytes,opc);}}
+            else {let value=if rt==31 {0} else {cpu.x[rt as usize]};for i in 0..bytes {expected[512+i]=(value>>(i*8))as u8;}}
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram,base}),StepResult::Continue);
+            assert_eq!((cpu.x,cpu.sp,cpu.pc,cpu.pstate),(regs,pointer,base+4,0xb00003c5));assert_eq!(ram,expected);cases+=1;
+        }}}}}}}}
+        assert_eq!(cases,13312);
+    }
+    #[test]
+    fn register_offset_scalar_invalid_encodings_and_faults_preserve_state() {
+        let base=0x40000000u64;
+        for size in 0..4 {for opc in 0..4 {for option in 0..8 {for scale in 0..2 {for vector in 0..2 {
+            if scalar_valid(size,opc) && option&2!=0 && vector==0 {continue;}
+            let word=register_memory_word(size,opc,option,scale,3,4,2)|(vector<<26);
+            let mut ram=[0xa5;512];ram[..4].copy_from_slice(&word.to_le_bytes());let before=ram;
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=base;cpu.x[3]=base+128;cpu.x[4]=1;cpu.sp=base+256;cpu.pstate=0xb00003c5;
+            let regs=cpu.x;
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram,base}),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+            assert_eq!((cpu.x,cpu.sp,cpu.pc,cpu.pstate),(regs,base+256,base,0xb00003c5));assert_eq!(ram,before);assert_eq!(cpu.sys.esr_el1,1<<25);
+        }}}}}
+        for size in 0..4 {for opc in 0..4 {if !scalar_valid(size,opc) {continue;}
+        for option in [2u32,3,6,7] {for scale in 0..2 {for el in [ExceptionLevel::El0,ExceptionLevel::El1] {for fault in 0..4 {
+            let bytes=1usize<<size;if fault==3 && bytes==1 {continue;}
+            let address=match fault {0=>base-bytes as u64,1=>base+512,2=>base+128,_=>base+129};
+            let length=if fault==2 {128+bytes-1} else {512};
+            let disp=independent_index(u64::MAX,option,if scale!=0 {size} else {0});
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=base;cpu.current_el=el;cpu.pstate=if el==ExceptionLevel::El0 {0} else {5};
+            cpu.x[3]=address.wrapping_sub(disp);cpu.x[4]=u64::MAX;cpu.sp=base+256;
+            let regs=cpu.x;let flags=cpu.pstate;
+            let mut ram=[0xa5;512];ram[..4].copy_from_slice(&register_memory_word(size,opc,option,scale,3,4,4).to_le_bytes());let before=ram;
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram[..length],base}),StepResult::Exception(if fault==3 {ExceptionKind::AlignmentFault} else {ExceptionKind::DataAbort}));
+            assert_eq!((cpu.x,cpu.sp,cpu.pc,cpu.pstate),(regs,base+256,base,flags));assert_eq!(ram,before);
+            assert_eq!(cpu.sys.far_el1,address);assert_eq!(cpu.sys.esr_el1,((0x24+el as u64)<<26)|(1<<25)|(if opc==0 {64}else{0})|(if fault==3 {0x21}else{7}));
+        }}}}
+        for el in [ExceptionLevel::El0,ExceptionLevel::El1] {
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=base;cpu.current_el=el;cpu.pstate=if el==ExceptionLevel::El0 {0}else{5};
+            cpu.sp=base+129;cpu.sys.sctlr_el1=if el==ExceptionLevel::El0 {16}else{8};cpu.x[4]=u64::MAX;let regs=cpu.x;
+            let mut ram=[0xa5;512];ram[..4].copy_from_slice(&register_memory_word(size,opc,3,0,31,4,4).to_le_bytes());let before=ram;
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram,base}),StepResult::Exception(ExceptionKind::SpAlignmentFault));
+            assert_eq!((cpu.x,cpu.sp,cpu.pc),(regs,base+129,base));assert_eq!(ram,before);
+            assert_eq!((cpu.sys.esr_el1,cpu.sys.far_el1),(0x9a000000,base+129));
+        }
+        }}
     }
 
     #[test]

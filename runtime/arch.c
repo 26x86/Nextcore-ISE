@@ -155,7 +155,9 @@ static uint32_t exception_syndrome(enum vf_exception_kind kind,
         if (!(instruction & UINT32_C(0x00400000))) extra |= UINT32_C(1) << 6;
     }
     if ((kind == VF_EXCEPTION_DATA_ABORT || kind == VF_EXCEPTION_ALIGNMENT_FAULT) &&
-        (instruction & UINT32_C(0x3f000000)) == UINT32_C(0x39000000) &&
+        ((instruction & UINT32_C(0x3f000000)) == UINT32_C(0x39000000) ||
+         ((instruction & UINT32_C(0x3f200c00)) == UINT32_C(0x38200800) &&
+          (instruction & (UINT32_C(1)<<14)))) &&
         ((instruction >> 30) < 3 || ((instruction >> 22) & 3) < 2) &&
         !((instruction >> 30) == 2 && ((instruction >> 22) & 3) == 3)) {
         extra = UINT32_C(1) << 25; /* Integer scalar abort, IL=1, ISV=0. */
