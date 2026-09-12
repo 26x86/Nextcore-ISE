@@ -346,7 +346,8 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             b(c,wide?0x4c:0x44);b(c,op==1?0x09:op==2?0x31:0x21);b(c,0xc8);
             save(c,rd,op!=3);
             if(op==3)save_arithmetic_flags(c,0); /* Logical host C/V are zero. */
-        } else if((w&~UINT32_C(31))==UINT32_C(0xd5380480)) {
+        } else if((w&~UINT32_C(31))==UINT32_C(0xd5380480) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380600)) {
             /* Exact scalar-profile ID read. Controls are live on cache hits. */
             b(c,0x83);b(c,0xb9);u32(c,offsetof(vf_cpu,current_el));b(c,VF_EL1);
             size_t bad_el=jcc(c,0x85);

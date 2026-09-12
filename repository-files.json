@@ -117,6 +117,11 @@
       "sha256": "a1b5e8669d3fb624a4e99738fd04cf0cb31538dd888fb272616b68ecf6cfd650"
     },
     {
+      "path": "docs/ISAR0_SCALAR_PROFILE.md",
+      "bytes": 4483,
+      "sha256": "57abb3f602394e570d42ac74d87c2cf6e47f41a0a497403765c98f72c52964f1"
+    },
+    {
       "path": "docs/LOGICAL_SHIFTED_REGISTER.md",
       "bytes": 3998,
       "sha256": "7cd4066aaf07ba08efbaec2a78c8de1da5b7a64657364827c965b1643b9e2872"
@@ -184,7 +189,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "0189e392d417c265e7c126a65ac9f2a8557a18534a5c25f515a86bc1a5eee848"
+      "sha256": "bef35e46815b345fc9ac99c7ef8d0dd923b877e46756734dbda9b43d7d2e22c2"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -193,8 +198,8 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 22174,
-      "sha256": "3f153365e35552eacdbb6fa7e5a0194f483bdf0ee1adbdf0b4a5ed9219cef52b"
+      "bytes": 22189,
+      "sha256": "635665809950aae266fcc725d88ffdc381b1b61a6e6e4a3321d0555da8c924c1"
     },
     {
       "path": "runtime/bfm_cases.rs",
@@ -228,8 +233,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 51348,
-      "sha256": "5ed4e865979959975ece6498bd7bc65088dff0c8918f393ed61097daf135bb04"
+      "bytes": 51409,
+      "sha256": "1d7104acde6d8e6318559464c8d7a8a487bb2df7789e6e6e99407050b7e31f31"
     },
     {
       "path": "runtime/jit.h",
@@ -398,8 +403,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 179115,
-      "sha256": "977ae8208aed578e091a9e6f76eec1209cf40e4c8523d4c0877143d547efb7ed"
+      "bytes": 179316,
+      "sha256": "2a9b7e1ea1290041e30198a7098d97387f91e99e2432ad7e5a748a7af4b4687a"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -525,6 +530,21 @@
       "path": "runtime/test_irq_jit.c",
       "bytes": 7762,
       "sha256": "0b129c5403c17a650fe280572fa86c75afbb1a6f78d39420c7e2c0ce985cc3d5"
+    },
+    {
+      "path": "runtime/test_isar0_jit.c",
+      "bytes": 3658,
+      "sha256": "9303944b441d68fb9a2cf5a80a59700713df92fecebea13fb26a937f9d281e03"
+    },
+    {
+      "path": "runtime/test_isar0_provider.rs",
+      "bytes": 2604,
+      "sha256": "627ecdf02f72d83b5546fa66fa856e246ecc12bc6dbc90f03ff0d0757361e4b6"
+    },
+    {
+      "path": "runtime/test_isar0_reference.rs",
+      "bytes": 1954,
+      "sha256": "fe1f54c59e4ff64819d934f1c545ae12088ba70aea051227a8686f2d685ae6f0"
     },
     {
       "path": "runtime/test_jit.c",
@@ -695,6 +715,11 @@
       "path": "runtime/tests/verify_indexed_native.py",
       "bytes": 8588,
       "sha256": "1e68ab9e98c2d4a68059e520c3145e2dd18f0e22409276e54737822484494f45"
+    },
+    {
+      "path": "runtime/tests/verify_isar0_native.py",
+      "bytes": 9468,
+      "sha256": "a810ca83595606d0674f08c86950415afd36ac1e76d06d8a212528a01d781926"
     },
     {
       "path": "runtime/tests/verify_logical_shifted_native.py",
