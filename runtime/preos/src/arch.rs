@@ -1787,6 +1787,31 @@ impl GuestCpuState {
             self.pc = pc.wrapping_add(4);
             return StepResult::Continue;
         }
+        // LSLV/LSRV/ASRV/RORV: both sources are read before writing Rd.
+        if word & 0x7fe0f000 == 0x1ac02000 {
+            let shift = (word >> 10) & 3;
+            let count = (self.read_reg((word >> 16) & 31, false) & if wide {63} else {31}) as u32;
+            let source = self.read_reg(rn, false);
+            let value = if wide {
+                match shift {
+                    0 => source << count,
+                    1 => source >> count,
+                    2 => ((source as i64) >> count) as u64,
+                    _ => source.rotate_right(count),
+                }
+            } else {
+                let source = source as u32;
+                u64::from(match shift {
+                    0 => source << count,
+                    1 => source >> count,
+                    2 => ((source as i32) >> count) as u32,
+                    _ => source.rotate_right(count),
+                })
+            };
+            self.write_reg(rd, value, false, wide);
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
+        }
         // MOVZ/MOVK, 32- and 64-bit forms.
         let move_op = word & 0x7f800000;
         if move_op == 0x52800000 || move_op == 0x72800000 {
