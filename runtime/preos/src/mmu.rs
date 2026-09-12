@@ -182,6 +182,7 @@ const NORMAL_NC: MemoryAttributes = MemoryAttributes {attr_index:0,shareability:
 #[derive(Clone, Copy)]
 struct TlbEntry {
     valid: bool,
+    el10: bool,
     asid: u16,
     va_tag: u64,
     pa_base: u64,
@@ -197,6 +198,7 @@ struct TlbEntry {
 
 const TLB_ENTRY: TlbEntry = TlbEntry {
     valid: false,
+    el10: false,
     asid: 0,
     va_tag: 0,
     pa_base: 0,
@@ -374,7 +376,8 @@ impl VfMmu {
         current_el: ExceptionLevel,
     ) -> Result<Option<Translation>, TranslationFailure> {
         for entry in self.tlb.iter() {
-            if !entry.valid || entry.asid != self.asid {
+            if !entry.valid || entry.asid != self.asid
+                || entry.el10 != matches!(current_el, ExceptionLevel::El0 | ExceptionLevel::El1) {
                 continue;
             }
             let shift = u32::from(entry.page_shift);
@@ -427,6 +430,7 @@ impl VfMmu {
 
     fn descriptor_permissions(
         descriptor: u64,
+        table_permissions: u64,
         level: usize,
         current_el: ExceptionLevel,
         access: Access,
@@ -440,8 +444,10 @@ impl VfMmu {
         let ap = ((descriptor >> 6) & 0x3) as u8;
         // Cache descriptor permissions, not the privileges of the access that
         // populated the entry (EL0 can execute an AP00 execute-only page).
-        let writable = ap == 0 || ap == 1;
-        let user_accessible = ap == 1 || ap == 3;
+        // DDI0596 ID121321 S1ApplyTablePerms/S1HasPermissionsFault:
+        // APTable[1] removes writes; APTable[0] removes EL0 data access.
+        let writable = (ap == 0 || ap == 1) && table_permissions & (1u64 << 62) == 0;
+        let user_accessible = (ap == 1 || ap == 3) && table_permissions & (1u64 << 61) == 0;
         if current_el == ExceptionLevel::El0 && !user_accessible && !matches!(access,Access::Execute) {
             return Err(Fault::Permission);
         }
@@ -451,8 +457,10 @@ impl VfMmu {
 
         // PXN blocks execution from privileged ELs, UXN blocks execution from
         // EL0. A level-0 block is not a valid granule in this implementation.
-        let executable_el0 = descriptor & (1u64 << UXN_BIT) == 0;
-        let executable_privileged = descriptor & (1u64 << PXN_BIT) == 0;
+        let executable_el0 = descriptor & (1u64 << UXN_BIT) == 0
+            && table_permissions & (1u64 << 60) == 0;
+        let executable_privileged = descriptor & (1u64 << PXN_BIT) == 0
+            && table_permissions & (1u64 << 59) == 0;
         let executable = if current_el == ExceptionLevel::El0 {
             executable_el0
         } else {
@@ -528,6 +536,11 @@ impl VfMmu {
         // Later levels consume the usual full index width.
         let table_va = va & (u64::MAX >> tsz);
         let mut table = root & address_mask;
+        // Only the modeled EL1&0 regime gains hierarchical permissions.
+        let hierarchy_mask = if matches!(current_el, ExceptionLevel::El0 | ExceptionLevel::El1) {
+            0xfu64 << 59
+        } else { 0 };
+        let mut table_permissions = 0u64;
         // TTBR ASID bits are outside address_mask; an actual out-of-range
         // table base faults before the guest-physical read callback is used.
         if table & !self.physical_address_mask != 0 { return Err(TranslationFailure::architectural(Fault::AddressSize, Some(0), FaultContext::Input).with_output(table)); }
@@ -561,7 +574,7 @@ impl VfMmu {
                 let software = 0xfu64 << 55;
                 let table_descriptor = level < MAX_LEVEL && descriptor_type == 3;
                 let allowed = if table_descriptor {
-                    address_mask | software | 3
+                    address_mask | software | hierarchy_mask | 3
                 } else {
                     let leaf_mask = !((1u64 << shift)-1);
                     (address_mask & leaf_mask) | software | 3 | (3<<6) | AF_BIT |
@@ -583,7 +596,7 @@ impl VfMmu {
                 let block_shift = shift;
                 let block_mask = !((1u64 << block_shift) - 1);
                 let (writable, user_accessible, executable_el0, executable_privileged) =
-                    Self::descriptor_permissions(descriptor, level, current_el, access).map_err(leaf_fault)?;
+                    Self::descriptor_permissions(descriptor, table_permissions, level, current_el, access).map_err(leaf_fault)?;
                 let pa_base = output & block_mask;
                 let pa = pa_base | (va & !block_mask);
                 if pa & !self.physical_address_mask != 0 { return Err(leaf_fault(Fault::AddressSize).with_output(pa)); }
@@ -608,6 +621,7 @@ impl VfMmu {
                     executable_privileged,
                     level as u8,
                     entry_address,
+                    current_el,
                 );
                 return Ok(translation);
             }
@@ -619,7 +633,7 @@ impl VfMmu {
                     return Err(descriptor_fault(Fault::Translation));
                 }
                 let (writable, user_accessible, executable_el0, executable_privileged) =
-                    Self::descriptor_permissions(descriptor, level, current_el, access).map_err(leaf_fault)?;
+                    Self::descriptor_permissions(descriptor, table_permissions, level, current_el, access).map_err(leaf_fault)?;
                 let pa_base = output;
                 let translation = Translation {
                     pa: pa_base | (va & ((1u64 << page_shift) - 1)),
@@ -642,9 +656,12 @@ impl VfMmu {
                     executable_privileged,
                     level as u8,
                     entry_address,
+                    current_el,
                 );
                 return Ok(translation);
             }
+            // Accumulate restrictions without faulting before the final leaf.
+            table_permissions |= descriptor & hierarchy_mask;
             table = descriptor & address_mask;
         }
         Err(TranslationFailure::architectural(Fault::Translation, Some(3), FaultContext::Walk))
@@ -661,10 +678,12 @@ impl VfMmu {
         executable_privileged: bool,
         level: u8,
         descriptor_pa: u64,
+        current_el: ExceptionLevel,
     ) {
         let shift = u32::from(page_shift);
         self.tlb[self.next] = TlbEntry {
             valid: true,
+            el10: matches!(current_el, ExceptionLevel::El0 | ExceptionLevel::El1),
             asid: self.asid,
             va_tag: va >> shift,
             pa_base,
@@ -704,7 +723,10 @@ mod tests {
                 let descriptor=0x8403|(ap<<6)|(pxn<<53)|(uxn<<54);
                 let (mut mmu,entries,count)=detailed_fixture(Granule::FourKiB,3,descriptor);
                 if strict {assert!(mmu.configure_strict_nc(0x1000,0,16));}
-                if hot {assert!(mmu.translate(0,Access::Read,ExceptionLevel::El1,|pa|read_page(&entries[..count],pa)).is_ok());}
+                if hot {
+                    let fill_el=if matches!(el,ExceptionLevel::El2|ExceptionLevel::El3) {ExceptionLevel::El2} else {ExceptionLevel::El1};
+                    assert!(mmu.translate(0,Access::Read,fill_el,|pa|read_page(&entries[..count],pa)).is_ok());
+                }
                 let result=mmu.translate(0,Access::Execute,el,|pa| {
                     assert!(!hot,"cached permissions must not read tables");read_page(&entries[..count],pa)
                 });
@@ -738,7 +760,7 @@ mod tests {
 
     #[test]
     fn strict_profile_validates_table_hierarchy_and_block_output_bits() {
-        for bit in [59,60,61,62,63] {
+        for bit in [63] {
             let (mut mmu,mut entries,count)=detailed_fixture(Granule::FourKiB,3,0x8403);
             entries[0].1|=1u64<<bit;assert!(mmu.configure_strict_nc(0x1000,0,16));
             let fault=mmu.translate_detailed(0,Access::Read,ExceptionLevel::El1,|pa|
