@@ -18,24 +18,27 @@ static int v2_provenance_valid(const vf_memory_reply_v2 *r) {
     if(r->context==VF_MEMORY_V2_INPUT)return !(r->metadata_flags&1) && (r->level==0 || r->level==UINT32_MAX);
     return r->level<=3 && (r->metadata_flags&1);
 }
+static int v2_alignment_required(const vf_memory_request_v2 *q) {
+    return (q->address&(q->width-1)) &&
+        (q->operation==VF_MEMORY_FETCH || (q->controls.sctlr&2));
+}
 static int v2_fault_valid(const vf_memory_request_v2 *q,const vf_memory_reply_v2 *r,uint64_t *esr) {
     int fetch=q->operation==VF_MEMORY_FETCH;
-    int misaligned=(q->address&(q->width-1))!=0;
     /* The CPU knows alignment before consulting any table. A callback may
      * report a host failure, but may not replace this architectural priority. */
-    if(misaligned && r->fault!=(fetch?VF_MEMORY_V2_PC_ALIGNMENT:VF_MEMORY_V2_DATA_ALIGNMENT))return 0;
+    if(v2_alignment_required(q) && r->fault!=(fetch?VF_MEMORY_V2_PC_ALIGNMENT:VF_MEMORY_V2_DATA_ALIGNMENT))return 0;
     if(r->fault==VF_MEMORY_V2_PC_ALIGNMENT || r->fault==VF_MEMORY_V2_DATA_ALIGNMENT) {
         if(r->address!=q->address || r->level!=UINT32_MAX || r->context!=VF_MEMORY_V2_INPUT || r->metadata_flags)return 0;
         if(r->fault==VF_MEMORY_V2_PC_ALIGNMENT) {
             if(!fetch || !(q->pc&3) || r->fsc)return 0;
             *esr=UINT64_C(0x8a000000);return 1;
         }
-        if(fetch || !(q->address&(q->width-1)) || r->fsc!=0x21)return 0;
+        if(fetch || !v2_alignment_required(q) || r->fsc!=0x21)return 0;
         *esr=((UINT64_C(0x24)+q->current_el)<<26)|(UINT64_C(1)<<25)|0x21|
             (q->operation==VF_MEMORY_STORE?64:0);return 1;
     }
     if(r->level>3 || r->fault<VF_MEMORY_V2_ADDRESS_SIZE || r->fault>VF_MEMORY_V2_ACCESS_FLAG ||
-       ((r->address-q->address)%q->width))return 0;
+       ((fetch || (q->controls.sctlr&2)) && ((r->address-q->address)%q->width)))return 0;
     unsigned fsc;
     switch(r->fault) {
     case VF_MEMORY_V2_ADDRESS_SIZE:fsc=r->level;break;
@@ -99,7 +102,7 @@ static int memory_exchange_version(vf_cpu *cpu,vf_memory_callback_v2 callback,vo
     int physical_dynamic=version==3 && !(q->controls.sctlr&1);
     if(r->result==VF_MEMORY_V2_OK) {
         if(wrapping || (physical_dynamic && (q->address>=(UINT64_C(1)<<48) ||
-               bytes>(UINT64_C(1)<<48)-q->address)) || (q->address&(q->width-1)) ||
+               bytes>(UINT64_C(1)<<48)-q->address)) || v2_alignment_required(q) ||
            r->fault || r->fsc || r->esr || r->address || r->context || r->level!=UINT32_MAX || r->metadata_flags ||
            (r->value0&~mask) || (r->value1&~mask) || (q->count==1 && r->value1) ||
            (q->operation==VF_MEMORY_STORE && (r->value0 || r->value1)))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
@@ -120,7 +123,7 @@ static int memory_exchange_version(vf_cpu *cpu,vf_memory_callback_v2 callback,vo
         result->last_reply=*r;result->base.last_address=r->address;
         return v2_error(result,r->result==VF_MEMORY_V2_UNAVAILABLE?VF_PROVIDER_UNAVAILABLE_V2:VF_PROVIDER_UNSUPPORTED);
     }
-    if(wrapping && !(q->address&(q->width-1)))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
+    if(wrapping && !v2_alignment_required(q))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
     if(physical_dynamic && r->fault!=VF_MEMORY_V2_PC_ALIGNMENT && r->fault!=VF_MEMORY_V2_DATA_ALIGNMENT)
         return v2_error(result,VF_PROVIDER_INVALID_REPLY);
     uint64_t esr;

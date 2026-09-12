@@ -5,6 +5,7 @@
 #include <stddef.h>
 #define VF_MEMORY_V2_VERSION 2u
 #define VF_MEMORY_V2_FIXED_NC 1u
+#define VF_MEMORY_V2_FIXED_NC_UNALIGNED 3u
 #define VF_MEMORY_V2_OK 0u
 #define VF_MEMORY_V2_GUEST_FAULT 1u
 #define VF_MEMORY_V2_UNSUPPORTED 2u
