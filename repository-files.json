@@ -199,7 +199,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "48a5cbe71eda1057d804e8ade2daacbf9040f776aa32bbbc3793f4734f0b5505"
+      "sha256": "f2f68f528e91b3312ab03674c39c1444d625a3ea78f583d9d98c10c22287dcc5"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -303,8 +303,8 @@
     },
     {
       "path": "runtime/memory-service/src/stage1_tests.rs",
-      "bytes": 6226,
-      "sha256": "956ba369c32d1340b9be9c441fdff29c4e6d2da52deb25940bcf0fcd3c3a516e"
+      "bytes": 6683,
+      "sha256": "26e055b15193057208a938067a50edaeb90e81c67c3e8a45bdaf978b0c3a420b"
     },
     {
       "path": "runtime/memory_abi.h",
