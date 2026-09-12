@@ -175,7 +175,7 @@ void vf_cpu_reset(vf_cpu *cpu, uint32_t initial_el) {
     cpu->current_el = initial_el;
     cpu->pstate = mode_for_el(initial_el);
     cpu->cntfrq = UINT64_C(24000000);
-    cpu->id_aa64mmfr0 = UINT64_C(0x00101122);
+    cpu->id_aa64mmfr0 = UINT64_C(0x0f100005);
     cpu->id_aa64isar1 = 0;
     cpu->tcr = 16;
     cpu->status = VF_NEXT;
@@ -359,9 +359,9 @@ int vf_cpu_read_sysreg(const vf_cpu *cpu, uint32_t key, uint64_t *value) {
         *value=cpu->platform_override;return VF_SYSREG_OK;
     }
     /* Exact ZFR0/ISAR0/ISAR2 reads in the bounded scalar profile. */
-    if(key==UINT32_C(0x4024) || key==UINT32_C(0x4030) || key==UINT32_C(0x4032)) {
+    if(key==UINT32_C(0x4024) || key==UINT32_C(0x4030) || key==UINT32_C(0x4032) || key==UINT32_C(0x4038)) {
         if(cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)return VF_SYSREG_UNKNOWN;
-        *value=0;return VF_SYSREG_OK;
+        *value=key==UINT32_C(0x4038)?UINT64_C(0x0f100005):0;return VF_SYSREG_OK;
     }
     minimum = sysreg_min_el(key);
     if (minimum < 0) return VF_SYSREG_UNKNOWN;

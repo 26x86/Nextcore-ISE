@@ -8,8 +8,8 @@
     },
     {
       "path": ".github/workflows/ci.yml",
-      "bytes": 3491,
-      "sha256": "6aa3b8c684dce5b47f81822f69981287103c4f11f90559b381c5f62905e99dd1"
+      "bytes": 3817,
+      "sha256": "0ab3fc313ca434dee11aa45d267749679f87eb78324d081a2bc3a9ae48cb02af"
     },
     {
       "path": ".gitignore",
@@ -28,8 +28,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 2840,
-      "sha256": "be78a4522d646234240810d4494d07c30872fb46a21568384a786377c27883e1"
+      "bytes": 3966,
+      "sha256": "808f60577cc2705ba242b43238d87fb812f7c9463c81ead51dc5f99214177f9b"
     },
     {
       "path": "devices/aic_v1.c",
@@ -137,6 +137,11 @@
       "sha256": "a490e3f75d3483f278f90dc2e096fdd81aff92e2d153168c6e153cdfd71abaf4"
     },
     {
+      "path": "docs/MMFR0_ASID8_PROFILE.md",
+      "bytes": 2597,
+      "sha256": "08899e1ba2fb610140c9f4b10d73b153b330a6462d93dee73f99d1864a9dc95b"
+    },
+    {
       "path": "docs/MMU_FAULT_METADATA.md",
       "bytes": 4668,
       "sha256": "ff7107620b7c31755392cd5e0ffd3b81e03463c12550775f03f7610af7ecf72b"
@@ -153,8 +158,8 @@
     },
     {
       "path": "docs/NATIVE_MMU_PROVIDER_V2.md",
-      "bytes": 30892,
-      "sha256": "a968c0f0d3bc4acb1d4c2f2fad072a4a61978bd8bb821dde5a9badd39975451d"
+      "bytes": 31072,
+      "sha256": "b2275dc9b77f35e11241e16df0c9cf4e243dcee557d660736583469dd7b013b3"
     },
     {
       "path": "docs/PROVIDER_NATIVE_CACHE.md",
@@ -194,7 +199,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "f54306d5438e61c429da83158fb206a70eda38cfd027280fa2b2cc2aebb49333"
+      "sha256": "48a5cbe71eda1057d804e8ade2daacbf9040f776aa32bbbc3793f4734f0b5505"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -203,8 +208,8 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 22220,
-      "sha256": "34c8805be1cf1fe5e14f641c3648e9c7b3f8ba972744f268d1e8943447eeec07"
+      "bytes": 22288,
+      "sha256": "25287b593ee7a27e56a417c255c0a2357e46275697153b2ec288db9551d0f2e7"
     },
     {
       "path": "runtime/bfm_cases.rs",
@@ -238,8 +243,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 51470,
-      "sha256": "7fe5c88fe4c673800f4c4267e4dd1f480a92d65afd59caf3567b2ed32ba93774"
+      "bytes": 51592,
+      "sha256": "2be058a43f1485620d92c7ce5de4c625bc6a58cf68c3a43f7728807a4bbef582"
     },
     {
       "path": "runtime/jit.h",
@@ -273,8 +278,8 @@
     },
     {
       "path": "runtime/memory-service/src/dynamic.rs",
-      "bytes": 12774,
-      "sha256": "d6b28fe91aff31fe0d70e11794e1375f356118a30465c92c1dcc14ed3688271c"
+      "bytes": 12846,
+      "sha256": "9aa64aa36d1a394011ab0f0fbdec0eba46310a26d9e2cafc0bd682ebc27009bd"
     },
     {
       "path": "runtime/memory-service/src/dynamic_abi.rs",
@@ -293,8 +298,8 @@
     },
     {
       "path": "runtime/memory-service/src/stage1.rs",
-      "bytes": 10180,
-      "sha256": "c0555b695d0c1d6e9d5bce82690ce10e12e126f4236952accbba468d68839f3d"
+      "bytes": 10209,
+      "sha256": "704ce1970055d67df2623a5394343bfdf9734900e5c1ff44c6153ddd83a9ff1c"
     },
     {
       "path": "runtime/memory-service/src/stage1_tests.rs",
@@ -333,8 +338,8 @@
     },
     {
       "path": "runtime/memory_boot_v2.h",
-      "bytes": 2672,
-      "sha256": "fae6514d32a5104400f912c03570ec18e90a5ff483d77fd84e2a8050e0cb3cad"
+      "bytes": 2721,
+      "sha256": "c7a078ed587b0e0665c253f8eb66a4f55ba880c83eefe51567851894c088c1e0"
     },
     {
       "path": "runtime/memory_boot_v2.rs",
@@ -348,8 +353,8 @@
     },
     {
       "path": "runtime/memory_dynamic.h",
-      "bytes": 3229,
-      "sha256": "75c964df1d079840a7919cc52bb55bb7857f22c9d39995417d36fb69c2d4b295"
+      "bytes": 3403,
+      "sha256": "abd722eb6cc7078a9210ac2d5d6c7fd4ce38d427ad4f804a85859c7f9e9bfbee"
     },
     {
       "path": "runtime/memory_dynamic.inc",
@@ -408,8 +413,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 179507,
-      "sha256": "3c1a194fd1d662e12b47f897fe035443d0b24071c7b54745c8e4de18eb2cbcee"
+      "bytes": 179911,
+      "sha256": "57c8ec31425b5a2ad57d2d31fd3b955455c2c947786a5a744eab2a78b0297875"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -433,8 +438,8 @@
     },
     {
       "path": "runtime/preos/src/mmu.rs",
-      "bytes": 59645,
-      "sha256": "c17c6d3332ee88697eb412e867befbb1c2b87263c50b027b7b68d6c1e0502955"
+      "bytes": 59801,
+      "sha256": "cd725f05589e4fa004687cb83aef564b128af1fca5baedb8b8fafc18193c9cbd"
     },
     {
       "path": "runtime/preos/src/pauth.rs",
@@ -475,6 +480,21 @@
       "path": "runtime/register_offset_provider_cases.rs",
       "bytes": 1918,
       "sha256": "581618f2e5f3c18fdf4caade097b05210d403d5c4272d8e65ccfefdf14ad584a"
+    },
+    {
+      "path": "runtime/test_asid8_provider.rs",
+      "bytes": 5544,
+      "sha256": "9be38b1f6e0621733f9ed4130e38394850e3ce1bf3c94877cb49ad1802375170"
+    },
+    {
+      "path": "runtime/test_asid8_reference.rs",
+      "bytes": 1194,
+      "sha256": "57a1d98c1b5412456b0140b8edfd10612f2597d47d5d3f354aad089c2197fefd"
+    },
+    {
+      "path": "runtime/test_asid8_validator.c",
+      "bytes": 1175,
+      "sha256": "bdb8830e6c0f463fedeaafce0d7681cd4686e03cd496ede364aa4d8e6cfa2f9a"
     },
     {
       "path": "runtime/test_bfm_jit.c",
@@ -607,6 +627,21 @@
       "sha256": "76b1a9baf5ff2ad082f29d5c48cd85981a083a990c6067f07702fd14a6757249"
     },
     {
+      "path": "runtime/test_mmfr0_jit.c",
+      "bytes": 3106,
+      "sha256": "019af85cba835305ef099e98e3ebfc0a48fa2115a10c348b7b8cc0007dd10c91"
+    },
+    {
+      "path": "runtime/test_mmfr0_provider.rs",
+      "bytes": 2200,
+      "sha256": "82db179317adc8ba87b572803af70e74e66403faa0d6f09ca6c9c994ac776fd1"
+    },
+    {
+      "path": "runtime/test_mmfr0_reference.rs",
+      "bytes": 1458,
+      "sha256": "1f53ce8506103fed18590f6526a4c7a6a65a1194fc1905692480b53787c54981"
+    },
+    {
       "path": "runtime/test_multiply_add_jit.c",
       "bytes": 3371,
       "sha256": "55fd66b62c0fa8b9d1a9d85081699996c752a30385409d09a3217cfe1c16ea32"
@@ -737,6 +772,11 @@
       "sha256": "9e86e33434f4c18504754fa5ac4dc08f50b0b85b8c95f8befaa526562b5b35a4"
     },
     {
+      "path": "runtime/tests/verify_asid8_native.py",
+      "bytes": 6075,
+      "sha256": "e47d52325fb8895a39d3d96a2bd1dd0026c8c8ba24d1ee5453f965d15d7a11be"
+    },
+    {
       "path": "runtime/tests/verify_indexed_native.py",
       "bytes": 8588,
       "sha256": "1e68ab9e98c2d4a68059e520c3145e2dd18f0e22409276e54737822484494f45"
@@ -760,6 +800,11 @@
       "path": "runtime/tests/verify_mapped_native.py",
       "bytes": 5611,
       "sha256": "856fb1eb8653051e87c54ff398a028d1d517c322452d8a2a11a7d180cf420a30"
+    },
+    {
+      "path": "runtime/tests/verify_mmfr0_native.py",
+      "bytes": 8686,
+      "sha256": "0dcbf37bd93c760ce56a1c52b5468652bedb1c77b296e6f4139c8f4ff2a5ee91"
     },
     {
       "path": "runtime/tests/verify_pac_address_selection.py",

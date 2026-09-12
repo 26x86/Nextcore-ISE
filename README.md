@@ -50,3 +50,24 @@ The PAC oracle runner requires an explicitly supplied, separately built test
 QEMU, its build receipt and the frozen pre-fix source for its negative control;
 see `python3 runtime/tests/verify_pac_address_selection.py --help`.
 These authored component checks do not establish physical or macOS boot.
+
+## Bounded memory feature profile
+
+[MMFR0 and ASID8](docs/MMFR0_ASID8_PROFILE.md) defines the explicit EL1 memory
+model `0x0f100005`: little endian, 48-bit maximum PA, eight-bit ASIDs and
+4 KiB/16 KiB stage-1 pages. Immutable profiles 1/3 select the ASID from the
+A1-selected TTBR; dynamic profile 2 retains its zero-ASID restriction. Native,
+C API and reference MMFR0 reads share the same live EL1/HCR/SCR gate and constant
+identity, including when retained storage fields are mutated by a host test.
+
+```sh
+python3 runtime/tests/verify_mmfr0_native.py --output /tmp/mmfr0-native
+python3 runtime/tests/verify_asid8_native.py --output /tmp/asid8-native
+```
+
+MMFR0 validation passes 964 native assertions, 31 provider tests in each of
+three cache modes and 34 reference tests. Actual Cortex-A72 reports `0x1124`,
+which differs from the software policy: 32 Arm observations verify access and
+encoding, not equal feature identities. ASID tests pass 35 provider tests per
+cache mode and 102 reference tests, rejecting three compiled tag-selection
+mutants. These proofs do not establish complete Arm conformance or physical boot.

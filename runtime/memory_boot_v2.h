@@ -12,7 +12,7 @@ _Static_assert(sizeof(vf_memory_run_result_v2)==320,"memory run v2");
 _Static_assert(offsetof(vf_memory_run_result_v2,last_reply)==192,"memory reply offset");
 static inline int vf_memory_controls_valid_v2(const vf_memory_controls_v2 *c) {
     const uint64_t mask=UINT64_C(0x3f)|(UINT64_C(1)<<7)|(UINT64_C(3)<<14)|
-        (UINT64_C(0x3f)<<16)|(UINT64_C(1)<<23)|(UINT64_C(3)<<30)|(UINT64_C(7)<<32);
+        (UINT64_C(0x3f)<<16)|(UINT64_C(1)<<22)|(UINT64_C(1)<<23)|(UINT64_C(3)<<30)|(UINT64_C(7)<<32);
     if(!c)return 0;
     uint64_t sctlr;
     if(c->profile==VF_MEMORY_V2_FIXED_NC)sctlr=UINT64_C(0x30d00803);
@@ -26,7 +26,7 @@ static inline int vf_memory_controls_valid_v2(const vf_memory_controls_v2 *c) {
     if(tg0==0 && tg1==2){min=16;max=39;alignment=0x1000;}
     else if(tg0==2 && tg1==1){min=17;max=47;alignment=0x4000;}else return 0;
     if(t0<min || t0>max || t1<min || t1>max)return 0;
-    uint64_t allowed=UINT64_C(0x0000ffffffffffff)&~((uint64_t)alignment-1);
+    uint64_t allowed=(UINT64_C(0x0000ffffffffffff)&~((uint64_t)alignment-1))|UINT64_C(0x00ff000000000000);
     return !(c->ttbr0&~allowed) && !(c->ttbr1&~allowed);
 }
 /* The original fixed-regime entry retains its no-PAC contract. */

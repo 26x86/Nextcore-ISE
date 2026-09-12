@@ -57,6 +57,8 @@ _Static_assert(offsetof(vf_dynamic_reply,effective)==128,"dynamic effective");
 _Static_assert(offsetof(vf_memory_run_result_dynamic,final_control)==320,"dynamic final");
 static inline int vf_dynamic_controls_valid(const vf_memory_controls_v2 *c) {
     if(!c || c->abi_version!=3 || c->struct_size!=80 || c->profile!=2 || c->reserved || !c->epoch)return 0;
+    /* Immutable ASID admission must not widen the dynamic transaction model. */
+    if(((c->ttbr0|c->ttbr1)>>48) || (c->tcr&((UINT64_C(1)<<22)|(UINT64_C(1)<<36))))return 0;
     vf_memory_controls_v2 mapped=*c;
     mapped.abi_version=2;mapped.profile=1;mapped.epoch=1;mapped.sctlr|=1;
     return vf_memory_controls_valid_v2(&mapped);

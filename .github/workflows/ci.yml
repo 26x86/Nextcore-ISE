@@ -54,3 +54,7 @@ jobs:
         run: python3 tools/probe_ubfm_native.py --work-dir "$RUNNER_TEMP/ubfm-native" --output "$RUNNER_TEMP/ubfm-native.json"
       - name: Exact ISAR2 scalar profile and native provider regressions
         run: python3 runtime/tests/verify_isar2_native.py --output "$RUNNER_TEMP/isar2-native"
+      - name: Exact MMFR0 policy and native provider regressions
+        run: python3 runtime/tests/verify_mmfr0_native.py --output "$RUNNER_TEMP/mmfr0-native"
+      - name: Immutable ASID8 selection and semantic negative controls
+        run: python3 runtime/tests/verify_asid8_native.py --output "$RUNNER_TEMP/asid8-native"

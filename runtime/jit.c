@@ -348,7 +348,8 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             if(op==3)save_arithmetic_flags(c,0); /* Logical host C/V are zero. */
         } else if((w&~UINT32_C(31))==UINT32_C(0xd5380480) ||
                   (w&~UINT32_C(31))==UINT32_C(0xd5380600) ||
-                  (w&~UINT32_C(31))==UINT32_C(0xd5380640)) {
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380640) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380700)) {
             /* Exact scalar-profile ID read. Controls are live on cache hits. */
             b(c,0x83);b(c,0xb9);u32(c,offsetof(vf_cpu,current_el));b(c,VF_EL1);
             size_t bad_el=jcc(c,0x85);
@@ -359,7 +360,7 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             field32(c,offsetof(vf_cpu,instruction),w);
             finish(c,pc,n,VF_SYSTEM_REGISTER_TRAP);
             fix(c,allowed);
-            imm(c,0);save(c,rd,0);
+            imm(c,(w&~UINT32_C(31))==UINT32_C(0xd5380700)?UINT64_C(0x0f100005):0);save(c,rd,0);
         } else if(thread) {
             int read = (w & 0x00200000) != 0;
             if(current_el==VF_EL0 && (sysreg_key(w)==VF_SYSREG_KEY_TPIDR_EL1 ||

@@ -383,7 +383,7 @@ impl SystemRegister {
             0xd53b_e220 | 0xd51b_e220 => Some(Self::CntpCtlEl0),
             0xd53b_e240 | 0xd51b_e240 => Some(Self::CntpCvalEl0),
             0xd538_4240 => Some(Self::CurrentEl),
-            0xd538_0700 | 0xd518_0700 => Some(Self::IdAa64Mmfr0El1),
+            0xd538_0700 => Some(Self::IdAa64Mmfr0El1),
             0xd538_0620 | 0xd518_0620 => Some(Self::IdAa64Isar1El1),
             0xd53b_e040 | 0xd51b_e040 => Some(Self::CntvctEl0),
             0xd53b_e320 | 0xd51b_e320 => Some(Self::CntvCtlEl0),
@@ -502,7 +502,7 @@ impl SystemRegisters {
             cntp_cval_el0: 0,
             // Bounded 4K/16K translation and baseline QARMA5 authentication.
             // Enhanced PAuth, FPAC and generic authentication remain absent.
-            id_aa64mmfr0_el1: 0x0010_1122,
+            id_aa64mmfr0_el1: 0x0f10_0005,
             id_aa64isar1_el1: 0x10,
             cntvct_el0: 0,
             cntv_ctl_el0: 0,
@@ -853,9 +853,9 @@ impl GuestCpuState {
     }
 
     pub(crate) fn read_sysreg(&mut self, reg: SystemRegister) -> Result<u64, SysRegFault> {
-        if matches!(reg, SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1 | SystemRegister::IdAa64Isar2El1) {
+        if matches!(reg, SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1 | SystemRegister::IdAa64Isar2El1 | SystemRegister::IdAa64Mmfr0El1) {
             return if self.current_el==ExceptionLevel::El1 && self.sys.hcr_el2==0 && self.sys.scr_el3==0 {
-                Ok(0)
+                Ok(if reg==SystemRegister::IdAa64Mmfr0El1 {0x0f10_0005} else {0})
             } else { Err(SysRegFault::Unknown) };
         }
         if reg==SystemRegister::PlatformOverride {
@@ -889,7 +889,7 @@ impl GuestCpuState {
             SystemRegister::CntpCtlEl0 => Ok(self.timer.ctl),
             SystemRegister::CntpCvalEl0 => Ok(self.timer.cval),
             SystemRegister::CurrentEl => Ok(u64::from(self.current_el as u8) << 2),
-            SystemRegister::IdAa64Mmfr0El1 => Ok(self.sys.id_aa64mmfr0_el1),
+            SystemRegister::IdAa64Mmfr0El1 => unreachable!(),
             SystemRegister::IdAa64Isar1El1 => Ok(self.sys.id_aa64isar1_el1),
             SystemRegister::CntvctEl0 => Ok(self.virtual_timer.counter),
             SystemRegister::CntvCtlEl0 => Ok(self.virtual_timer.ctl),
@@ -946,7 +946,7 @@ impl GuestCpuState {
                 }
             }
             SystemRegister::Ttbr0El1 => {
-                if value & 0xfff != 0 {
+                if value & 0xfff != 0 || value>>56!=0 {
                     return Err(SysRegFault::InvalidValue);
                 }
                 let old = self.sys.ttbr0_el1;
@@ -960,7 +960,7 @@ impl GuestCpuState {
                 }
             }
             SystemRegister::Ttbr1El1 => {
-                if value & 0xfff != 0 {
+                if value & 0xfff != 0 || value>>56!=0 {
                     return Err(SysRegFault::InvalidValue);
                 }
                 let old = self.sys.ttbr1_el1;
@@ -972,6 +972,7 @@ impl GuestCpuState {
                 }
             }
             SystemRegister::TcrEl1 => {
+                if value&(1u64<<36)!=0 {return Err(SysRegFault::InvalidValue);}
                 let old = self.sys.tcr_el1;
                 self.sys.tcr_el1 = value;
                 if self.sys.sctlr_el1 & SCTLR_M != 0 && self.sync_mmu().is_err() {
@@ -1044,11 +1045,15 @@ impl GuestCpuState {
     }
 
     fn sync_mmu(&mut self) -> Result<(), ()> {
+        if self.sys.tcr_el1&(1u64<<36)!=0 || (self.sys.ttbr0_el1|self.sys.ttbr1_el1)>>56!=0 {
+            return Err(());
+        }
         if self.sys.sctlr_el1 & SCTLR_M == 0 {
             self.mmu.disable();
             return Ok(());
         }
-        let asid = (self.sys.ttbr0_el1 >> 48) as u16;
+        let selected=if self.sys.tcr_el1&(1<<22)!=0 {self.sys.ttbr1_el1} else {self.sys.ttbr0_el1};
+        let asid = ((selected >> 48)&255) as u16;
         if !self.mmu.configure_tcr(
             self.sys.ttbr0_el1,
             self.sys.ttbr1_el1,
