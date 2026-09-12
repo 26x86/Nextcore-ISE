@@ -358,8 +358,8 @@ int vf_cpu_read_sysreg(const vf_cpu *cpu, uint32_t key, uint64_t *value) {
             return VF_SYSREG_UNKNOWN;
         *value=cpu->platform_override;return VF_SYSREG_OK;
     }
-    /* Exact ZFR0/ISAR0 reads in the bounded scalar profile. */
-    if(key==UINT32_C(0x4024) || key==UINT32_C(0x4030)) {
+    /* Exact ZFR0/ISAR0/ISAR2 reads in the bounded scalar profile. */
+    if(key==UINT32_C(0x4024) || key==UINT32_C(0x4030) || key==UINT32_C(0x4032)) {
         if(cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)return VF_SYSREG_UNKNOWN;
         *value=0;return VF_SYSREG_OK;
     }
