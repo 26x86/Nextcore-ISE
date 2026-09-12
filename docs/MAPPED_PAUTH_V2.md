@@ -19,7 +19,8 @@ NEXTCORE_PROVIDER_CACHE_SLOT_BYTES is the existing test override (minimum 64).
 Native execution counts remain execution counts. Dynamic v3 and v1 are unchanged.
 
 The non-TBI, non-TBID, non-MTX baseline QARMA5 profile accepts TnSZ 16 or 17
-(48 or 47 address bits). Pointer bit 55 chooses the range; PAC excludes that bit
+(48 or 47 address bits). Signing selects the range from pointer bit 63;
+authentication and stripping select from bit 55. PAC excludes bit 55
 and address bits below 64-TnSZ. XPAC strips even when address PAC is disabled;
 disabled PAC/AUT leaves the pointer unchanged. PACGA uses Xn (ZR permitted),
 Xm/SP and APGAKey, returning the MAC upper 32 bits with low 32 bits zero,
@@ -48,3 +49,24 @@ where the contracts coincide. Upper-address enabled signing/authentication and
 failure policy must not be presented as same-feature QEMU proof. This boundary
 does not justify changing the advertised runtime to PAuth2 or enabling address
 PAC in the fixed mapped profile.
+
+## Asymmetric address-size qualification
+
+Arm DDI0596 ID121321 AddPAC selects both the address size and canonical extension
+from bit 63 when TBI0/TBI1 are zero under APA1. Auth and Strip use bit 55.
+The earlier shared bit-55 size helper was incorrect for signing noncanonical
+pointers when T0SZ and T1SZ differ. QEMU 8.2.2 shares that size-selection error;
+a test-only APA1 model agreeing with the old implementation does not resolve it.
+
+The primary is the Arm-authored [DDI0596 ID121321 PDF, hosted mirror](https://student.cs.uwaterloo.ca/~cs452/docs/rpi4b/ISA_A64_xml_v88A-2021-12_OPT.pdf),
+printed pages 2941–2942 (AddPAC), 2947 (Auth), 2952 (CalculateBottomPACBit), and
+2961 (Strip). Its EnhancedPAC2 plus ConstPACField override is outside APA1.
+Only signing changes size selection; unsupported controls and widths, baseline
+authentication failure poisoning, stripping and disabled-operation behavior
+remain unchanged.
+
+An independent adapted-control comparison may temporarily set both TnSZ fields
+to the original pointer-bit-63-selected size during PAC, restoring the original
+TCR before AUT/XPAC. This corrects QEMU's selector for that operation while
+preserving pointer, key and modifier. It is not an identical-state hardware
+oracle. Preserve unadapted results and report the distinction explicitly.

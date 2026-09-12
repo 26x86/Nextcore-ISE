@@ -114,8 +114,8 @@ pub(crate) enum PauthError { Unsupported }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct PauthState { pub(crate) keys: [Key; 5] }
 
-fn address_mask(pointer: u64, tcr: u64) -> Result<u64, PauthError> {
-    let shift = if pointer & (1 << 55) != 0 { 16 } else { 0 };
+fn address_mask(pointer: u64, tcr: u64, selector_bit: u32) -> Result<u64, PauthError> {
+    let shift = if pointer & (1 << selector_bit) != 0 { 16 } else { 0 };
     let tsz = (tcr >> shift) & 63;
     if !matches!(tsz, 16 | 17) || tcr & ((1 << 37) | (1 << 38) | (1 << 59)) != 0 {
         return Err(PauthError::Unsupported);
@@ -132,7 +132,9 @@ impl PauthState {
     pub(crate) fn sign(&self, pointer: u64, modifier: u64, key: usize, tcr: u64)
         -> Result<u64, PauthError> {
         if key >= 4 { return Err(PauthError::Unsupported); }
-        let mask = address_mask(pointer, tcr)?;
+        // Non-TBI APA1 AddPAC selects both size and extension from bit 63.
+        // Auth/Strip instead use the signed pointer's range bit 55.
+        let mask = address_mask(pointer, tcr, 63)?;
         // PAC selects the canonical extension from original bit 63; bit 55
         // remains the address-range selector in the returned signed pointer.
         let high = if pointer >> 63 != 0 { !mask } else { 0 };
@@ -146,7 +148,7 @@ impl PauthState {
     pub(crate) fn authenticate(&self, pointer: u64, modifier: u64, key: usize, tcr: u64)
         -> Result<u64, PauthError> {
         if key >= 4 { return Err(PauthError::Unsupported); }
-        let mask = address_mask(pointer, tcr)?;
+        let mask = address_mask(pointer, tcr, 55)?;
         let original = canonical(pointer, mask);
         let expected = qarma5(original, modifier, self.keys[key]);
         if (expected ^ pointer) & !mask & !(1 << 55) == 0 { return Ok(original); }
@@ -156,7 +158,7 @@ impl PauthState {
     }
 
     pub(crate) fn strip(pointer: u64, tcr: u64) -> Result<u64, PauthError> {
-        let mask = address_mask(pointer, tcr)?;
+        let mask = address_mask(pointer, tcr, 55)?;
         Ok(canonical(pointer, mask))
     }
 }
