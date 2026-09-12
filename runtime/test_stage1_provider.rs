@@ -268,3 +268,16 @@ fn extended_arithmetic_native_through_v2_provider() {
         assert!(requests.iter().all(|q| q.operation == FETCH)); assert_eq!(ram, before);
     }
 }
+
+#[test]
+fn conditional_selection_native_through_v2_provider() {
+    for sixteen in [false, true] {
+        let (c, tables, mut ram, _, _) = fixture(sixteen, &[0xf100143f, 0x9a9f0022, 0x9a8217e2, 0x5a8113e0, 0xda8217e3, HLT]);
+        let before = ram.clone(); let (r, requests) = run(c, &tables, &mut ram, VA, [u64::MAX, 5, 0, 0], 0);
+        let b = r.base.execution.base;
+        assert_eq!((b.status, b.retired, b.compiled_blocks), (1, 6, 6));
+        assert_eq!((b.x0, b.x1, b.x2, b.x3), (0xfffffffa, 5, 6, u64::MAX - 5));
+        assert_eq!((r.base.execution.pstate, r.base.fetch_requests, r.base.data_requests), (0x600003c5, 6, 0));
+        assert!(requests.iter().all(|q| q.operation == FETCH)); assert_eq!(ram, before);
+    }
+}

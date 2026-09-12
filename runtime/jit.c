@@ -232,6 +232,18 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
         if(provider && memory_family(w)) {
             field32(c,offsetof(vf_cpu,instruction),w);
             finish(c,pc,n,VF_MEMORY_DISPATCH);break;
+        } else if((w&0x3fe00800)==0x1a800000) {
+            /* CSEL/CSINC/CSINV/CSNEG: all R31 operands are ZR. */
+            size_t other=condition_false(c,(w>>12)&15);
+            load(c,rn,0,wide);
+            if(other) {
+                b(c,0xe9);size_t done=c->used;u32(c,0);fix(c,other);
+                load(c,(w>>16)&31,0,wide);
+                if(w&(1u<<30)) {if(wide)b(c,0x48);b(c,0xf7);b(c,0xd0);}
+                if(w&(1u<<10)) {if(wide)b(c,0x48);b(c,0x83);b(c,0xc0);b(c,1);}
+                fix(c,done);
+            }
+            save(c,rd,0); /* Conditional selection preserves guest PSTATE. */
         } else if((w&0x3fe00410)==0x3a400000) {
             /* CCMP/CCMN, register or imm5. R31 is ZR, never SP. */
             size_t fallback=condition_false(c,(w>>12)&15);
