@@ -26,8 +26,9 @@ The change extends the existing BP31 C JIT and Rust reference runtime:
   the new entry. `runtime/arch.c` remains the precise exception/register bank.
   C control writes and reference TLBI counters are not a substitute for service
   reconfiguration; the immutable v2 entry stops at those instructions.
-* The PAC slow path retains its M=1 gate and receives no new hidden permission
-  to modify the translated regime. The new entry has no PAC callback argument.
+* The original `vf_boot_run_memory_v2` retains its no-PAC gate. The separately
+  selected `vf_boot_run_memory_pauth_v2` has an explicit callback and rejects
+  immutable control changes before commitment; see `MAPPED_PAUTH_V2.md`.
 
 ## Canonical shared-source packaging
 
@@ -81,8 +82,9 @@ The initial profile is deliberately specific:
 A=1 makes natural element alignment a fully supported rule for profile 1.
 That profile still rejects A=0. The separately selected profile 3 below permits
 ordinary Normal-memory unaligned transfers. Device memory remains outside both
-immutable profiles. M=1 PAC execution remains explicitly unavailable until its existing
-provider and control contract are extended; PAC with M=0 is preserved.
+immutable profiles. The original v2 entry still does not dispatch PAC. Its
+separate PAC-capable entry and immutable-control checks are documented in
+`MAPPED_PAUTH_V2.md`; the M=0 entry retains its existing behavior.
 
 ### Fixed Normal-NC unaligned profile 3
 
@@ -104,8 +106,10 @@ Arm's [memory attributes guide](https://documentation-service.arm.com/static/63a
 sections 3.2 and 12.1 distinguish disabled-translation Device data accesses from
 ordinary Normal-memory accesses with alignment checking disabled. This explicit
 mapped profile provides the latter environment; it does not change the M=0 path.
-It supplies neither an original kernel entry ABI nor a PAC provider. Authored
-native and EFI results must remain distinct from physical macOS startup.
+It does not by itself supply an original kernel entry ABI. The separate
+PAC-capable entry requires an explicit canonical callback and preserves the
+selected SCTLR enable semantics. Authored native and EFI results must remain
+distinct from physical macOS startup.
 
 Both VA halves support the existing walker limits: 4 KiB TnSZ16..39, 16 KiB
 TnSZ17..47, IPS32/36/40/42/44/48. Physical backing can be smaller than the

@@ -187,14 +187,34 @@ static int memory_control_read_v2(vf_cpu *cpu) {
     if((w&31)!=31)cpu->x[w&31]=value;
     cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
 }
-int vf_run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
+static int pauth_immutable_step(vf_cpu *cpu) {
+    if(!cpu->pauth_step || cpu->current_el!=VF_EL1)return 0;
+    vf_pauth_context context={0};
+    for(unsigned i=0;i<31;i++)context.x[i]=cpu->x[i];
+    for(unsigned i=0;i<5;i++)for(unsigned j=0;j<2;j++)context.keys[i][j]=cpu->pauth_keys[i][j];
+    context.sp=cpu->sp;context.pc=cpu->pc;context.sctlr=cpu->sctlr;
+    context.tcr=cpu->tcr;context.current_el=cpu->current_el;
+    if(cpu->pauth_step(&context,cpu->instruction) || context.sctlr!=cpu->sctlr ||
+       context.tcr!=cpu->tcr || context.current_el!=cpu->current_el || context.reserved)return 0;
+    for(unsigned i=0;i<31;i++)cpu->x[i]=context.x[i];
+    for(unsigned i=0;i<5;i++)for(unsigned j=0;j<2;j++)cpu->pauth_keys[i][j]=context.keys[i][j];
+    cpu->sp=context.sp;cpu->pc=context.pc;
+    cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
+}
+static int run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
     vf_protect protect,void *opaque,const vf_memory_controls_v2 *controls,
-    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result) {
+    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result,int allow_pauth) {
     if(!result)return VF_DATA_FAULT;
     if(!cpu || !code || !code->bytes || !protect || !callback || !owner || !budget ||
        !vf_memory_controls_valid_v2(controls) || !vf_cpu_state_valid(cpu) ||
        cpu->exception_pending!=VF_EXCEPTION_NONE)return v2_error(result,VF_PROVIDER_INVALID_REQUEST);
     uint64_t start=cpu->retired;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+    provider_native_entry cache[64]={0};
+    size_t slots=code->capacity/NEXTCORE_PROVIDER_CACHE_SLOT_BYTES;
+    if(slots>64)slots=64;
+    size_t victim=0;
+#endif
     while(cpu->retired-start<budget) {
         if(!v2_controls_match(cpu,controls))return cpu->status=v2_error(result,VF_PROVIDER_INVALID_REQUEST);
         int status=vf_cpu_poll_interrupt(cpu);if(status!=VF_NEXT)return cpu->status=status;
@@ -202,18 +222,69 @@ int vf_run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
         vf_memory_reply_v2 reply;status=memory_exchange_v2(cpu,callback,owner,&q,&reply,result);
         if(status!=VF_NEXT)return cpu->status=status;
         uint32_t instruction=(uint32_t)reply.value0;
-        if(protect(code->bytes,code->capacity,0,opaque))return cpu->status=VF_PROTECTION;
-        status=translate_impl(code,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
-        if(status!=VF_NEXT)return cpu->status=status;
-        if(protect(code->bytes,code->capacity,1,opaque))return cpu->status=VF_PROTECTION;
-        status=execute_native_block(cpu,code,0,0);
+        vf_code entry=*code;
+        int hit=0;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+        size_t selected=0;
+        int publish=0;
+        for(size_t i=0;i<slots;i++) {
+            if(cache[i].valid && cache[i].pc==cpu->pc &&
+               cache[i].instruction==instruction && cache[i].current_el==cpu->current_el) {
+                entry=(vf_code){code->bytes+i*NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,
+                    NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,cache[i].used};
+                hit=1;break;
+            }
+        }
+        if(!hit && slots) {
+            selected=victim;
+            cache[selected].valid=0;
+            entry=(vf_code){code->bytes+selected*NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,
+                NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,0};
+            publish=1;
+        }
+#endif
+        if(!hit) {
+            /* No native entry is running; page-wide changes may cover siblings. */
+            if(protect(code->bytes,code->capacity,0,opaque))return cpu->status=VF_PROTECTION;
+            status=translate_impl(&entry,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+            if(status==VF_CODE_FULL && publish) {
+                for(size_t i=0;i<slots;i++)cache[i].valid=0;
+                victim=0;publish=0;entry=*code;
+                status=translate_impl(&entry,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
+            }
+#endif
+            code->used=entry.used;
+            if(status!=VF_NEXT)return cpu->status=status;
+            if(protect(code->bytes,code->capacity,1,opaque))return cpu->status=VF_PROTECTION;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+            if(publish) {
+                cache[selected]=(provider_native_entry){cpu->pc,instruction,cpu->current_el,entry.used,1};
+                victim=(selected+1)%slots;
+            }
+#endif
+        }
+        code->used=entry.used;
+        /* No guest RAM host pointer is supplied to the generated entry. */
+        status=execute_native_block(cpu,&entry,0,0);
         if((uint32_t)status==VF_MEMORY_DISPATCH) {
             status=memory_data_step_v2(cpu,controls,callback,owner,result);
             if(status!=VF_NEXT)return cpu->status=status;continue;
         }
         if((status==VF_UNDEFINED_INSTRUCTION || status==VF_SYSTEM_REGISTER_TRAP) &&
-           (platform_slow_step(cpu) || memory_control_read_v2(cpu)))continue;
+           (platform_slow_step(cpu) || memory_control_read_v2(cpu) || (allow_pauth && pauth_immutable_step(cpu))))continue;
         if(status!=VF_NEXT){(void)vf_cpu_commit_status(cpu,status);return cpu->status=status;}
     }
     return cpu->status=VF_BUDGET;
+}
+int vf_run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
+    vf_protect protect,void *opaque,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result) {
+    return run_memory_provider_v2(cpu,code,budget,protect,opaque,controls,callback,owner,result,0);
+}
+int vf_run_memory_provider_pauth_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
+    vf_protect protect,void *opaque,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result) {
+    if(!cpu || !cpu->pauth_step)return result?v2_error(result,VF_PROVIDER_INVALID_REQUEST):VF_DATA_FAULT;
+    return run_memory_provider_v2(cpu,code,budget,protect,opaque,controls,callback,owner,result,1);
 }

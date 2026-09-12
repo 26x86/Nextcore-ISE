@@ -1,5 +1,6 @@
 //! Authored Linux x86 proof: generated x86 invokes canonical translated memory.
 #[path="test_unaligned_profile.rs"]mod unaligned_profile;
+#[path="test_mapped_provider.rs"]mod mapped_provider;
 use core::ffi::c_void;
 use nextcore_memory_service::{abi::{FETCH,LOAD,STORE},abi_v2::*,stage1::{MemoryServiceV2,vf_memory_service_step_v2}};
 #[path="preos/src/platform.rs"]mod platform;

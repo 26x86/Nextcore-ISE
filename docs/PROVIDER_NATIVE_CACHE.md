@@ -1,7 +1,9 @@
 # Run-local provider native reuse
 
-Current Status: Single-instruction native reuse is limited to the physical v1
-memory-provider run. It does not cache fetches, data, translations or replies.
+Current Status: Single-instruction native reuse applies to physical v1 and
+immutable v2 memory-provider runs. It does not cache fetches, data, address
+translations or replies. See [mapped PAC v2](MAPPED_PAUTH_V2.md) for the v2
+control and callback contract.
 Target State: Preserve complete architectural/provider outcomes while reducing
 actual code generation and permission transitions on repeated instructions.
 
@@ -12,7 +14,7 @@ code allocation. Each slot has 1024 bytes; usable count is capacity/1024 capped
 at 64. Smaller allocations use the unchanged uncached translation path. Entries
 are found by complete guest PC, freshly fetched instruction word and current EL.
 Provider mode and one-instruction limit are fixed, never shared with direct RAM,
-v2, dynamic or another invocation. Round-robin replacement needs no allocation.
+another provider run, dynamic v3 or another invocation. Round-robin replacement needs no allocation.
 
 The current translator embeds guest PC and EL-dependent boundaries; operands,
 flags and thread values are read from the live CPU. Provider memory instructions
@@ -46,7 +48,7 @@ CPU, RAM, requests, faults, self-modification, eviction and small-buffer behavio
 Only a measured same-input EFI replay can establish original-path speed changes;
 test reuse counts cannot establish macOS boot progress or physical display.
 
-## Initial validation
+## Initial v1 validation (2026-09-12)
 
 On 2026-09-12 the existing `probe_efi_memory_provider.py` passed twenty generated
 native/C-to-Rust provider tests and forty-four canonical memory-service tests;
