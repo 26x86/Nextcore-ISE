@@ -276,6 +276,24 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                 b(c,0x4c);b(c,0x21);b(c,0x89);u32(c,offsetof(vf_cpu,pstate));
                 b(c,0x48);b(c,0x09);b(c,0x81);u32(c,offsetof(vf_cpu,pstate));fix(c,done);
             }
+        } else if((w&0x7f800000)==0x33000000) {
+            unsigned r=(w>>16)&63,s=(w>>10)&63,width=wide?64:32;
+            if(((w>>22)&1)!=wide || (!wide && ((r|s)&32))) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            unsigned bits=s>=r?s-r+1:s+1,position=s>=r?0:width-r;
+            uint64_t low=bits==64?UINT64_MAX:(UINT64_C(1)<<bits)-1;
+            uint64_t selected=low<<position;
+            load(c,rn,0,wide);
+            if(s>=r && r) {if(wide)b(c,0x48);b(c,0xc1);b(c,0xe8);b(c,r);}
+            b(c,0x49);b(c,0xb9);u64(c,low);b(c,wide?0x4c:0x44);b(c,0x21);b(c,0xc8);
+            if(position) {if(wide)b(c,0x48);b(c,0xc1);b(c,0xe0);b(c,position);}
+            b(c,0x49);b(c,0x89);b(c,0xc2); /* R10 snapshots inserted source bits. */
+            load(c,rd,0,wide);b(c,0x49);b(c,0xb9);u64(c,~selected);
+            b(c,wide?0x4c:0x44);b(c,0x21);b(c,0xc8);
+            b(c,wide?0x4c:0x44);b(c,0x09);b(c,0xd0);
+            save(c,rd,0); /* BFM preserves PSTATE and unselected destination bits. */
         } else if((w&0x7f800000)==0x53000000) {
             /* UBFM, including every extract/insert/shift alias. R31 is ZR.
              * This branch is shared by direct and all provider entry paths. */

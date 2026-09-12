@@ -1688,6 +1688,22 @@ impl GuestCpuState {
             }
             self.pc=pc.wrapping_add(4);return StepResult::Continue;
         }
+        if word&0x7f800000==0x33000000 {
+            let r=(word>>16)&63;let s=(word>>10)&63;
+            if ((word>>22)&1)!=u32::from(wide) || (!wide && (r|s)&32!=0) {
+                self.raise(GuestException {kind:ExceptionKind::UndefinedInstruction,
+                    instruction:word,syndrome:word as u64,far:pc,pc});
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            }
+            let width=if wide {64}else{32};
+            let low=|bits:u32|u64::MAX>>(64-bits);
+            let rotate=|x:u64|if wide{x.rotate_right(r)}else{u64::from((x as u32).rotate_right(r))};
+            let wmask=rotate(low(s+1));let tmask=low((s.wrapping_sub(r)&(width-1))+1);
+            let old=self.read_reg(rd,false);let source=self.read_reg(rn,false);
+            let bottom=(old&!wmask)|(rotate(source)&wmask);
+            self.write_reg(rd,(old&!tmask)|(bottom&tmask),false,wide);
+            self.pc=pc.wrapping_add(4);return StepResult::Continue;
+        }
         if word&0x7f800000==0x53000000 {
             let r=(word>>16)&63;let s=(word>>10)&63;
             if ((word>>22)&1)!=u32::from(wide) || (!wide && (r|s)&32!=0) {
@@ -2610,6 +2626,53 @@ mod tests {
     }
 
     #[test]
+    fn merging_bitfield_all_immediates_match_independent_bit_origins() {
+        fn run(width:u32,r:u32,s:u32,role:usize,source:u64,old:u64,flags:u32) {
+            let (rn,rd)=[(0u32,2u32),(31,2),(0,31),(0,0),(31,31)][role];
+            let mut cpu=GuestCpuState::reset(0);for (i,v) in cpu.x.iter_mut().enumerate(){*v=0xfedcba9800000000+i as u64;}
+            if rd!=31{cpu.x[rd as usize]=old;}if rn!=31{cpu.x[rn as usize]=source;}
+            cpu.sp=0x8765432100;cpu.pstate=0x3c5|(flags<<28);let mut expected=cpu.x;
+            let src=if rn==31{0}else{expected[rn as usize]};let dst=if rd==31{0}else{expected[rd as usize]};let mut result=0u64;
+            for bit in 0..width {
+                let first=if s>=r{0}else{width-r};let last=if s>=r{s-r}else{width-r+s};
+                let value=if bit<first||bit>last{(dst>>bit)&1}else{(src>>(if s>=r{bit+r}else{bit-first}))&1};
+                result|=value<<bit;
+            }
+            if rd!=31{expected[rd as usize]=result;}
+            let word=0x33000000|(u32::from(width==64)<<31)|(u32::from(width==64)<<22)|(r<<16)|(s<<10)|(rn<<5)|rd;
+            let mut bytes=word.to_le_bytes();let before=bytes;let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut bytes),1,|_|{});
+            assert_eq!(result.status,ArchRunStatus::Budget);assert_eq!((cpu.pc,cpu.retired,cpu.sp,cpu.pstate),(4,1,0x8765432100,0x3c5|(flags<<28)));
+            assert_eq!(cpu.x,expected);assert_eq!(bytes,before);
+        }
+        let sources=[0,u64::MAX,0xaaaaaaaa55555555,0x55555555aaaaaaaa,0x80000000,0x8000000000000000];
+        let destinations=[0,u64::MAX,0xa5a5a5a55a5a5a5a,0x0123456789abcdef];let mut cases=0;
+        for width in [32,64] {for r in 0..width {for s in 0..width {for (a,&source) in sources.iter().enumerate(){for (d,&old) in destinations.iter().enumerate(){for role in 0..5 {
+            run(width,r,s,role,source,old,(r+s+a as u32+d as u32+role as u32)&15);cases+=1;
+        }}}}}}
+        for width in [32,64] {for flags in 0..16 {for role in 0..5 {for edge in 0..4 {
+            run(width,if edge&1!=0{width-1}else{0},if edge&2!=0{width-1}else{0},role,u64::MAX,0x0123456789abcdef,flags);cases+=1;
+        }}}}
+        assert_eq!(cases,615040);
+    }
+
+    #[test]
+    fn merging_bitfield_invalid_fields_and_other_opcodes_preserve_state() {
+        fn reject(word:u32) {
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=u64::MAX;cpu.x[2]=0x987654321;cpu.sp=0x123456780;cpu.pstate=0xb00003c5;let before=cpu.x;
+            let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut word.to_le_bytes()),1,|_|{});
+            assert_eq!(result.exception.unwrap().kind,ExceptionKind::UndefinedInstruction);
+            assert_eq!(cpu.x,before);assert_eq!((cpu.pc,cpu.retired,cpu.sp,cpu.pstate,cpu.sys.esr_el1),(0,0,0x123456780,0xb00003c5,1<<25));
+        }
+        let mut count=0;
+        for sf in 0..2 {for n in 0..2 {for r in 0..64 {for s in 0..64 {
+            if sf==n && (sf!=0 || (r<32 && s<32)){continue;}
+            reject(0x33000002u32|(sf<<31)|(n<<22)|(r<<16)|(s<<10));count+=1;
+        }}}}
+        for word in [0x33800002,0xb3c00002,0x73000002,0xf3400002,0x13000002,0x93400002] {reject(word);count+=1;}
+        assert_eq!(count,11270);
+    }
+
+    #[test]
     fn unsigned_bitfield_all_immediates_match_independent_bit_placement() {
         fn run(width:u32,r:u32,s:u32,source:u64,rn:u32,rd:u32,flags:u32) {
             let mut expected=0u64;
@@ -2641,7 +2704,7 @@ mod tests {
     #[test]
     fn unsigned_bitfield_reserved_and_other_bitfield_opcodes_do_not_modify_state() {
         for word in [0xd3000002u32,0x53400002,0x53200002,0x53008002,0x53608002,
-            0x33000002,0xb3400002,0x13000002,0x93400002,0x73000002,0xf3400002] {
+            0xb3000002,0x33400002,0x13000002,0x93400002,0x73000002,0xf3400002] {
             let mut cpu=GuestCpuState::reset(0);cpu.x[0]=u64::MAX;cpu.x[2]=0x76543210;cpu.sp=0x9870;cpu.pstate=0xb00003c5;
             let registers=cpu.x;let mut bytes=word.to_le_bytes();let before=bytes;
             let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut bytes),1,|_|{});

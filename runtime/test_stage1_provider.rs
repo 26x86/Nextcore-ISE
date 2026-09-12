@@ -345,3 +345,22 @@ fn test_bit_branch(op:u32,bit:u32,imm:i32,rt:u32)->u32 {
         assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[VA,VA+4]);assert_eq!(ram,before);
     });}
 }
+
+#[path="bfm_cases.rs"] mod bfm_cases;
+#[test]fn bfm_v2_executes_through_both_granules() {
+    for sixteen in [false,true] {bfm_cases::each(|case| {
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[case.word,HLT]);let before=ram.clone();let expected=bfm_cases::expected(case,case.initial);
+        let(r,requests)=run(c,&tables,&mut ram,VA,case.initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,VA+8));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);
+        assert_eq!((r.base.execution.pstate,r.base.fetch_requests,r.base.data_requests),(0x3c5,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[VA,VA+4]);assert_eq!(ram,before);
+    });}
+}
+
+#[test]fn bfm_v2_invalid_fields_preserve_state() {
+    for sixteen in [false,true] {for word in bfm_cases::invalid() {
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[word,HLT]);let before=ram.clone();let initial=[1,2,3,4];let(r,_)=run(c,&tables,&mut ram,VA,initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.pc,r.base.fetch_requests,r.base.data_requests,r.base.execution.esr),(8,0,VA,1,0,1<<25));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(r.base.execution.pstate,0x3c5);assert_eq!(ram,before);
+    }}
+}

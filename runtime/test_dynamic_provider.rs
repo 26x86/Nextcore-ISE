@@ -353,3 +353,27 @@ fn test_bit_branch(op:u32,bit:u32,imm:i32,rt:u32)->u32 {
         assert_eq!(e.data.iter().map(|q|q.address).collect::<Vec<_>>(),addresses);assert_eq!(ram,before);assert_eq!(r.final_control,e.service_state);
     });}}
 }
+
+#[path="bfm_cases.rs"] mod bfm_cases;
+#[test]fn bfm_dynamic_executes_before_and_after_enable() {
+    for sixteen in [false,true] {for mapped in [false,true] {bfm_cases::each(|case| {
+        let(c,tables,mut ram,step,_)=fixture(sixteen,&[case.word,HLT]);let pc=if mapped{RAM+step as u64}else{RAM};
+        let entry=if mapped{pc-12}else{words(&mut ram,0,&[case.word,HLT]);pc};let mut initial=case.initial;initial[0]=c.sctlr|1;
+        let mut at_instruction=initial;if mapped{at_instruction[2]=at_instruction[2].wrapping_add(1);}let expected=bfm_cases::expected(case,at_instruction);
+        let before=ram.clone();let e=run(c,&tables,&mut ram,entry,initial,8,0);let r=e.out;let b=r.memory.base.execution.base;let count=if mapped{5}else{2};
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,count,count,pc+8));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);
+        assert_eq!((r.memory.base.execution.pstate,r.memory.base.execution.sp,r.memory.base.fetch_requests,r.memory.base.data_requests),(0x3c5,RAM+0x400,count,0));
+        let mut addresses=if mapped{vec![pc-12,pc-8,pc-4]}else{vec![]};addresses.extend([pc,pc+4]);
+        assert_eq!(e.data.iter().map(|q|q.address).collect::<Vec<_>>(),addresses);assert_eq!(ram,before);assert_eq!(r.final_control,e.service_state);
+    });}}
+}
+
+#[test]fn bfm_dynamic_invalid_fields_preserve_state() {
+    for sixteen in [false,true] {for mapped in [false,true] {for word in bfm_cases::invalid() {
+        let(c,tables,mut ram,step,_)=fixture(sixteen,&[word,HLT]);let pc=if mapped{RAM+step as u64}else{RAM};
+        let entry=if mapped{pc-12}else{words(&mut ram,0,&[word,HLT]);pc};let initial=[c.sctlr|1,2,3,4];let mut expected=initial;if mapped{expected[2]+=1;}
+        let before=ram.clone();let e=run(c,&tables,&mut ram,entry,initial,8,0);let r=e.out;let b=r.memory.base.execution.base;let retired=if mapped{3}else{0};
+        assert_eq!((b.status,b.retired,b.pc,r.memory.base.fetch_requests,r.memory.base.data_requests,r.memory.base.execution.esr),(8,retired,pc,retired+1,0,1<<25));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);assert_eq!(r.memory.base.execution.pstate,0x3c5);assert_eq!(ram,before);assert_eq!(r.final_control,e.service_state);
+    }}}
+}
