@@ -317,3 +317,25 @@ fn conditional_selection_native_through_dynamic_provider() {
         assert_eq!((r.memory.base.execution.esr,r.memory.base.guest_far),(esr,address));assert_eq!(r.final_control,e.service_state);
     }}}
 }
+
+fn test_bit_branch(op:u32,bit:u32,imm:i32,rt:u32)->u32 {
+    0x36000000|op<<24|(bit>>5)<<31|(bit&31)<<19|((imm as u32)&0x3fff)<<5|rt
+}
+#[test]fn test_bit_dynamic_fetch_traces_before_after_enable_and_target_fault() {
+    for sixteen in [false,true] {for mapped in [false,true] {for bit in 0..64 {for op in 0..2 {for set in [false,true] {for zr in [false,true] {
+        let source=if set {1u64<<bit}else{0};let take=(set&&!zr)==(op!=0);let word=test_bit_branch(op,bit,2,if zr {31}else{1});
+        let(c,tables,mut ram,step,_)=fixture(sixteen,&[word,HLT,HLT]);
+        let pc=if mapped {RAM+step as u64}else{RAM};let entry=if mapped {pc-12}else{words(&mut ram,0,&[word,HLT,HLT]);pc};
+        let initial=[c.sctlr|1,source,8,9];let before=ram.clone();let e=run(c,&tables,&mut ram,entry,initial,8,0);let r=e.out;let b=r.memory.base.execution.base;let count=if mapped {5}else{2};
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,count,count,pc+if take {12}else{8}));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],[initial[0],source,8+u64::from(mapped),9]);assert_eq!((r.memory.base.execution.pstate,r.memory.base.fetch_requests,r.memory.base.data_requests),(0x3c5,count,0));
+        let mut addresses=if mapped {vec![pc-12,pc-8,pc-4]}else{vec![]};addresses.extend([pc,pc+if take {8}else{4}]);
+        assert_eq!(e.data.iter().map(|q|q.address).collect::<Vec<_>>(),addresses);assert_eq!(ram,before);assert_eq!(r.final_control,e.service_state);
+    }}}}}
+    let(c,mut tables,mut ram,step,leaf)=fixture(sixteen,&[HLT]);let word=test_bit_branch(0,63,(step/4)as i32,31);words(&mut ram,3*step,&[word,HLT]);tables[leaf+16..leaf+24].fill(0);
+    let before=ram.clone();let initial=[c.sctlr|1,2,8,9];let e=run(c,&tables,&mut ram,RAM+step as u64-12,initial,8,0);let r=e.out;let b=r.memory.base.execution.base;let target=RAM+2*step as u64;
+    assert_eq!((b.status,b.retired,b.compiled_blocks,r.memory.base.fetch_requests,r.memory.base.provider_status),(16,4,4,5,0));
+    assert_eq!((b.pc,r.memory.base.execution.elr,r.memory.base.guest_far,r.memory.base.execution.esr),(target,target,target,0x86000007));
+    assert_eq!(e.data.last().unwrap().address,target);assert_eq!(ram,before);assert_eq!(r.final_control,e.service_state);
+    }
+}

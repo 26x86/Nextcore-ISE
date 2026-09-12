@@ -235,7 +235,7 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
     uint64_t base = cpu ? cpu->guest_ram_base : 0;
     c->used=0;
     for(unsigned n=0;n<limit;n++,pc+=4) {
-        if(!provider && ((pc&3) || size<4 || pc<base || pc-base>size-4 || pc>UINT64_MAX-4)) { finish(c,pc,n,VF_INSTRUCTION_ABORT);break; }
+        if(!provider && ((pc&3) || size<4 || pc<base || pc-base>size-4 || pc>UINT64_MAX-3)) { finish(c,pc,n,VF_INSTRUCTION_ABORT);break; }
         uint32_t w=word(guest+(provider?0:pc-base)); unsigned rd=w&31,rn=(w>>5)&31,wide=w>>31;
         unsigned thread = is_mrs_msr(w) ? thread_offset(sysreg_key(w)) : 0;
         if(provider && memory_family(w)) {
@@ -515,6 +515,13 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             if(condition>=14) { finish(c,target,n+1,VF_NEXT);break; }
             size_t fall=condition_false(c,condition);
             finish(c,target,n+1,VF_NEXT);
+            fix(c,fall);finish(c,pc+4,n+1,VF_NEXT);break;
+        } else if((w&0x7e000000)==0x36000000) {
+            unsigned bit=((w>>26)&32)|((w>>19)&31);
+            load(c,rd,0,bit>=32);
+            if(bit>=32)b(c,0x48);b(c,0x0f);b(c,0xba);b(c,0xe0);b(c,bit);
+            size_t fall=jcc(c,(w&(1u<<24))?0x83:0x82); /* BT result is host CF. */
+            finish(c,pc+(uint64_t)(sext((w>>5)&0x3fff,14)*4),n+1,VF_NEXT);
             fix(c,fall);finish(c,pc+4,n+1,VF_NEXT);break;
         } else if((w&0x7e000000)==0x34000000) {
             load(c,rd,0,wide);b(c,0x48);b(c,0x85);b(c,0xc0);
