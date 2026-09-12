@@ -1640,6 +1640,21 @@ impl GuestCpuState {
             return StepResult::Continue;
         }
 
+        // Conditional selection reads ZR for every register31 operand.
+        if word & 0x3fe00800 == 0x1a800000 {
+            let value = if self.condition_holds((word >> 12) & 15) {
+                self.read_reg(rn, false)
+            } else {
+                let mut other = self.read_reg((word >> 16) & 31, false);
+                if word & (1 << 30) != 0 { other = !other; }
+                if word & (1 << 10) != 0 { other = other.wrapping_add(1); }
+                other
+            };
+            self.write_reg(rd, value, false, wide);
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
+        }
+
         if word&0x3fe00410==0x3a400000 {
             if self.condition_holds((word>>12)&15) {
                 let right=if word&(1<<11)!=0 {u64::from((word>>16)&31)}
@@ -2598,6 +2613,44 @@ mod tests {
             assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),StepResult::Exception(ExceptionKind::UndefinedInstruction));
             assert_eq!(cpu.x[0],u64::MAX);assert_eq!(cpu.pc,0);
         }
+    }
+
+    #[test]
+    fn conditional_selection_all_conditions_flags_widths_and_aliases() {
+        let values = [0u64, 1, u64::MAX, 0x7fffffff, 0x80000000, 0xffffffff,
+            0x8000000000000000, 0xabcdef0180000081];
+        let roles = [(0u32,1u32,2u32),(31,1,2),(0,31,2),(31,31,2),(0,1,31),(0,1,0),(0,1,1),(0,0,0)];
+        let mut cases = 0;
+        for width in [32u32,64] {for op in 0..4 {for cond in 0..16 {for flags in 0..16 {
+            let n=flags&8!=0;let z=flags&4!=0;let c=flags&2!=0;let v=flags&1!=0;
+            let truth=[z,!z,c,!c,n,!n,v,!v,c&&!z,!c||z,n==v,n!=v,!z&&n==v,z||n!=v,true,true];
+            let mask=u64::MAX>>(64-width);
+            for (index,&a) in values.iter().enumerate() {for &(rn,rm,rd) in &roles {
+                let word=0x1a800000|(u32::from(width==64)<<31)|((op>>1)<<30)|((op&1)<<10)|
+                    (cond<<12)|(rm<<16)|(rn<<5)|rd;
+                let mut cpu=GuestCpuState::reset(0);
+                for index in 0..31 {cpu.x[index]=0xfedcba9800000000+index as u64;}
+                cpu.x[0]=a;cpu.x[1]=values[7-index];cpu.sp=0x9876543210;cpu.pstate=0x3c5|(flags<<28);
+                let left=if rn==31 {0} else {cpu.x[rn as usize]&mask};
+                let right=if rm==31 {0} else {cpu.x[rm as usize]&mask};
+                let otherwise=match op {0=>right,1=>right.wrapping_add(1),2=>mask-right,_=>0u64.wrapping_sub(right)};
+                let mut expected=cpu.x;
+                if rd!=31 {expected[rd as usize]=(if truth[cond as usize] {left} else {otherwise})&mask;}
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word.to_le_bytes())),StepResult::Continue);
+                assert_eq!((cpu.x,cpu.sp,cpu.pstate,cpu.pc),(expected,0x9876543210,0x3c5|(flags<<28),4));
+                cases+=1;
+            }}
+            for bad in 1..4 {
+                let word=0x1a810002|(u32::from(width==64)<<31)|((op>>1)<<30)|((op&1)<<10)|
+                    (cond<<12)|(if bad&1!=0 {1<<29}else{0})|(if bad&2!=0 {1<<11}else{0});
+                let mut cpu=GuestCpuState::reset(0);cpu.x[0]=1;cpu.x[1]=2;cpu.x[2]=3;cpu.sp=0x9870;cpu.pstate=0x3c5|(flags<<28);
+                let before=cpu.x;
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word.to_le_bytes())),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+                assert_eq!((cpu.x,cpu.sp,cpu.pstate,cpu.pc),(before,0x9870,0x3c5|(flags<<28),0));
+                assert_eq!(cpu.sys.esr_el1,1<<25);
+            }
+        }}}}
+        assert_eq!(cases,131072);
     }
 
     #[test]
