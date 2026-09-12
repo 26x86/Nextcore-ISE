@@ -1170,8 +1170,10 @@ impl GuestCpuState {
         let (size_code, opc) = (word >> 30, (word >> 22) & 3);
         let (rn, rt) = ((word >> 5) & 31, word & 31);
         let register_offset = word & 0x3b200c00 == 0x38200800;
+        let writeback = word & 0x3b200400 == 0x38000400;
         let option = (word >> 13) & 7;
-        if (register_offset && option & 2 == 0) || word & (1 << 26) != 0 ||
+        if (writeback && rn != 31 && rn == rt) ||
+            (register_offset && option & 2 == 0) || word & (1 << 26) != 0 ||
             (opc >= 2 && (size_code == 3 || (opc == 3 && size_code == 2))) {
             return Err((ExceptionKind::UndefinedInstruction, self.pc));
         }
@@ -1196,10 +1198,11 @@ impl GuestCpuState {
                 _ => raw,
             };
             extended << if word & (1 << 12) != 0 {size_code} else {0}
-        } else if word & 0x3b200c00 == 0x38000000 {
+        } else if word & 0x3b200c00 == 0x38000000 || writeback {
             ((((word >> 12) & 511) as i64) << 55 >> 55) as u64
         } else {u64::from((word >> 10) & 4095) << size_code};
-        let address = base.wrapping_add(offset);
+        let updated_base = base.wrapping_add(offset);
+        let address = if writeback && word & (1 << 11) == 0 {base} else {updated_base};
         if address & (size as u64 - 1) != 0 {
             // Device-nGnRnE when MMU-off. Translated A=0 requires memory
             // attributes and a spanning transaction, neither exposed yet.
@@ -1220,6 +1223,7 @@ impl GuestCpuState {
             let value = if opc >= 2 {sign_extend(value, (size * 8) as u32) as u64} else {value};
             self.write_reg(rt, value, false, opc == 2 || size == 8);
         }
+        if writeback { self.write_reg(rn, updated_base, true, true); }
         self.pc = self.pc.wrapping_add(4);
         Ok(())
     }
@@ -1916,7 +1920,7 @@ impl GuestCpuState {
 
         // Integer scaled/unscaled immediate and register-offset scalar transfers.
         if word & 0x3b000000 == 0x39000000 || word & 0x3b200c00 == 0x38200800 ||
-            word & 0x3b200c00 == 0x38000000 {
+            word & 0x3b200c00 == 0x38000000 || word & 0x3b200400 == 0x38000400 {
             return match self.scalar_memory(bus, word) {
                 Ok(()) => StepResult::Continue,
                 Err((kind, far)) => {

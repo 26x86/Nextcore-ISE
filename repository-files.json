@@ -152,6 +152,11 @@
       "sha256": "c3db9de034eb4ca71fd60c945911dd550cfb8655aa295475c5c20d4433101a96"
     },
     {
+      "path": "docs/SCALAR_IMMEDIATE_WRITEBACK.md",
+      "bytes": 4909,
+      "sha256": "a9f3579fc497674f216078bf8834539097b767c696c8306fd33a1f3dac069be1"
+    },
+    {
       "path": "docs/UNDEFINED_A64_SYNDROME.md",
       "bytes": 3176,
       "sha256": "bd485111a1417bfd9001cdc02fc2042a47b2ce95a92a4099528b0b249e6294e7"
@@ -169,7 +174,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "c6e6d97553e61cb2e7d19ea1cb0ebd0da5730157763cb9a53df4c041bf2298b9"
+      "sha256": "0ce46b4cec9c0fa116bdecd03981f8e31a0967c33169cd5e3171c317de970269"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -178,8 +183,8 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 21858,
-      "sha256": "68758ab7cd2e267fff72c0515571780d90fed0695095158656126cdd0b4f8af8"
+      "bytes": 21931,
+      "sha256": "28daa65f1c0fda541617ada7a17fcaa74ebc1d206985155bb4b7e44b5a3632da"
     },
     {
       "path": "runtime/bfm_cases.rs",
@@ -213,8 +218,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 49380,
-      "sha256": "ae82dbf52218ea269db0264d46522135de33e607197c7f03cb5dd0d19308861e"
+      "bytes": 50058,
+      "sha256": "5903769e98cb21b3668944f1bf31a68a50185585d05223d9bdcd92e41c0d5305"
     },
     {
       "path": "runtime/jit.h",
@@ -383,8 +388,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 177334,
-      "sha256": "0b969390e8e4514d58fc18102e03b4427288ddef07955188fb5ad6e5480ba20b"
+      "bytes": 177654,
+      "sha256": "c7ba7a0a679071d5690e48a67ec0ba1d7b09486cdd8016d77882c69aa63bdee7"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -490,6 +495,21 @@
       "path": "runtime/test_gop_scanout.c",
       "bytes": 6735,
       "sha256": "def9a5efe836e14d972d083527464b69eb2be1268c3427b3bb16b6c2955b01c4"
+    },
+    {
+      "path": "runtime/test_indexed_jit.c",
+      "bytes": 4863,
+      "sha256": "1e0884ef88751e8b5f6da81d5c2ce7aa788b018ecda91acdee73d3ebc91f70c7"
+    },
+    {
+      "path": "runtime/test_indexed_provider.rs",
+      "bytes": 7208,
+      "sha256": "fb85033d6a115558f439133a798388aa68269526388c653361064558bebbf8fa"
+    },
+    {
+      "path": "runtime/test_indexed_reference.rs",
+      "bytes": 907,
+      "sha256": "55fa03587143424bbb8c5c3205a24784a48dda1f1c8cb0679ef93401b1010384"
     },
     {
       "path": "runtime/test_irq_jit.c",
@@ -598,8 +618,8 @@
     },
     {
       "path": "runtime/test_unscaled_jit.c",
-      "bytes": 4489,
-      "sha256": "3f4c3773c715ea2d451d7b0aa2deb130f2df957da3eca879eeed7f3693663f93"
+      "bytes": 4453,
+      "sha256": "79dbaf73e5a40323cb6838ba3418812a13d14cbafebf56cfe1bd7f01dde0e4cb"
     },
     {
       "path": "runtime/test_unscaled_provider.rs",
@@ -630,6 +650,11 @@
       "path": "runtime/tests/pauth_width_oracle.json",
       "bytes": 10380,
       "sha256": "9e86e33434f4c18504754fa5ac4dc08f50b0b85b8c95f8befaa526562b5b35a4"
+    },
+    {
+      "path": "runtime/tests/verify_indexed_native.py",
+      "bytes": 8588,
+      "sha256": "1e68ab9e98c2d4a68059e520c3145e2dd18f0e22409276e54737822484494f45"
     },
     {
       "path": "runtime/tests/verify_logical_shifted_native.py",
