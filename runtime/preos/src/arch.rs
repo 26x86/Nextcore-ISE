@@ -972,7 +972,9 @@ impl GuestCpuState {
                 }
             }
             SystemRegister::TcrEl1 => {
-                if value&(1u64<<36)!=0 {return Err(SysRegFault::InvalidValue);}
+                // Reject unimplemented HA/HD and hierarchy-disable controls,
+                // including while the MMU is off, before changing any state.
+                if value&((1u64<<36)|(0xfu64<<39))!=0 {return Err(SysRegFault::InvalidValue);}
                 let old = self.sys.tcr_el1;
                 self.sys.tcr_el1 = value;
                 if self.sys.sctlr_el1 & SCTLR_M != 0 && self.sync_mmu().is_err() {

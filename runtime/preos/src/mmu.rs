@@ -267,6 +267,9 @@ impl VfMmu {
         tcr: u64,
         asid: u16,
     ) -> bool {
+        // This walker neither updates AF/dirty state nor disables hierarchy.
+        // Reject before changing configuration or invalidating a warm cache.
+        if tcr & (0xfu64 << 39) != 0 { return false; }
         let t0sz = (tcr & 0x3f) as u8;
         let t1sz = ((tcr >> 16) & 0x3f) as u8;
         let tg0 = (tcr >> 14) & 0x3;

@@ -454,7 +454,10 @@ int vf_cpu_write_sysreg(vf_cpu *cpu, uint32_t key, uint64_t value) {
     case VF_SYSREG_KEY_TTBR1_EL1:
         if (value & UINT64_C(0xfff)) return VF_SYSREG_INVALID_VALUE;
         cpu->ttbr1 = value; vf_cpu_invalidate_tlb(cpu); break;
-    case VF_SYSREG_KEY_TCR_EL1: cpu->tcr = value; vf_cpu_invalidate_tlb(cpu); break;
+    case VF_SYSREG_KEY_TCR_EL1:
+        /* HA/HD and HPD0/HPD1 have no implementation in this model. */
+        if (value & (UINT64_C(0xf) << 39)) return VF_SYSREG_INVALID_VALUE;
+        cpu->tcr = value; vf_cpu_invalidate_tlb(cpu); break;
     case VF_SYSREG_KEY_SPSR_EL1: cpu->spsr_el[VF_EL1] = value; break;
     case VF_SYSREG_KEY_ELR_EL1: cpu->elr_el[VF_EL1] = value; break;
     case VF_SYSREG_KEY_ESR_EL1: cpu->esr_el[VF_EL1] = value; break;

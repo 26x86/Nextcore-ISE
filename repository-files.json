@@ -199,7 +199,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "1775024650b002529828c2d09afff2ec6561e17e2f2e02c97902ea0e0eaf1079"
+      "sha256": "e73c8c2ef9ebd9a596a0ccc8ad6b34979aeed05a6dde5c88645dc7233ee6bb1f"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -208,8 +208,8 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 22288,
-      "sha256": "25287b593ee7a27e56a417c255c0a2357e46275697153b2ec288db9551d0f2e7"
+      "bytes": 22443,
+      "sha256": "736ac0c107f551bdab7679002d1dcd044f2241760eaf836edc8a8b1d1b117fc4"
     },
     {
       "path": "runtime/bfm_cases.rs",
@@ -413,8 +413,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 179911,
-      "sha256": "57c8ec31425b5a2ad57d2d31fd3b955455c2c947786a5a744eab2a78b0297875"
+      "bytes": 180082,
+      "sha256": "c139589c5a9963a8e7b1502aaf18a224a56a34230d507538a663415646e23302"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -438,8 +438,8 @@
     },
     {
       "path": "runtime/preos/src/mmu.rs",
-      "bytes": 61089,
-      "sha256": "c19cfd452817e378663b725bedf6053aa2406e8ddca3116e45f71229675ab12e"
+      "bytes": 61300,
+      "sha256": "7e514935178b4a0c43cd3a3796e31abbfbaed80efef4b8bbea4653e750a89aa0"
     },
     {
       "path": "runtime/preos/src/pauth.rs",
@@ -657,6 +657,16 @@
       "sha256": "55fd66b62c0fa8b9d1a9d85081699996c752a30385409d09a3217cfe1c16ea32"
     },
     {
+      "path": "runtime/test_optional_tcr.c",
+      "bytes": 1733,
+      "sha256": "c540d3a73da0cde3ba7187e27cea413bbf759302ea5e5e906cb6d1e39c6aae64"
+    },
+    {
+      "path": "runtime/test_optional_tcr.rs",
+      "bytes": 5594,
+      "sha256": "dcf8a1331af399c89a2525781ade00859886d1ab8e90129959aa85594fa4d379"
+    },
+    {
       "path": "runtime/test_pac_address_selection.rs",
       "bytes": 1966,
       "sha256": "07b14753ff8a7d20599e451b2ec3e492248d6610cf4d971fa6979f76655f4ae4"
@@ -845,6 +855,11 @@
       "path": "runtime/tests/verify_mmfr0_native.py",
       "bytes": 8686,
       "sha256": "0dcbf37bd93c760ce56a1c52b5468652bedb1c77b296e6f4139c8f4ff2a5ee91"
+    },
+    {
+      "path": "runtime/tests/verify_optional_tcr.py",
+      "bytes": 5183,
+      "sha256": "373923183bc087edbcd56bc5959b99faed3529671c00e6bcfc0da5356063ab52"
     },
     {
       "path": "runtime/tests/verify_pac_address_selection.py",
