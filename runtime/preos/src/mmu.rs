@@ -328,8 +328,10 @@ impl VfMmu {
     /// Select the validated immutable Normal-NC descriptor profile. The caller
     /// validates the complete controls/MAIR snapshot before invoking this.
     pub(crate) fn configure_strict_nc(&mut self,ttbr0:u64,ttbr1:u64,tcr:u64)->bool {
+        if tcr&(1u64<<36)!=0 || (ttbr0|ttbr1)>>56!=0 {return false;}
         let mut candidate=*self;
-        if !candidate.configure_tcr(ttbr0,ttbr1,tcr,0) {return false;}
+        let selected=if tcr&(1<<22)!=0 {ttbr1} else {ttbr0};
+        if !candidate.configure_tcr(ttbr0,ttbr1,tcr,((selected>>48)&255) as u16) {return false;}
         candidate.strict_nc=true;
         *self=candidate;
         true

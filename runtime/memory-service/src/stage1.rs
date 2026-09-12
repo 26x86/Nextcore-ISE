@@ -16,7 +16,7 @@ use core::ffi::c_void;
 pub enum Error {InvalidRange,InvalidControls}
 
 pub fn controls_valid(c:&Controls)->bool {
-    let allowed_tcr=0x3fu64|(1<<7)|(3<<14)|(0x3f<<16)|(1<<23)|(3<<30)|(7<<32);
+    let allowed_tcr=0x3fu64|(1<<7)|(3<<14)|(0x3f<<16)|(1<<22)|(1<<23)|(3<<30)|(7<<32);
     let sctlr=match c.profile {PROFILE_FIXED_NC=>0x30d00803,
         PROFILE_FIXED_NC_UNALIGNED=>0x30d00801,_=>return false};
     if c.abi_version!=VERSION || c.struct_size!=80 ||
@@ -26,7 +26,7 @@ pub fn controls_valid(c:&Controls)->bool {
     let (min,max,alignment)=match (tg0,tg1) {(0,2)=>(16,39,0x1000),(2,1)=>(17,47,0x4000),_=>return false};
     let t0=c.tcr&63;let t1=(c.tcr>>16)&63;
     if !(min..=max).contains(&t0) || !(min..=max).contains(&t1) {return false;}
-    let mask=0x0000ffffffffffffu64&!(alignment-1);
+    let mask=(0x0000ffffffffffffu64&!(alignment-1))|0x00ff000000000000;
     c.ttbr0&!mask==0 && c.ttbr1&!mask==0
 }
 

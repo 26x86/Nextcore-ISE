@@ -73,8 +73,8 @@ The initial profile is deliberately specific:
 | --- | --- |
 | EL/PSTATE | AArch64 EL0t, EL1t or EL1h; current_el must match PSTATE mode. Only existing NZCV/DAIF/SP selection bits are variable; PAN/UAO/TCO and unmodeled state are zero. |
 | SCTLR | `0x30d00803`, optionally OR SA bit 3 and SA0 bit 4. This preserves the baseline RES1 pattern and requires M=1, A=1, little endian, C=I=WXN=0. All other values reject this profile before effects. |
-| TCR | TG0/TG1 select the same 4 KiB or 16 KiB granule with their distinct encodings; both T0SZ/T1SZ are architecturally valid. IPS=0..5, EPD0/1 modeled. IRGN/ORGN/SH fields are zero: noncacheable, nonshareable table walks. All remaining bits zero, including A1/AS/TBI/HA/HD/HPD/TBID/E0PD/DS. |
-| TTBR0/1 | ASID=0, CnP=0, no unmodeled high bits, whole-granule aligned table roots. The existing `T1SZ=0 means absent` shortcut is not accepted by this strict profile; use valid T1SZ plus EPD1 for a disabled upper walk. |
+| TCR | TG0/TG1 select the same 4 KiB or 16 KiB granule with their distinct encodings; both T0SZ/T1SZ are architecturally valid. IPS=0..5, EPD0/1 and A1 modeled. IRGN/ORGN/SH fields are zero: noncacheable, nonshareable table walks. All remaining bits zero, including AS/TBI/HA/HD/HPD/TBID/E0PD/DS. |
+| TTBR0/1 | Eight-bit ASID in bits 55:48; A1 selects the active tag at construction. Bits 63:56 and CnP are zero, with whole-granule aligned table roots. The existing `T1SZ=0 means absent` shortcut is not accepted by this strict profile; use valid T1SZ plus EPD1 for a disabled upper walk. Full control-snapshot immutability remains; dynamic profile 2 retains its separate ASID=0/A1=0 restriction. |
 | MAIR | exactly `0x44`: Attr0 is Normal inner/outer noncacheable; Attr1..7 are zero and cannot be selected by accepted leaf descriptors. |
 | HCR/SCR | zero inactive diagnostic fields; this profile exposes only EL0/EL1, with EL2/EL3 absent, a single Non-secure PA domain, and no stage 2. This is not a measured hardware HCR/SCR reset claim. |
 | Epoch | exactly 1 for the complete run; immutable controls and table image. |
