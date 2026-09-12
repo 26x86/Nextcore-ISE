@@ -78,11 +78,34 @@ The initial profile is deliberately specific:
 | HCR/SCR | zero inactive diagnostic fields; this profile exposes only EL0/EL1, with EL2/EL3 absent, a single Non-secure PA domain, and no stage 2. This is not a measured hardware HCR/SCR reset claim. |
 | Epoch | exactly 1 for the complete run; immutable controls and table image. |
 
-A=1 makes natural element alignment a fully supported rule for this first
-stage. A=0 is a profile rejection, not a fabricated alignment exception for
-Normal memory. Broader Normal unaligned handling and Device memory are separate
-extensions. M=1 PAC execution remains explicitly unavailable until its existing
+A=1 makes natural element alignment a fully supported rule for profile 1.
+That profile still rejects A=0. The separately selected profile 3 below permits
+ordinary Normal-memory unaligned transfers. Device memory remains outside both
+immutable profiles. M=1 PAC execution remains explicitly unavailable until its existing
 provider and control contract are extended; PAC with M=0 is preserved.
+
+### Fixed Normal-NC unaligned profile 3
+
+Current Status: The immutable v2 service and native consumer also admit
+`PROFILE_FIXED_NC_UNALIGNED` (C: `VF_MEMORY_V2_FIXED_NC_UNALIGNED`), value 3.
+It requires SCTLR `0x30d00801`, optionally OR SA/SA0, with the same remaining
+controls, epoch, ABI version, table ownership and descriptor subset as profile 1.
+It does not reinterpret the dynamic ABI discriminator 3 or dynamic profile 2.
+
+Target State: Permit existing ordinary scalar/pair data transfers at unaligned
+virtual addresses while checking every transferred byte before any RAM mutation
+or register/writeback commitment. Adjacent virtual pages may have nonadjacent
+physical backing. A later page fault, unsupported attribute or missing backing
+must leave the complete transfer uncommitted. Fetch and configured SP alignment
+checks remain active. Native reply validation rejects a fabricated ordinary data
+alignment fault in this profile. Atomic and exclusive instructions are not added.
+
+Arm's [memory attributes guide](https://documentation-service.arm.com/static/63a43e333f28e5456434e18b)
+sections 3.2 and 12.1 distinguish disabled-translation Device data accesses from
+ordinary Normal-memory accesses with alignment checking disabled. This explicit
+mapped profile provides the latter environment; it does not change the M=0 path.
+It supplies neither an original kernel entry ABI nor a PAC provider. Authored
+native and EFI results must remain distinct from physical macOS startup.
 
 Both VA halves support the existing walker limits: 4 KiB TnSZ16..39, 16 KiB
 TnSZ17..47, IPS32/36/40/42/44/48. Physical backing can be smaller than the

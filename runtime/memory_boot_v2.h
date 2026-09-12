@@ -13,9 +13,14 @@ _Static_assert(offsetof(vf_memory_run_result_v2,last_reply)==192,"memory reply o
 static inline int vf_memory_controls_valid_v2(const vf_memory_controls_v2 *c) {
     const uint64_t mask=UINT64_C(0x3f)|(UINT64_C(1)<<7)|(UINT64_C(3)<<14)|
         (UINT64_C(0x3f)<<16)|(UINT64_C(1)<<23)|(UINT64_C(3)<<30)|(UINT64_C(7)<<32);
-    if(!c || c->abi_version!=2 || c->struct_size!=80 || c->profile!=1 || c->reserved ||
+    if(!c)return 0;
+    uint64_t sctlr;
+    if(c->profile==VF_MEMORY_V2_FIXED_NC)sctlr=UINT64_C(0x30d00803);
+    else if(c->profile==VF_MEMORY_V2_FIXED_NC_UNALIGNED)sctlr=UINT64_C(0x30d00801);
+    else return 0;
+    if(c->abi_version!=2 || c->struct_size!=80 || c->reserved ||
        c->epoch!=1 || c->mair!=0x44 || c->hcr || c->scr ||
-       (c->sctlr&~UINT64_C(0x18))!=UINT64_C(0x30d00803) || (c->tcr&~mask) || ((c->tcr>>32)&7)>5)return 0;
+       (c->sctlr&~UINT64_C(0x18))!=sctlr || (c->tcr&~mask) || ((c->tcr>>32)&7)>5)return 0;
     unsigned tg0=(c->tcr>>14)&3,tg1=(c->tcr>>30)&3,t0=c->tcr&63,t1=(c->tcr>>16)&63;
     unsigned min,max,alignment;
     if(tg0==0 && tg1==2){min=16;max=39;alignment=0x1000;}

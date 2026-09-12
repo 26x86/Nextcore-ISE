@@ -2,6 +2,7 @@
 use core::ffi::c_void;
 pub const VERSION:u32=2;
 pub const PROFILE_FIXED_NC:u32=1;
+pub const PROFILE_FIXED_NC_UNALIGNED:u32=3;
 pub const OK:u32=0;
 pub const GUEST_FAULT:u32=1;
 pub const UNSUPPORTED:u32=2;
