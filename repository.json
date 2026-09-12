@@ -9,7 +9,7 @@
   "development": {
     "branch": "codex/physical-arm-runtime-20260912",
     "base_commit": "bd3a8195385106ce9bdeb09160a3f1bfb447ea11",
-    "updated_utc": "2026-09-12T18:20:16.253763+00:00",
+    "updated_utc": "2026-09-12T18:28:30.714812+00:00",
     "dependency_revisions": {},
     "integration": "Git submodule with an immutable gitlink; workspace source patches for local development"
   },

@@ -199,7 +199,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "f2f68f528e91b3312ab03674c39c1444d625a3ea78f583d9d98c10c22287dcc5"
+      "sha256": "741c365fc89acab536038a0a09edaeb3d702200e3670faf3096939ffcf55225b"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -589,7 +589,7 @@
     {
       "path": "runtime/test_jit.c",
       "bytes": 7894,
-      "sha256": "dffedb72d4d3706d0dfd4b975be279db3f140a7d821eff16b7a2172fabe7c726"
+      "sha256": "a216d96076607fbe6bc9f40b89f00b16dd215c7380185dfac76ca3857fd2209a"
     },
     {
       "path": "runtime/test_logical_jit.c",
