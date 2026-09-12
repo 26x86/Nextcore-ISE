@@ -67,6 +67,11 @@
       "sha256": "5d8c9bf2decff046da5baa7d234a35ff19371ad6f66d36c145f3eb057d56310e"
     },
     {
+      "path": "docs/AARCH64_REGISTER_OFFSET_MEMORY.md",
+      "bytes": 5338,
+      "sha256": "214d2375435b85397b80fd3a8d1e9de4faea4b2ebe86fd429a9bc87b690904e3"
+    },
+    {
       "path": "docs/AARCH64_SCALAR_MEMORY.md",
       "bytes": 5307,
       "sha256": "5eee3d3c4d6babbbf2b3108fc4dec4b16ff0bde84d8461a9bbb6bbe3beae4f0c"
@@ -124,7 +129,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "dc51cdac2e945a1df6540dbd1cae18f89723d7e9a044616445d1c9c669fbbdce"
+      "sha256": "3cd7ff3d44ec313c95ec9356c4a9393c28f9d7694f7b3b38f4b6159ef2d96066"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -133,8 +138,8 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 21661,
-      "sha256": "555051a9c83e12b72fcf2b8d5df72ce43e61c4f88a0d11934fa9b5072dd4321f"
+      "bytes": 21785,
+      "sha256": "1184d86c6cfdd3c2cff50ac93483bd0d09040d0b6af34c8971ecc633db20337a"
     },
     {
       "path": "runtime/boot_jit.c",
@@ -163,8 +168,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 42596,
-      "sha256": "bc327e5cdb66b397f6cbbcc99d399e46c20c7f3133fd7473b1d678d40593ca49"
+      "bytes": 43897,
+      "sha256": "aafba9b31e2cca2ac16a9995c3926fc2c32345aea7b2c44172d0ad10ca1a7b12"
     },
     {
       "path": "runtime/jit.h",
@@ -303,8 +308,8 @@
     },
     {
       "path": "runtime/memory_stage1.inc",
-      "bytes": 13934,
-      "sha256": "5889ad4005fd8fd17e7eb791bdd2407294183612222fa15c710f27188cbc307a"
+      "bytes": 13932,
+      "sha256": "8f683a886b08314a8aac1b887c00e78cfbfdd1323e7ee72d14aaec20603ddf38"
     },
     {
       "path": "runtime/platform_abi.h",
@@ -328,8 +333,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 151644,
-      "sha256": "bd835651f067b060c075e21304f3847043231a2265100836b9cdd37273df5ae4"
+      "bytes": 157548,
+      "sha256": "9bc5da2befa1b0aaf434fefae8fbd59da8676537f517f7fd55e19478902ab28b"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -338,8 +343,8 @@
     },
     {
       "path": "runtime/preos/src/lib.rs",
-      "bytes": 33639,
-      "sha256": "2a60d25587bdb48e3ef725628129cafcdc989493d1e61efc02ea2d889b15f04b"
+      "bytes": 33641,
+      "sha256": "3f9c2461eed6330d753b8035c7c61cdbbaf49ea53bea1a56913d3352a8912331"
     },
     {
       "path": "runtime/preos/src/m1.rs",
@@ -392,6 +397,11 @@
       "sha256": "53e3c0ef55887f1a0458fb75ba90c1a013d4abfc3148c8cb3dbe20692ba05afa"
     },
     {
+      "path": "runtime/register_offset_provider_cases.rs",
+      "bytes": 1918,
+      "sha256": "581618f2e5f3c18fdf4caade097b05210d403d5c4272d8e65ccfefdf14ad584a"
+    },
+    {
       "path": "runtime/test_boot_jit.c",
       "bytes": 6016,
       "sha256": "eb0d2c371567d6998e35592a550016b2e12ae6ab5e752cdbc4fe7be4eaf6258a"
@@ -408,8 +418,8 @@
     },
     {
       "path": "runtime/test_dynamic_provider.rs",
-      "bytes": 22675,
-      "sha256": "8f6a3adaf32959f69489d501f024066d47707b13c146d95215daf6a736870de1"
+      "bytes": 25281,
+      "sha256": "2098735ec8b8f8cf9cad7ca26a20c9ec407c13b251b447e0d9d8906bef106a13"
     },
     {
       "path": "runtime/test_extended_arithmetic_jit.c",
@@ -443,8 +453,8 @@
     },
     {
       "path": "runtime/test_memory_provider.rs",
-      "bytes": 17725,
-      "sha256": "c8f99fe5888f5382c100ca9121ee3c1f7367c93889908a3377b1884853316004"
+      "bytes": 19993,
+      "sha256": "a30e01693c6988f781f4f783c616ac54c2182f29015dbe1eb1bbc0b175c72164"
     },
     {
       "path": "runtime/test_pair_jit.c",
@@ -455,6 +465,11 @@
       "path": "runtime/test_pauth_jit.c",
       "bytes": 3753,
       "sha256": "bf6ad778a24182ed128d69334a7cbceed3f8fa79e684955b536a353f5906fe1e"
+    },
+    {
+      "path": "runtime/test_register_offset_jit.c",
+      "bytes": 6380,
+      "sha256": "028fa176fed6cc1342fa81de502fe9da099c396d5cfdbde1077f5ff78dfea1a1"
     },
     {
       "path": "runtime/test_scalar_jit.c",
@@ -468,8 +483,8 @@
     },
     {
       "path": "runtime/test_stage1_provider.rs",
-      "bytes": 20254,
-      "sha256": "f402d911d1034f2e4731688a37bbbb1b32b6844d84e9c798ce0f4fe6ada014a0"
+      "bytes": 22931,
+      "sha256": "94461ea69efd035e0db9847203be89f9aacb4e042baad6a040485c729bc88fa6"
     },
     {
       "path": "runtime/test_thread_jit.c",
@@ -675,6 +690,11 @@
       "path": "tools/probe_pc_alignment.py",
       "bytes": 2138,
       "sha256": "6e279cc889a1e45e484cc5aba9a7b02951c011968447bb46a82db6d32c7c3a1b"
+    },
+    {
+      "path": "tools/probe_register_offset_native.py",
+      "bytes": 6913,
+      "sha256": "f6fb758608fb9fd6cd65f77fd434cf77d4fa5b8a5e80cd1bbb03eac270689884"
     },
     {
       "path": "tools/probe_scalar_memory.py",
