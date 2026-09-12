@@ -152,6 +152,11 @@
       "sha256": "bd485111a1417bfd9001cdc02fc2042a47b2ce95a92a4099528b0b249e6294e7"
     },
     {
+      "path": "docs/UNSCALED_SCALAR_MEMORY.md",
+      "bytes": 4130,
+      "sha256": "358c4ad5fb9fe8e7706ef32fafd8823dc80e8b01da101695741ecfc891f72992"
+    },
+    {
       "path": "docs/UNSIGNED_BITFIELD_MOVE.md",
       "bytes": 5663,
       "sha256": "8045b8a5239c140a50a1dfc01f0003afb296cfd1d120d031d42e6b2847da219b"
@@ -168,8 +173,8 @@
     },
     {
       "path": "runtime/arch.c",
-      "bytes": 21785,
-      "sha256": "1184d86c6cfdd3c2cff50ac93483bd0d09040d0b6af34c8971ecc633db20337a"
+      "bytes": 21858,
+      "sha256": "68758ab7cd2e267fff72c0515571780d90fed0695095158656126cdd0b4f8af8"
     },
     {
       "path": "runtime/bfm_cases.rs",
@@ -203,8 +208,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 48231,
-      "sha256": "f23a9381c05969b0677681eab53640b77860acbe2c3c8c51ac4ba6fdacdb206d"
+      "bytes": 48495,
+      "sha256": "82da280b61421518f453412705d20aaf91c8212b9a5c6b2cb0069d5355cb2698"
     },
     {
       "path": "runtime/jit.h",
@@ -373,8 +378,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 175303,
-      "sha256": "6706a38fd20eb5337263558a67df4cf7e7619e4485539547e10c90f5ea7fd9a5"
+      "bytes": 175462,
+      "sha256": "5b669fe0ef68dce4e98e51fd4d20aae450f6a6a00f4605a3ecb3e04799573b9e"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -572,6 +577,21 @@
       "sha256": "76cc1608692785352e4cd68db8b8cc19ae3513cfbe12d9fe60422d829bf912f3"
     },
     {
+      "path": "runtime/test_unscaled_jit.c",
+      "bytes": 4489,
+      "sha256": "3f4c3773c715ea2d451d7b0aa2deb130f2df957da3eca879eeed7f3693663f93"
+    },
+    {
+      "path": "runtime/test_unscaled_provider.rs",
+      "bytes": 4908,
+      "sha256": "f2ae4519dec6d0902eb6d77a7cbcc2c71d83dfc6990949bf822824bbc16ceb5b"
+    },
+    {
+      "path": "runtime/test_unscaled_reference.rs",
+      "bytes": 873,
+      "sha256": "911b5d1487bab693c77cfa830995154232c3834906f83b0125f3d715b54c4d1d"
+    },
+    {
       "path": "runtime/test_wx.c",
       "bytes": 693,
       "sha256": "afa4209e70d3c566493865b49c315295503ed0787f0e64dfb1338e713b23c6e4"
@@ -600,6 +620,11 @@
       "path": "runtime/tests/verify_provider_cache.py",
       "bytes": 5525,
       "sha256": "6b9e7d98e480ecf66621e142591f81c36300c0f932f2b93566bfc6cda6e240ec"
+    },
+    {
+      "path": "runtime/tests/verify_unscaled_native.py",
+      "bytes": 8010,
+      "sha256": "1f82e3e98835939cc17b6bef3fe12cd823224cd768b3744fe178589ac93a3863"
     },
     {
       "path": "runtime/ubfm_provider_cases.rs",

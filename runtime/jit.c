@@ -202,8 +202,11 @@ typedef struct {
 static int register_offset_family(uint32_t w) {
     return (w&0x3b200c00)==0x38200800;
 }
+static int unscaled_offset_family(uint32_t w) {
+    return (w&0x3b200c00)==0x38000000;
+}
 static int memory_family(uint32_t w) {
-    return (w&0x3a000000)==0x28000000 || (w&0x3b000000)==0x39000000 || register_offset_family(w);
+    return (w&0x3a000000)==0x28000000 || (w&0x3b000000)==0x39000000 || register_offset_family(w) || unscaled_offset_family(w);
 }
 static int decode_memory(uint32_t w,memory_shape *d) {
     *d=(memory_shape){0};d->rn=(w>>5)&31;d->rt=w&31;
@@ -215,7 +218,7 @@ static int decode_memory(uint32_t w,memory_shape *d) {
         d->width=opc==2?8:4;d->count=2;d->result64=opc==2;
         d->displacement=(int32_t)(sext((w>>15)&127,7)*d->width);return 1;
     }
-    if((w&0x3b000000)==0x39000000 || register_offset_family(w)) {
+    if((w&0x3b000000)==0x39000000 || register_offset_family(w) || unscaled_offset_family(w)) {
         unsigned size=w>>30,opc=(w>>22)&3;
         d->register_offset=register_offset_family(w);
         if(d->register_offset) {
@@ -225,7 +228,8 @@ static int decode_memory(uint32_t w,memory_shape *d) {
         if((w&(1u<<26)) || (opc>=2 && (size==3 || (opc==3 && size==2))))return 0;
         d->width=1u<<size;d->count=1;d->read=opc!=0;d->signed_load=opc>=2;
         d->result64=opc==2 || size==3;d->mode=2;
-        if(!d->register_offset)d->displacement=((w>>10)&4095)*d->width;return 1;
+        if(unscaled_offset_family(w))d->displacement=(int32_t)sext((w>>12)&511,9);
+        else if(!d->register_offset)d->displacement=((w>>10)&4095)*d->width;return 1;
     }
     return 0;
 }
@@ -474,7 +478,7 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             fix_to(c,first,data_target);fix_to(c,wrapped,data_target);
             fix_to(c,short_second,data_target);fix_to(c,second,data_target);
             fix(c,next);
-        } else if((w&0x3b000000)==0x39000000 || register_offset_family(w)) {
+        } else if((w&0x3b000000)==0x39000000 || register_offset_family(w) || unscaled_offset_family(w)) {
             memory_shape shape;int valid=decode_memory(w,&shape);
             unsigned bytes=shape.width;
             int read=shape.read,signed_load=shape.signed_load,result64=shape.result64;
