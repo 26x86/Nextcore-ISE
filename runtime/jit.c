@@ -265,6 +265,16 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                 fix(c,done);
             }
             save(c,rd,0); /* Conditional selection preserves guest PSTATE. */
+        } else if((w&0x7fe0f000)==0x1ac02000) {
+            /* Variable shifts: R31 is ZR; width supplies the x86 count mask. */
+            unsigned shift=(w>>10)&3;
+            load(c,(w>>16)&31,0,wide);b(c,0x49);b(c,0x89);b(c,0xc1);
+            load(c,rn,0,wide);
+            b(c,0x49);b(c,0x89);b(c,0xca); /* r10=RCX CPU pointer */
+            b(c,0x44);b(c,0x89);b(c,0xc9); /* ecx=r9d count */
+            if(wide)b(c,0x48);b(c,0xd3);b(c,shift==0?0xe0:shift==1?0xe8:shift==2?0xf8:0xc8);
+            b(c,0x4c);b(c,0x89);b(c,0xd1); /* Restore RCX before CPU access. */
+            save(c,rd,0); /* Host flags do not alter guest PSTATE. */
         } else if((w&0x7fe00000)==0x1b000000) {
             /* MADD/MSUB: every register31 is ZR, including the addend. */
             load(c,(w>>16)&31,0,wide);b(c,0x49);b(c,0x89);b(c,0xc1);
