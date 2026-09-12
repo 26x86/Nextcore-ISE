@@ -1883,6 +1883,15 @@ impl GuestCpuState {
             return StepResult::Continue;
         }
 
+        if word & 0x7e000000 == 0x36000000 {
+            let bit = ((word >> 26) & 32) | ((word >> 19) & 31);
+            let selected = (self.read_reg(rd, false) >> bit) & 1;
+            let take = selected == ((word >> 24) & 1) as u64;
+            let offset = sign_extend(u64::from((word >> 5) & 0x3fff), 14) * 4;
+            self.pc = pc.wrapping_add(if take {offset as u64} else {4});
+            return StepResult::Continue;
+        }
+
         if word & 0x7e000000 == 0x34000000 {
             let value = self.read_reg(rd, false);
             let nonzero = word & (1 << 24) != 0;
@@ -2692,6 +2701,50 @@ mod tests {
             let mut bytes=word.to_le_bytes();
             assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),StepResult::Exception(ExceptionKind::UndefinedInstruction));
             assert_eq!(cpu.x[0],u64::MAX);assert_eq!(cpu.pc,0);
+        }
+    }
+
+    fn test_bit_word(op:u32,bit:u32,immediate:i32,rt:u32)->u32 {
+        0x36000000|op<<24|(bit>>5)<<31|(bit&31)<<19|((immediate as u32)&0x3fff)<<5|rt
+    }
+    #[test]
+    fn test_bit_branches_all_bits_immediates_flags_and_wrapping_pc() {
+        fn one(pc:u64,op:u32,bit:u32,immediate:i32,source:u64,rt:u32,flags:u32) {
+            let selected=rt!=31 && source&(1u64<<bit)!=0;
+            let take=if op==0 {!selected}else{selected};
+            let expected=(i128::from(pc)+if take {i128::from(immediate)*4}else{4})as u64;
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=pc;cpu.sp=0x9876543210;cpu.pstate=0x3c5|(flags<<28);
+            for index in 0..31 {cpu.x[index]=0xabcdef1200000000+index as u64;}cpu.x[0]=source;let regs=cpu.x;
+            let mut code=test_bit_word(op,bit,immediate,rt).to_le_bytes();let before=code;
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut code,base:pc}),StepResult::Continue);
+            assert_eq!((cpu.pc,cpu.x,cpu.sp,cpu.pstate),(expected,regs,0x9876543210,0x3c5|(flags<<28)));assert_eq!(code,before);
+        }
+        let offsets=[-8192i32,-8191,-1,0,1,2,8191];let mut cases=0;
+        for bit in 0..64 {for op in 0..2 {for flags in 0..16 {for data in 0..6 {for immediate in offsets {for rt in [0,31] {
+            let source=match data {0=>0,1=>u64::MAX,2=>1u64<<bit,3=>!(1u64<<bit),4=>0xffffffff00000000,_=>0x0123456789abcdef};
+            one(0x40000000,op,bit,immediate,source,rt,flags);cases+=1;
+        }}}}}}
+        for immediate in -8192..8192 {for bit in [0,31,32,63] {for op in 0..2 {for set in [false,true] {
+            one(0x40000000,op,bit,immediate,if set {1u64<<bit}else{0},0,immediate as u32&15);cases+=1;
+        }}}}
+        for pc in [0,4,u64::MAX-7,u64::MAX-3] {for bit in 0..64 {for op in 0..2 {for set in [false,true] {for immediate in offsets {
+            one(pc,op,bit,immediate,if set {1u64<<bit}else{0},0,15);cases+=1;
+        }}}}}
+        assert_eq!(cases,441344);
+    }
+    #[test]
+    fn test_bit_branches_commit_before_next_fetch_and_count_budget() {
+        for op in 0..2 {for missing in [false,true] {
+            let word=test_bit_word(op,7,if missing {8191}else{0},0);
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=if op==1 {128}else{0};let mut ram=[0u8;8];
+            let result=cpu.run_bounded(&word.to_le_bytes(),&mut ram,7);
+            assert_eq!((result.status,result.retired,result.pc),(if missing {ArchRunStatus::Exception}else{ArchRunStatus::Budget},if missing {1}else{7},if missing {32764}else{0}));
+            if missing {assert_eq!(result.exception.unwrap().kind,ExceptionKind::InstructionAbort);assert_eq!(cpu.sys.far_el1,32764);}
+        }}
+        for op in 0..2 {
+            let mut code=[0u8;12];code[..4].copy_from_slice(&test_bit_word(op,63,2,31).to_le_bytes());code[8..12].copy_from_slice(&0xd4400000u32.to_le_bytes());
+            let mut cpu=GuestCpuState::reset(0);let mut ram=[0u8;12];let result=cpu.run_bounded(&code,&mut ram,8);
+            assert_eq!((result.status,result.retired,result.pc),(if op==0 {ArchRunStatus::Halt}else{ArchRunStatus::Exception},if op==0 {2}else{1},if op==0 {12}else{4}));
         }
     }
 

@@ -314,3 +314,23 @@ fn conditional_selection_native_through_v2_provider() {
     }}
     }
 }
+
+fn test_bit_branch(op:u32,bit:u32,imm:i32,rt:u32)->u32 {
+    0x36000000|op<<24|(bit>>5)<<31|(bit&31)<<19|((imm as u32)&0x3fff)<<5|rt
+}
+#[test]fn test_bit_v2_fetch_trace_and_target_translation_fault_are_precise() {
+    for sixteen in [false,true] {for bit in 0..64 {for op in 0..2 {for set in [false,true] {for zr in [false,true] {
+        let source=if set {1u64<<bit}else{0};let take=(set&&!zr)==(op!=0);let word=test_bit_branch(op,bit,2,if zr {31}else{1});
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[word,HLT,HLT]);let before=ram.clone();let initial=[0,source,8,9];
+        let(r,requests)=run(c,&tables,&mut ram,VA,initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,VA+if take {12}else{8}));assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);
+        assert_eq!((r.base.execution.pstate,r.base.fetch_requests,r.base.data_requests),(0x3c5,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[VA,VA+if take {8}else{4}]);assert_eq!(ram,before);
+    }}}}
+    let(c,tables,mut ram,_,_)=fixture(sixteen,&[test_bit_branch(0,63,-8192,31),HLT]);let before=ram.clone();let initial=[1,2,3,4];
+    let(r,requests)=run(c,&tables,&mut ram,VA,initial,0);let b=r.base.execution.base;
+    assert_eq!((b.status,b.retired,b.compiled_blocks,r.base.fetch_requests,r.base.provider_status),(16,1,1,2,0));
+    assert_eq!((b.pc,r.base.execution.elr,r.base.guest_far,r.base.execution.esr),(VA-32768,VA-32768,VA-32768,0x86000007));
+    assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(requests[1].address,VA-32768);assert_eq!(ram,before);
+    }
+}
