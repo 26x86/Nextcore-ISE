@@ -256,3 +256,15 @@ fn run_with_stack(c:Controls,tables:&[u8],ram:&mut[u8],entry:u64,stack:u64,initi
         }
     }
 }
+
+#[test]
+fn extended_arithmetic_native_through_v2_provider() {
+    for sixteen in [false, true] {
+        let (c, tables, mut ram, _, _) = fixture(sixteen, &[0x8b218003, 0xcb210c62, 0xeb21c05f, HLT]);
+        let before = ram.clone(); let (r, requests) = run(c, &tables, &mut ram, VA, [0, 0xff, 0, 0], 0);
+        let b = r.base.execution.base;
+        assert_eq!((b.status, b.retired, b.compiled_blocks, b.x2, b.x3), (1, 4, 4, u64::MAX - 2040, u64::MAX));
+        assert_eq!((r.base.execution.pstate >> 28, r.base.fetch_requests, r.base.data_requests), (10, 4, 0));
+        assert!(requests.iter().all(|q| q.operation == FETCH)); assert_eq!(ram, before);
+    }
+}

@@ -235,3 +235,14 @@ fn public_entry_rejects_missing_callback_overflow_and_known_alias_before_effects
         assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!((b.pc,r.execution.esr,r.data_requests),(BASE,1<<25,0));assert_eq!(ram,before);
     }
 }
+
+#[test]
+fn extended_arithmetic_native_through_v1_provider() {
+    let words = [0x8b218003, 0xcb210c62, 0xeb21c05f, HLT];
+    let mut ram = payload(&words, 256); let before = ram.clone();
+    let (r, requests) = run(&mut ram, [0, 0xff, 0, 0], BASE + 256, 8, 0);
+    let b = r.execution.base;
+    assert_eq!((b.status, b.retired, b.compiled_blocks, b.x2, b.x3), (1, 4, 4, u64::MAX - 2040, u64::MAX));
+    assert_eq!((r.execution.pstate >> 28, r.fetch_requests, r.data_requests), (10, 4, 0));
+    assert!(requests.iter().all(|q| q.operation == FETCH)); assert_eq!(ram, before);
+}
