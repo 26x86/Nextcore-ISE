@@ -779,6 +779,20 @@ static int memory_data_step(vf_cpu *cpu,vf_memory_callback_v1 callback,void *own
     cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);result->completed_data_operations++;
     return VF_NEXT;
 }
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+/* Run-local only; see docs/PROVIDER_NATIVE_CACHE.md. Tiny test slots exercise
+ * full-buffer fallback without changing the production storage contract. */
+#ifndef NEXTCORE_PROVIDER_CACHE_SLOT_BYTES
+#define NEXTCORE_PROVIDER_CACHE_SLOT_BYTES 1024
+#endif
+_Static_assert(NEXTCORE_PROVIDER_CACHE_SLOT_BYTES>=64,"provider cache slot minimum");
+typedef struct {
+    uint64_t pc;
+    uint32_t instruction,current_el;
+    size_t used;
+    int valid;
+} provider_native_entry;
+#endif
 int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
     vf_protect protect,void *protect_opaque,vf_memory_callback_v1 callback,void *owner,
     vf_memory_run_result_v1 *result) {
@@ -787,6 +801,12 @@ int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
        !vf_cpu_state_valid(cpu) || cpu->exception_pending!=VF_EXCEPTION_NONE)
         return provider_error(result,VF_PROVIDER_INVALID_REQUEST);
     uint64_t start=cpu->retired;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+    provider_native_entry cache[64]={0};
+    size_t slots=code->capacity/NEXTCORE_PROVIDER_CACHE_SLOT_BYTES;
+    if(slots>64)slots=64;
+    size_t victim=0;
+#endif
     while(cpu->retired-start<budget) {
         if((cpu->sctlr&1) || cpu->current_el>VF_EL1 || cpu->hcr_el2 || cpu->scr_el3) {
             cpu->instruction=0;return cpu->status=VF_SYSTEM_REGISTER_TRAP;
@@ -799,12 +819,51 @@ int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
         status=memory_exchange(cpu,callback,owner,&request,&reply,result);
         if(status!=VF_NEXT)return cpu->status=status;
         uint32_t instruction=(uint32_t)reply.value0;
-        if(protect(code->bytes,code->capacity,0,protect_opaque))return cpu->status=VF_PROTECTION;
-        status=translate_impl(code,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
-        if(status!=VF_NEXT)return cpu->status=status;
-        if(protect(code->bytes,code->capacity,1,protect_opaque))return cpu->status=VF_PROTECTION;
+        vf_code entry=*code;
+        int hit=0;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+        size_t selected=0;
+        int publish=0;
+        for(size_t i=0;i<slots;i++) {
+            if(cache[i].valid && cache[i].pc==cpu->pc &&
+               cache[i].instruction==instruction && cache[i].current_el==cpu->current_el) {
+                entry=(vf_code){code->bytes+i*NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,
+                    NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,cache[i].used};
+                hit=1;break;
+            }
+        }
+        if(!hit && slots) {
+            selected=victim;
+            cache[selected].valid=0;
+            entry=(vf_code){code->bytes+selected*NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,
+                NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,0};
+            publish=1;
+        }
+#endif
+        if(!hit) {
+            /* No native entry is running; page-wide changes may cover siblings. */
+            if(protect(code->bytes,code->capacity,0,protect_opaque))return cpu->status=VF_PROTECTION;
+            status=translate_impl(&entry,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+            if(status==VF_CODE_FULL && publish) {
+                for(size_t i=0;i<slots;i++)cache[i].valid=0;
+                victim=0;publish=0;entry=*code;
+                status=translate_impl(&entry,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
+            }
+#endif
+            code->used=entry.used;
+            if(status!=VF_NEXT)return cpu->status=status;
+            if(protect(code->bytes,code->capacity,1,protect_opaque))return cpu->status=VF_PROTECTION;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+            if(publish) {
+                cache[selected]=(provider_native_entry){cpu->pc,instruction,cpu->current_el,entry.used,1};
+                victim=(selected+1)%slots;
+            }
+#endif
+        }
+        code->used=entry.used;
         /* No guest RAM host pointer is supplied to the generated entry. */
-        status=execute_native_block(cpu,code,0,0);
+        status=execute_native_block(cpu,&entry,0,0);
         if((uint32_t)status==VF_MEMORY_DISPATCH) {
             status=memory_data_step(cpu,callback,owner,result);
             if(status!=VF_NEXT)return cpu->status=status;
