@@ -260,3 +260,17 @@ fn run(c:m::Controls,tables:&[u8],ram:&mut[u8],entry:u64,initial:[u64;4],budget:
         assert_eq!(b.pc,RAM+step as u64-8);assert_eq!(ram,before);
     }
 }
+
+#[test]
+fn extended_arithmetic_native_through_dynamic_provider() {
+    for sixteen in [false, true] { for mapped in [false, true] {
+        let (c, tables, mut ram, step, _) = fixture(sixteen, &[0x8b218023, 0xcb210c62, 0xeb21c05f, HLT]);
+        let entry = if mapped {RAM + step as u64 - 12} else {words(&mut ram, 0, &[0x8b218023, 0xcb210c62, 0xeb21c05f, HLT]); RAM};
+        let before = ram.clone(); let e = run(c, &tables, &mut ram, entry, [c.sctlr | 1, 0xff, 8, 0], 16, 0);
+        let r = e.out; let b = r.memory.base.execution.base; let count = if mapped {7} else {4};
+        assert_eq!((b.status, b.retired, b.compiled_blocks, b.x2, b.x3), (1, count, count, u64::MAX - 1785, 254));
+        assert_eq!((r.memory.base.execution.pstate >> 28, r.memory.base.fetch_requests, r.memory.base.data_requests), (10, count, 0));
+        assert!(e.data.iter().all(|q| q.operation == nextcore_memory_service::abi::FETCH)); assert_eq!(ram, before);
+        assert_eq!(r.final_control, e.service_state);
+    }}
+}

@@ -325,6 +325,27 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             load(c,rn,1,wide);if(wide)b(c,0x48);b(c,0x05+subtract*0x28);u32(c,v);
             save(c,rd,!flags);
             if(flags)save_arithmetic_flags(c,subtract);
+        } else if((w&0x1fe00000)==0x0b200000) {
+            /* ADD/SUB(S) extended register: Rn is SP, Rm is ZR. */
+            unsigned rm=(w>>16)&31,option=(w>>13)&7,amount=(w>>10)&7;
+            int subtract=(w>>30)&1,flags=(w>>29)&1;
+            if(amount>4) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            unsigned bits=8u<<(option&3),width=wide?64u:32u;
+            if(bits>width)bits=width;
+            load(c,rm,0,wide);
+            /* Pair shifts select the low source bits, then extend their sign. */
+            if(bits<width) {
+                if(wide)b(c,0x48);b(c,0xc1);b(c,0xe0);b(c,width-bits);
+                if(wide)b(c,0x48);b(c,0xc1);b(c,(option&4)?0xf8:0xe8);b(c,width-bits);
+            }
+            if(amount) {if(wide)b(c,0x48);b(c,0xc1);b(c,0xe0);b(c,amount);}
+            b(c,0x49);b(c,0x89);b(c,0xc1);
+            load(c,rn,1,wide);b(c,wide?0x4c:0x44);b(c,subtract?0x29:0x01);b(c,0xc8);
+            save(c,rd,!flags);
+            if(flags)save_arithmetic_flags(c,subtract); /* Extended arithmetic NZCV. */
         } else if((w&0x1f200000)==0x0b000000) {
             /* ADD/SUB(S) shifted register. Both R31 sources are ZR. */
             unsigned rm=(w>>16)&31,shift=(w>>22)&3,amount=(w>>10)&63;

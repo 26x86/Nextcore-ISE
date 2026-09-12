@@ -1725,6 +1725,41 @@ impl GuestCpuState {
             return StepResult::Continue;
         }
 
+        // ADD/SUB extended register. Rn=31 is SP, Rm=31 is ZR.
+        if word & 0x1fe00000 == 0x0b200000 {
+            let subtract = word & (1 << 30) != 0;
+            let set_flags = word & (1 << 29) != 0;
+            let option = (word >> 13) & 7;
+            let amount = (word >> 10) & 7;
+            if amount > 4 {
+                self.raise(GuestException {
+                    kind: ExceptionKind::UndefinedInstruction,
+                    instruction: word,
+                    syndrome: word as u64,
+                    far: pc,
+                    pc,
+                });
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            }
+            let width = if wide { 64 } else { 32 };
+            let bits = (8u32 << (option & 3)).min(width);
+            let raw = self.read_reg((word >> 16) & 31, false);
+            let extended = if option & 4 != 0 {
+                (((raw << (64 - bits)) as i64) >> (64 - bits)) as u64
+            } else {
+                raw & (u64::MAX >> (64 - bits))
+            };
+            let right = extended << amount;
+            let left = self.read_reg(rn, true);
+            let (value, carry, overflow) = add_sub(left, right, subtract, wide);
+            self.write_reg(rd, value, !set_flags, wide);
+            if set_flags {
+                self.set_nzcv(value, wide, carry, overflow);
+            }
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
+        }
+
         // ADD/SUB shifted register, LSL/LSR/ASR at the operand width.
         if word & 0x1f200000 == 0x0b000000 {
             let subtract = word & (1 << 30) != 0;
@@ -2563,6 +2598,59 @@ mod tests {
             assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),StepResult::Exception(ExceptionKind::UndefinedInstruction));
             assert_eq!(cpu.x[0],u64::MAX);assert_eq!(cpu.pc,0);
         }
+    }
+
+    #[test]
+    fn extended_arithmetic_all_options_shifts_widths_and_register_roles() {
+        let values = [0u64, 1, u64::MAX, 0x7f, 0x80, 0xff, 0x7fff, 0x8000,
+            0xffff, 0x7fffffff, 0x80000000, 0xffffffff, 0x7fffffffffffffff,
+            0x8000000000000000, 0xabcdef0180000081];
+        let mut cases = 0;
+        for width in [32u32, 64] { for op in 0..4 { for option in 0..8 {
+            for shift in 0..5 { for mode in 0..6 { for &raw_a in &values { for &raw_b in &values {
+                let rn = if mode == 1 {31} else {0};
+                let rm = if mode == 2 {31} else {1};
+                let rd = match mode {3 => 31, 4 => 0, 5 => 1, _ => 2};
+                let mask = u64::MAX >> (64 - width);
+                let sign = 1u64 << (width - 1);
+                let a = raw_a & mask;
+                let source = if rm == 31 {0} else {raw_b};
+                let bits = (8u32 << (option & 3)).min(width);
+                // Independent bit selection oracle, not the implementation shifts.
+                let mut b = 0u64;
+                for bit in 0..width - shift {
+                    if bit >= bits && option & 4 == 0 {continue;}
+                    if source & (1u64 << bit.min(bits - 1)) != 0 {b |= 1u64 << (bit + shift);}
+                }
+                let result = if op & 2 != 0 {a.wrapping_sub(b)} else {a.wrapping_add(b)} & mask;
+                let carry = if op & 2 != 0 {a >= b} else {u128::from(a) + u128::from(b) > u128::from(mask)};
+                let overflow = (a ^ result) & (if op & 2 != 0 {a ^ b} else {!(a ^ b)}) & sign != 0;
+                let flags = (u32::from(result & sign != 0) << 3) | (u32::from(result == 0) << 2) |
+                    (u32::from(carry) << 1) | u32::from(overflow);
+                let word = 0x0b200000 | (u32::from(width == 64) << 31) | (op << 29) |
+                    (rm << 16) | (option << 13) | (shift << 10) | (rn << 5) | rd;
+                let mut cpu = GuestCpuState::reset(0);
+                cpu.x[0] = raw_a; cpu.x[1] = raw_b; cpu.x[2] = 0xfedcba9876543210;
+                cpu.sp = raw_a; cpu.pstate = 0xf00003c5;
+                let mut expected = cpu.x;
+                if rd != 31 {expected[rd as usize] = result;}
+                let sp = if rd == 31 && op & 1 == 0 {result} else {raw_a};
+                let pstate = if op & 1 != 0 {0x3c5 | (flags << 28)} else {0xf00003c5};
+                let mut bytes = word.to_le_bytes();
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)), StepResult::Continue);
+                assert_eq!((cpu.x, cpu.sp, cpu.pstate, cpu.pc), (expected, sp, pstate, 4));
+                cases += 1;
+            }}}}
+            for bad in 0..6 {
+                let word = 0x0b20003f | (u32::from(width == 64) << 31) | (op << 29) |
+                    (option << 13) | if bad < 3 {(bad + 5) << 10} else {(bad - 2) << 22};
+                let mut cpu = GuestCpuState::reset(0); cpu.sp = 0x12345678; cpu.pstate = 0xf00003c5;
+                let mut bytes = word.to_le_bytes();
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)), StepResult::Exception(ExceptionKind::UndefinedInstruction));
+                assert_eq!((cpu.pc, cpu.sp, cpu.pstate), (0, 0x12345678, 0xf00003c5));
+            }
+        }}}
+        assert_eq!(cases, 432000);
     }
 
     #[test]
