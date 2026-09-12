@@ -351,6 +351,7 @@ pub(crate) enum SystemRegister {
     TpidrEl1 = 37,
     PlatformOverride = 38,
     IdAa64Zfr0El1 = 39,
+    IdAa64Isar0El1 = 40,
 }
 
 impl SystemRegister {
@@ -360,6 +361,7 @@ impl SystemRegister {
     fn from_instruction(word: u32) -> Option<Self> {
         match word & !31 {
             0xd538_0480 => Some(Self::IdAa64Zfr0El1),
+            0xd538_0600 => Some(Self::IdAa64Isar0El1),
             0xd53d_f500 | 0xd51d_f500 => Some(Self::PlatformOverride),
             0xd53b_d040 | 0xd51b_d040 => Some(Self::TpidrEl0),
             0xd53b_d060 | 0xd51b_d060 => Some(Self::TpidrroEl0),
@@ -849,7 +851,7 @@ impl GuestCpuState {
     }
 
     pub(crate) fn read_sysreg(&mut self, reg: SystemRegister) -> Result<u64, SysRegFault> {
-        if reg==SystemRegister::IdAa64Zfr0El1 {
+        if matches!(reg, SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1) {
             return if self.current_el==ExceptionLevel::El1 && self.sys.hcr_el2==0 && self.sys.scr_el3==0 {
                 Ok(0)
             } else { Err(SysRegFault::Unknown) };
@@ -866,7 +868,7 @@ impl GuestCpuState {
             return Err(SysRegFault::Privilege);
         }
         match reg {
-            SystemRegister::PlatformOverride | SystemRegister::IdAa64Zfr0El1 => unreachable!(),
+            SystemRegister::PlatformOverride | SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1 => unreachable!(),
             SystemRegister::TpidrEl0 => Ok(self.sys.tpidr_el0),
             SystemRegister::TpidrroEl0 => Ok(self.sys.tpidrro_el0),
             SystemRegister::TpidrEl1 => Ok(self.sys.tpidr_el1),
@@ -988,6 +990,7 @@ impl GuestCpuState {
             | SystemRegister::IdAa64Mmfr0El1
             | SystemRegister::IdAa64Isar1El1
             | SystemRegister::IdAa64Zfr0El1
+            | SystemRegister::IdAa64Isar0El1
             | SystemRegister::CntvctEl0 => {
                 return Err(SysRegFault::ReadOnly)
             }
