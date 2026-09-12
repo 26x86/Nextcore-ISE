@@ -307,3 +307,14 @@ fn test_bit_branch(op:u32,bit:u32,imm:i32,rt:u32)->u32 {
     assert_eq!((b.status,b.retired,b.compiled_blocks,r.fetch_requests,r.provider_status),(4,1,1,2,1));
     assert_eq!((b.pc,r.last_address),(BASE-32768,BASE-32768));assert_eq!(requests[1].address,BASE-32768);assert_eq!(ram,before);
 }
+
+#[path="multiply_add_cases.rs"] mod multiply_add_cases;
+#[test]fn multiply_add_v1_executes_without_data_requests() {
+    multiply_add_cases::each(|case| {
+        let mut ram=payload(&[case.word,HLT],256);let before=ram.clone();let expected=multiply_add_cases::expected(case,case.initial);
+        let(r,requests)=run(&mut ram,case.initial,BASE+256,8,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,BASE+8));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);
+        assert_eq!((r.execution.pstate,r.execution.sp,r.fetch_requests,r.data_requests),(0x3c5,BASE+256,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[BASE,BASE+4]);assert_eq!(ram,before);
+    });
+}

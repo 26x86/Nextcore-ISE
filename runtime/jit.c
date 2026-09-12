@@ -253,6 +253,15 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                 fix(c,done);
             }
             save(c,rd,0); /* Conditional selection preserves guest PSTATE. */
+        } else if((w&0x7fe00000)==0x1b000000) {
+            /* MADD/MSUB: every register31 is ZR, including the addend. */
+            load(c,(w>>16)&31,0,wide);b(c,0x49);b(c,0x89);b(c,0xc1);
+            load(c,rn,0,wide);
+            b(c,wide?0x49:0x41);b(c,0x0f);b(c,0xaf);b(c,0xc1); /* imul rax,r9 */
+            b(c,0x49);b(c,0x89);b(c,0xc1);
+            load(c,(w>>10)&31,0,wide);
+            b(c,wide?0x4c:0x44);b(c,(w&(1u<<15))?0x29:0x01);b(c,0xc8);
+            save(c,rd,0); /* Low-width arithmetic preserves guest PSTATE. */
         } else if((w&0x3fe00410)==0x3a400000) {
             /* CCMP/CCMN, register or imm5. R31 is ZR, never SP. */
             size_t fallback=condition_false(c,(w>>12)&15);
