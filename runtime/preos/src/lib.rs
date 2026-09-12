@@ -769,7 +769,7 @@ mod tests {
 
     #[test]
     fn abi_layout_receipt() {
-        // build.py captures this line with --nocapture and compares every
+        // build.py captures this line with --show-output and compares every
         // value against the C receipt from abi_layout.c.  Keeping the receipt
         // in a unit test preserves the staticlib-only deployment rule: this
         // is never a staged Rust executable.
