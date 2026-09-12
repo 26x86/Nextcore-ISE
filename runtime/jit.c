@@ -366,9 +366,25 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             uint64_t target=(w>>31)?(pc&~UINT64_C(0xfff))+(uint64_t)(displacement*4096)
                                    :pc+(uint64_t)displacement;
             imm(c,target);save(c,rd,0);
-        } else if((w&0x7fe0ffe0)==0x2a0003e0) {
-            /* MOV register alias: ORR Xd/XZR/Xm, LSL #0. */
-            load(c,(w>>16)&31,0,wide);save(c,rd,0);
+        } else if((w&0x1f000000)==0x0a000000) {
+            /* Logical shifted register: every R31 is ZR, including Rd. */
+            unsigned op=(w>>29)&3,rm=(w>>16)&31,shift=(w>>22)&3,amount=(w>>10)&63;
+            int invert=(w>>21)&1;
+            if(!wide && amount>=32) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            load(c,rm,0,wide);
+            if(amount) {if(wide)b(c,0x48);b(c,0xc1);b(c,shift==0?0xe0:shift==1?0xe8:shift==2?0xf8:0xc8);b(c,amount);}
+            if(invert) {if(wide)b(c,0x48);b(c,0xf7);b(c,0xd0);}
+            /* Keep the existing MOV alias as a short, flag-preserving path. */
+            if(!(op==1 && rn==31 && shift==0 && amount==0)) {
+                b(c,0x49);b(c,0x89);b(c,0xc1);
+                load(c,rn,0,wide);
+                b(c,wide?0x4c:0x44);b(c,op==1?0x09:op==2?0x31:0x21);b(c,0xc8);
+            }
+            save(c,rd,0);
+            if(op==3)save_arithmetic_flags(c,0); /* AND clears host C/V. */
         } else if((w&0x1f800000)==0x11000000) {
             /* ADD/SUB(S) immediate. Rn31 is SP; Rd31 is ZR for the flag
              * forms (CMP/CMN aliases), otherwise SP, including WSP. */

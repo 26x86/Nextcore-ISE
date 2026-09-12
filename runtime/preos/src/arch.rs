@@ -1738,6 +1738,51 @@ impl GuestCpuState {
             }
             self.pc=pc.wrapping_add(4);return StepResult::Continue;
         }
+        // Logical shifted register. Register 31 is ZR in every position.
+        if word & 0x1f000000 == 0x0a000000 {
+            let op = (word >> 29) & 3;
+            let shift = (word >> 22) & 3;
+            let amount = (word >> 10) & 63;
+            if !wide && amount >= 32 {
+                self.raise(GuestException {
+                    kind: ExceptionKind::UndefinedInstruction,
+                    instruction: word,
+                    syndrome: word as u64,
+                    far: pc,
+                    pc,
+                });
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            }
+            let source = self.read_reg((word >> 16) & 31, false);
+            let mut right = if wide {
+                match shift {
+                    0 => source << amount,
+                    1 => source >> amount,
+                    2 => ((source as i64) >> amount) as u64,
+                    _ => source.rotate_right(amount),
+                }
+            } else {
+                let source = source as u32;
+                u64::from(match shift {
+                    0 => source << amount,
+                    1 => source >> amount,
+                    2 => ((source as i32) >> amount) as u32,
+                    _ => source.rotate_right(amount),
+                })
+            };
+            if word & (1 << 21) != 0 { right = !right; }
+            let left = self.read_reg(rn, false);
+            let mut value = match op {
+                1 => left | right,
+                2 => left ^ right,
+                _ => left & right,
+            };
+            if !wide { value = u64::from(value as u32); }
+            self.write_reg(rd, value, false, wide);
+            if op == 3 { self.set_nzcv(value, wide, false, false); }
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
+        }
         // MOVZ/MOVK, 32- and 64-bit forms.
         let move_op = word & 0x7f800000;
         if move_op == 0x52800000 || move_op == 0x72800000 {
