@@ -138,8 +138,8 @@
     },
     {
       "path": "docs/NATIVE_MMU_PROVIDER_V2.md",
-      "bytes": 29506,
-      "sha256": "4748a2412710355043a3bfc62b53c24b249b112f1e74fe26c843e2f84cbddf3f"
+      "bytes": 30892,
+      "sha256": "a968c0f0d3bc4acb1d4c2f2fad072a4a61978bd8bb821dde5a9badd39975451d"
     },
     {
       "path": "docs/PROVIDER_NATIVE_CACHE.md",
@@ -343,8 +343,8 @@
     },
     {
       "path": "runtime/memory_stage1.inc",
-      "bytes": 17638,
-      "sha256": "4ee1b1f2051617dab15d59095c720071d3ef8d5b3aa82992998c3e91f5f0f73b"
+      "bytes": 18142,
+      "sha256": "dbab953c5f00cccf4bc95538d20446da6f76de9cd7805756d00a2439f315e434"
     },
     {
       "path": "runtime/multiply_add_cases.rs",
@@ -498,13 +498,13 @@
     },
     {
       "path": "runtime/test_mapped_provider.rs",
-      "bytes": 7647,
-      "sha256": "b7229310cdb9f0b6a53da36aae6a3e7de0ad39299621d283e84000626ec90417"
+      "bytes": 9607,
+      "sha256": "940104bfa41913a6a5b65c9081dd6777280bcb2e9a4e90d16e55f57a13468df9"
     },
     {
       "path": "runtime/test_mapped_snapshot.c",
-      "bytes": 1886,
-      "sha256": "d75695be0e5d4bfe4ccfced30e91498536da843aa881265e6c36584aef7ff653"
+      "bytes": 2540,
+      "sha256": "48b558888ce6d234b9d0aa7ea97f840b37933003bf0c883c669d59e09274e456"
     },
     {
       "path": "runtime/test_memory_provider.rs",
