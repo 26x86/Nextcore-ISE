@@ -77,6 +77,11 @@
       "sha256": "5eee3d3c4d6babbbf2b3108fc4dec4b16ff0bde84d8461a9bbb6bbe3beae4f0c"
     },
     {
+      "path": "docs/AARCH64_TEST_BIT_BRANCH.md",
+      "bytes": 3835,
+      "sha256": "3bea1091a4f7053efdc09169d0b8a7bfb9305c8d7013cb9870ffad5cc57103f6"
+    },
+    {
       "path": "docs/CONDITIONAL_COMPARE.md",
       "bytes": 5874,
       "sha256": "e49fbae91087332982a449aaef7c7b8146b059588f05abb807e056be17e21a67"
@@ -129,7 +134,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "3cd7ff3d44ec313c95ec9356c4a9393c28f9d7694f7b3b38f4b6159ef2d96066"
+      "sha256": "16ea36c22f5db7ba7cc88d8306def084ebebc48ab9646ba12c00f607f8e38f2e"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -168,8 +173,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 43897,
-      "sha256": "aafba9b31e2cca2ac16a9995c3926fc2c32345aea7b2c44172d0ad10ca1a7b12"
+      "bytes": 44320,
+      "sha256": "93ee92b494c2d4090002be32137738df7ad85d4e971ce5929fd62439706152c7"
     },
     {
       "path": "runtime/jit.h",
@@ -333,8 +338,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 157548,
-      "sha256": "9bc5da2befa1b0aaf434fefae8fbd59da8676537f517f7fd55e19478902ab28b"
+      "bytes": 161148,
+      "sha256": "2ed61370902843bf83f53f7b063eaa17e3db6fcc0b79899399193dacc5696ad2"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -418,8 +423,8 @@
     },
     {
       "path": "runtime/test_dynamic_provider.rs",
-      "bytes": 25281,
-      "sha256": "2098735ec8b8f8cf9cad7ca26a20c9ec407c13b251b447e0d9d8906bef106a13"
+      "bytes": 27516,
+      "sha256": "f958924610a1b2bb61cc86061582d1c844017e560ffa5dcd25b19f0d2d6bfeea"
     },
     {
       "path": "runtime/test_extended_arithmetic_jit.c",
@@ -453,8 +458,8 @@
     },
     {
       "path": "runtime/test_memory_provider.rs",
-      "bytes": 19993,
-      "sha256": "a30e01693c6988f781f4f783c616ac54c2182f29015dbe1eb1bbc0b175c72164"
+      "bytes": 21749,
+      "sha256": "b44410aeae32773e18090891c726a848a33118e824afff9e736dc322aac0180f"
     },
     {
       "path": "runtime/test_pair_jit.c",
@@ -483,8 +488,13 @@
     },
     {
       "path": "runtime/test_stage1_provider.rs",
-      "bytes": 22931,
-      "sha256": "94461ea69efd035e0db9847203be89f9aacb4e042baad6a040485c729bc88fa6"
+      "bytes": 24546,
+      "sha256": "c7fe5e2ad732b3812fb3bd5b5a27d76e4aa880e703809299e731c680ef17a238"
+    },
+    {
+      "path": "runtime/test_test_bit_branch_jit.c",
+      "bytes": 4373,
+      "sha256": "8ac0422d02b6e0c99d7da80385d6b70b10299d73feacb0eeb2a5d75b1d5a3e28"
     },
     {
       "path": "runtime/test_thread_jit.c",
@@ -700,6 +710,11 @@
       "path": "tools/probe_scalar_memory.py",
       "bytes": 3522,
       "sha256": "c3109d178c5404a2ebd602b4139612c7d2c9c44971cfdc5279d4c4c84119df18"
+    },
+    {
+      "path": "tools/probe_test_bit_branch_native.py",
+      "bytes": 5751,
+      "sha256": "b84e30aed1faa0b5830c8a2698366f6d15e0c2a85d254f48850791381d5687e0"
     },
     {
       "path": "tools/probe_ubfm_native.py",
