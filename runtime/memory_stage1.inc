@@ -156,7 +156,7 @@ static int memory_data_step_version(vf_cpu *cpu,const vf_memory_controls_v2 *con
     if(shape.rn==31 && (cpu->sctlr&(cpu->current_el==VF_EL0?16u:8u)) && (base&15)) {
         cpu->far=base;(void)vf_cpu_commit_status(cpu,VF_SP_ALIGNMENT_FAULT);return VF_SP_ALIGNMENT_FAULT;
     }
-    uint64_t updated=base+(int64_t)shape.displacement,address=shape.mode==1?base:updated;
+    uint64_t updated=base+memory_offset(cpu,&shape),address=shape.mode==1?base:updated;
     vf_memory_request_v2 q=memory_request_v2(cpu,controls,shape.read?VF_MEMORY_LOAD:VF_MEMORY_STORE,shape.width,shape.count,address);
     if(version==3){q.abi_version=3;q.controls=*controls;}
     uint64_t mask=shape.width==8?UINT64_MAX:(UINT64_C(1)<<(shape.width*8))-1;

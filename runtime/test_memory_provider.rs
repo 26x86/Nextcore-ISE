@@ -257,3 +257,32 @@ fn conditional_selection_native_through_v1_provider() {
     assert_eq!((r.execution.pstate, r.fetch_requests, r.data_requests), (0x600003c5, 6, 0));
     assert!(requests.iter().all(|q| q.operation == FETCH)); assert_eq!(ram, before);
 }
+
+#[path="register_offset_provider_cases.rs"]mod register_offset_cases;
+#[test]fn register_offset_v1_all_forms_and_host_or_guest_failures() {
+    for case in register_offset_cases::cases() {
+        let address=BASE+128;let mut ram=payload(&[case.word,HLT],256);
+        ram[128..136].copy_from_slice(&0x80ff7f0102030480u64.to_le_bytes());
+        let initial=[0, address.wrapping_sub(case.offset), case.index, 0x1234567887654321];
+        let mut expected_regs=initial;let mut expected_ram=ram.clone();register_offset_cases::expected(&case,&mut expected_regs,&mut expected_ram,128);
+        let (r,requests)=run(&mut ram,initial,BASE+256,8,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks),(1,2,2));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected_regs);
+        assert_eq!((r.execution.pstate,r.execution.sp,r.data_requests,r.completed_data_operations),(0x3c5,BASE+256,1,1));
+        let data=requests.iter().find(|q|q.operation!=FETCH).unwrap();assert_eq!((data.address,data.width,data.count),(address,case.bytes as u32,1));assert_eq!(ram,expected_ram);
+    }
+    for word in register_offset_cases::invalid() {
+        let mut ram=payload(&[word,HLT],256);let before=ram.clone();let initial=[1,BASE+128,0,3];
+        let(r,_)=run(&mut ram,initial,BASE+256,8,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,r.data_requests,r.execution.esr),(8,0,0,1<<25));assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(ram,before);
+    }
+    for read in [false,true] {for fault in 0..3 {
+        let word=register_offset_cases::word(1,u32::from(read),6,1,1,2,2);
+        let address=if fault==0 {BASE+256}else{BASE+129};let initial=[1,address+2,u64::MAX,3];
+        let mut ram=payload(&[word,HLT],256);let before=ram.clone();let(r,_)=run(&mut ram,initial,BASE+256,8,if fault==2 {11}else{0});let b=r.execution.base;
+        assert_eq!((b.status,b.retired,r.completed_data_operations),(if fault==1 {12}else{4},0,0));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(ram,before);
+        assert_eq!(r.provider_status,if fault==0 {1}else if fault==2 {3}else{0});
+        assert_eq!(r.execution.esr,if fault==1 {0x96000021|if read {0}else{64}}else{0});
+        assert_eq!(r.guest_far,if fault==1 {address}else{0});
+    }}
+}

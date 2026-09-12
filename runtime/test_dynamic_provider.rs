@@ -289,3 +289,31 @@ fn conditional_selection_native_through_dynamic_provider() {
         assert_eq!(r.final_control, e.service_state);
     }}
 }
+
+#[path="register_offset_provider_cases.rs"]mod register_offset_cases;
+#[test]fn register_offset_dynamic_all_forms_before_and_after_enable() {
+    for sixteen in [false,true] {for mapped in [false,true] {for case in register_offset_cases::cases() {
+        let(c,tables,mut ram,step,_)=fixture(sixteen,&[case.word,HLT]);
+        let entry=if mapped {RAM+step as u64-12}else{words(&mut ram,0,&[case.word,HLT]);RAM};
+        let address=RAM+2*step as u64;let at=if mapped {4*step}else{2*step};
+        ram[at..at+8].copy_from_slice(&0x80ff7f0102030480u64.to_le_bytes());
+        let initial=[c.sctlr|1,address.wrapping_sub(case.offset),case.index.wrapping_sub(u64::from(mapped)),0x1234567887654321];
+        let mut regs=initial;regs[2]=case.index;let mut expected=ram.clone();register_offset_cases::expected(&case,&mut regs,&mut expected,at);
+        let e=run(c,&tables,&mut ram,entry,initial,8,0);let r=e.out;let b=r.memory.base.execution.base;let count=if mapped {5}else{2};
+        assert_eq!((b.status,b.retired,b.compiled_blocks),(1,count,count));assert_eq!([b.x0,b.x1,b.x2,b.x3],regs);
+        assert_eq!((r.memory.base.execution.pstate,r.memory.base.execution.sp,r.memory.base.data_requests,r.memory.base.completed_data_operations),(0x3c5,RAM+0x400,1,1));
+        let q=e.data.iter().find(|q|q.operation!=nextcore_memory_service::abi::FETCH).unwrap();assert_eq!((q.address,q.width,q.count),(address,case.bytes as u32,1));assert_eq!(ram,expected);assert_eq!(r.final_control,e.service_state);
+    }}}
+    for sixteen in [false,true] {for read in [false,true] {for permission in [false,true] {
+        let word=register_offset_cases::word(1,u32::from(read),6,1,1,2,2);
+        let(c,mut tables,mut ram,step,leaf)=fixture(sixteen,&[word,HLT]);let address=RAM+2*step as u64;
+        if permission {tables[leaf+16..leaf+24].copy_from_slice(&(RAM+4*step as u64|if read {3}else{0x483}).to_le_bytes());}
+        else {tables[leaf+16..leaf+24].fill(0);}
+        let before=ram.clone();let initial=[c.sctlr|1,address+2,u64::MAX-1,99];
+        let e=run(c,&tables,&mut ram,RAM+step as u64-12,initial,8,0);let r=e.out;let b=r.memory.base.execution.base;
+        assert_eq!((b.status,b.retired,r.memory.base.data_requests,r.memory.base.completed_data_operations),(17,3,1,0));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],[initial[0],initial[1],u64::MAX,99]);assert_eq!(ram,before);
+        let esr=0x96000000|if read {0}else{64}|if permission {if read {11}else{15}}else{7};
+        assert_eq!((r.memory.base.execution.esr,r.memory.base.guest_far),(esr,address));assert_eq!(r.final_control,e.service_state);
+    }}}
+}

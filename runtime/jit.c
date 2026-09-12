@@ -197,9 +197,13 @@ static int system_boundary(uint32_t w, uint32_t current_el) {
 typedef struct {
     unsigned width,count,read,signed_load,result64,mode,rn,rt,rt2;
     int32_t displacement;
+    unsigned register_offset,rm,option,shift;
 } memory_shape;
+static int register_offset_family(uint32_t w) {
+    return (w&0x3b200c00)==0x38200800;
+}
 static int memory_family(uint32_t w) {
-    return (w&0x3a000000)==0x28000000 || (w&0x3b000000)==0x39000000;
+    return (w&0x3a000000)==0x28000000 || (w&0x3b000000)==0x39000000 || register_offset_family(w);
 }
 static int decode_memory(uint32_t w,memory_shape *d) {
     *d=(memory_shape){0};d->rn=(w>>5)&31;d->rt=w&31;
@@ -211,12 +215,17 @@ static int decode_memory(uint32_t w,memory_shape *d) {
         d->width=opc==2?8:4;d->count=2;d->result64=opc==2;
         d->displacement=(int32_t)(sext((w>>15)&127,7)*d->width);return 1;
     }
-    if((w&0x3b000000)==0x39000000) {
+    if((w&0x3b000000)==0x39000000 || register_offset_family(w)) {
         unsigned size=w>>30,opc=(w>>22)&3;
+        d->register_offset=register_offset_family(w);
+        if(d->register_offset) {
+            d->rm=(w>>16)&31;d->option=(w>>13)&7;d->shift=(w&(1u<<12))?size:0;
+            if(!(d->option&2))return 0;
+        }
         if((w&(1u<<26)) || (opc>=2 && (size==3 || (opc==3 && size==2))))return 0;
         d->width=1u<<size;d->count=1;d->read=opc!=0;d->signed_load=opc>=2;
         d->result64=opc==2 || size==3;d->mode=2;
-        d->displacement=((w>>10)&4095)*d->width;return 1;
+        if(!d->register_offset)d->displacement=((w>>10)&4095)*d->width;return 1;
     }
     return 0;
 }
@@ -438,7 +447,7 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             fix_to(c,first,data_target);fix_to(c,wrapped,data_target);
             fix_to(c,short_second,data_target);fix_to(c,second,data_target);
             fix(c,next);
-        } else if((w&0x3b000000)==0x39000000) {
+        } else if((w&0x3b000000)==0x39000000 || register_offset_family(w)) {
             memory_shape shape;int valid=decode_memory(w,&shape);
             unsigned bytes=shape.width;
             int read=shape.read,signed_load=shape.signed_load,result64=shape.result64;
@@ -459,7 +468,13 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                 b(c,0x49);b(c,0x89);b(c,0xc3);
                 b(c,0xa8);b(c,15);sp_align=jcc(c,0x85);
             }
-            b(c,0x48);b(c,0x05);u32(c,(uint32_t)shape.displacement);
+            if(shape.register_offset) {
+                b(c,0x49);b(c,0x89);b(c,0xc3); /* Preserve base before loading index. */
+                load(c,shape.rm,0,shape.option&1);
+                if(shape.option==6){b(c,0x48);b(c,0x63);b(c,0xc0);} /* SXTW index. */
+                if(shape.shift){b(c,0x48);b(c,0xc1);b(c,0xe0);b(c,shape.shift);}
+                b(c,0x4c);b(c,0x01);b(c,0xd8); /* rax=index+base modulo 64 bits. */
+            } else {b(c,0x48);b(c,0x05);u32(c,(uint32_t)shape.displacement);}
             b(c,0x49);b(c,0x89);b(c,0xc3); /* r11=guest EA, r9=checked offset */
             b(c,0x49);b(c,0x89);b(c,0xc1);
             /* Supported native regime is MMU-off Device-nGnRnE. */
@@ -688,6 +703,15 @@ static uint64_t memory_register(const vf_cpu *cpu,unsigned reg,int sp) {
 static void memory_save(vf_cpu *cpu,unsigned reg,uint64_t value,int wide) {
     if(reg!=31)cpu->x[reg]=wide?value:(uint32_t)value;
 }
+static uint64_t memory_offset(const vf_cpu *cpu,const memory_shape *shape) {
+    if(!shape->register_offset)return (uint64_t)(int64_t)shape->displacement;
+    uint64_t value=memory_register(cpu,shape->rm,0);
+    if(!(shape->option&1)) {
+        value=(uint32_t)value;
+        if(shape->option==6 && (value&(UINT64_C(1)<<31)))value|=UINT64_C(0xffffffff00000000);
+    }
+    return value<<shape->shift;
+}
 static int memory_data_step(vf_cpu *cpu,vf_memory_callback_v1 callback,void *owner,
                             vf_memory_run_result_v1 *result) {
     memory_shape shape;
@@ -698,7 +722,7 @@ static int memory_data_step(vf_cpu *cpu,vf_memory_callback_v1 callback,void *own
     if(shape.rn==31 && (cpu->sctlr&(cpu->current_el==VF_EL0?16u:8u)) && (base&15)) {
         cpu->far=base;(void)vf_cpu_commit_status(cpu,VF_SP_ALIGNMENT_FAULT);return VF_SP_ALIGNMENT_FAULT;
     }
-    uint64_t updated=base+(int64_t)shape.displacement;
+    uint64_t updated=base+memory_offset(cpu,&shape);
     uint64_t address=shape.mode==1?base:updated;
     uint64_t mask=shape.width==8?UINT64_MAX:(UINT64_C(1)<<(shape.width*8))-1;
     vf_memory_request_v1 request={1,sizeof(request),shape.read?VF_MEMORY_LOAD:VF_MEMORY_STORE,0,
