@@ -117,6 +117,11 @@
       "sha256": "a1b5e8669d3fb624a4e99738fd04cf0cb31538dd888fb272616b68ecf6cfd650"
     },
     {
+      "path": "docs/LOGICAL_SHIFTED_REGISTER.md",
+      "bytes": 3998,
+      "sha256": "7cd4066aaf07ba08efbaec2a78c8de1da5b7a64657364827c965b1643b9e2872"
+    },
+    {
       "path": "docs/MAPPED_PAUTH_V2.md",
       "bytes": 3275,
       "sha256": "61dd097dd51116f48ed1d869aaa21716ecc7100979023032c3892350c6f21f7d"
@@ -164,7 +169,7 @@
     {
       "path": "repository.json",
       "bytes": 1317,
-      "sha256": "029afbf12fe1bf2ebda85c4a73a4360c81380336e6d7b518b5446e050f8629ba"
+      "sha256": "c6e6d97553e61cb2e7d19ea1cb0ebd0da5730157763cb9a53df4c041bf2298b9"
     },
     {
       "path": "runtime/abi_layout.c",
@@ -208,8 +213,8 @@
     },
     {
       "path": "runtime/jit.c",
-      "bytes": 48495,
-      "sha256": "82da280b61421518f453412705d20aaf91c8212b9a5c6b2cb0069d5355cb2698"
+      "bytes": 49380,
+      "sha256": "ae82dbf52218ea269db0264d46522135de33e607197c7f03cb5dd0d19308861e"
     },
     {
       "path": "runtime/jit.h",
@@ -378,8 +383,8 @@
     },
     {
       "path": "runtime/preos/src/arch.rs",
-      "bytes": 175462,
-      "sha256": "5b669fe0ef68dce4e98e51fd4d20aae450f6a6a00f4605a3ecb3e04799573b9e"
+      "bytes": 177334,
+      "sha256": "0b969390e8e4514d58fc18102e03b4427288ddef07955188fb5ad6e5480ba20b"
     },
     {
       "path": "runtime/preos/src/exception_level.rs",
@@ -502,6 +507,21 @@
       "sha256": "2f53c9c225b08ecd7a9122b42398c624a8ac6b39357c5d2e5dc308d1bc509766"
     },
     {
+      "path": "runtime/test_logical_shifted_jit.c",
+      "bytes": 3073,
+      "sha256": "94302594872572c68a362874a13e1efd0b1bb7e8f421a2f5cfa2214a532d3981"
+    },
+    {
+      "path": "runtime/test_logical_shifted_provider.rs",
+      "bytes": 1770,
+      "sha256": "f6a03db8c2a298123300294aac9629b134a499adee818eeba329c32f44803779"
+    },
+    {
+      "path": "runtime/test_logical_shifted_reference.rs",
+      "bytes": 990,
+      "sha256": "35e1d4b3cf1b3dbf818696e26a3bcb9a930feee3eabeb2413b4b55736704bd49"
+    },
+    {
       "path": "runtime/test_mapped_provider.rs",
       "bytes": 9607,
       "sha256": "940104bfa41913a6a5b65c9081dd6777280bcb2e9a4e90d16e55f57a13468df9"
@@ -610,6 +630,11 @@
       "path": "runtime/tests/pauth_width_oracle.json",
       "bytes": 10380,
       "sha256": "9e86e33434f4c18504754fa5ac4dc08f50b0b85b8c95f8befaa526562b5b35a4"
+    },
+    {
+      "path": "runtime/tests/verify_logical_shifted_native.py",
+      "bytes": 8248,
+      "sha256": "4791722866bfa72970a9c0858dabce1caf4addea92d7610971b94ecee8da7f4e"
     },
     {
       "path": "runtime/tests/verify_mapped_native.py",
