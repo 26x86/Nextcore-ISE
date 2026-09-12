@@ -114,18 +114,16 @@ pub(crate) enum PauthError { Unsupported }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct PauthState { pub(crate) keys: [Key; 5] }
 
-const TAG_MASK: u64 = 0xff7f_0000_0000_0000;
-const LOW48: u64 = 0x0000_ffff_ffff_ffff;
-
-fn canonical(pointer: u64) -> u64 {
-    (pointer & LOW48) | if pointer & (1 << 55) != 0 { !LOW48 } else { 0 }
+fn address_mask(pointer: u64, tcr: u64, selector_bit: u32) -> Result<u64, PauthError> {
+    let shift = if pointer & (1 << selector_bit) != 0 { 16 } else { 0 };
+    let tsz = (tcr >> shift) & 63;
+    if !matches!(tsz, 16 | 17) || tcr & ((1 << 37) | (1 << 38) | (1 << 59)) != 0 {
+        return Err(PauthError::Unsupported);
+    }
+    Ok((1u64 << (64 - tsz)) - 1)
 }
-
-fn valid_profile(pointer: u64, tcr: u64) -> bool {
-    let upper = pointer & (1 << 55) != 0;
-    let shift = if upper { 16 } else { 0 };
-    (tcr >> shift) & 63 == 16
-        && tcr & ((1 << 37) | (1 << 38) | (1 << 59)) == 0
+fn canonical(pointer: u64, mask: u64) -> u64 {
+    (pointer & mask) | if pointer & (1 << 55) != 0 { !mask } else { 0 }
 }
 
 impl PauthState {
@@ -133,31 +131,35 @@ impl PauthState {
 
     pub(crate) fn sign(&self, pointer: u64, modifier: u64, key: usize, tcr: u64)
         -> Result<u64, PauthError> {
-        if key >= 4 || !valid_profile(pointer, tcr) { return Err(PauthError::Unsupported); }
+        if key >= 4 { return Err(PauthError::Unsupported); }
+        // Non-TBI APA1 AddPAC selects both size and extension from bit 63.
+        // Auth/Strip instead use the signed pointer's range bit 55.
+        let mask = address_mask(pointer, tcr, 63)?;
         // PAC selects the canonical extension from original bit 63; bit 55
         // remains the address-range selector in the returned signed pointer.
-        let high = if pointer >> 63 != 0 { !LOW48 } else { 0 };
-        let original = (pointer & LOW48) | high;
+        let high = if pointer >> 63 != 0 { !mask } else { 0 };
+        let original = (pointer & mask) | high;
         let mut tag = qarma5(original, modifier, self.keys[key]);
-        let extension = pointer & !LOW48;
-        if extension != 0 && extension != !LOW48 { tag ^= 1 << 62; }
-        Ok((pointer & LOW48) | (high & (1 << 55)) | (tag & TAG_MASK))
+        let extension = pointer & !mask;
+        if extension != 0 && extension != !mask { tag ^= 1 << 62; }
+        Ok((pointer & mask) | (high & (1 << 55)) | (tag & !mask & !(1 << 55)))
     }
 
     pub(crate) fn authenticate(&self, pointer: u64, modifier: u64, key: usize, tcr: u64)
         -> Result<u64, PauthError> {
-        if key >= 4 || !valid_profile(pointer, tcr) { return Err(PauthError::Unsupported); }
-        let original = canonical(pointer);
+        if key >= 4 { return Err(PauthError::Unsupported); }
+        let mask = address_mask(pointer, tcr, 55)?;
+        let original = canonical(pointer, mask);
         let expected = qarma5(original, modifier, self.keys[key]);
-        if (expected ^ pointer) & TAG_MASK == 0 { return Ok(original); }
+        if (expected ^ pointer) & !mask & !(1 << 55) == 0 { return Ok(original); }
         // FEAT_PAuth (APA=1) poisons bits 62:61, distinguishing A and B keys.
         let failure = if key & 1 == 0 { 1 } else { 2 };
         Ok((original & !(3 << 61)) | (failure << 61))
     }
 
     pub(crate) fn strip(pointer: u64, tcr: u64) -> Result<u64, PauthError> {
-        if !valid_profile(pointer, tcr) { return Err(PauthError::Unsupported); }
-        Ok(canonical(pointer))
+        let mask = address_mask(pointer, tcr, 55)?;
+        Ok(canonical(pointer, mask))
     }
 }
 
@@ -201,6 +203,17 @@ pub(crate) fn step(context: &mut PauthContext, word: u32) -> Option<Result<(), P
     let modifier;
     let mut branch = false;
     let mut link = false;
+
+    // PACGA is a generic MAC; address-PAC enable bits and address size do not gate it.
+    if word & 0xffe0fc00 == 0x9ac03000 {
+        if context.current_el != 1 || context.reserved != 0 { return Some(Err(PauthError::Unsupported)); }
+        let value = qarma5(context.reg(rn, false), context.reg((word >> 16) & 31, true),
+            context.keys[4]) & 0xffff_ffff_0000_0000;
+        next.put(rd, value);
+        next.pc = context.pc.wrapping_add(4);
+        *context = next;
+        return Some(Ok(()));
+    }
 
     // All ten key words have architected MRS/MSR encodings, never guest pointers.
     let syskey = (word >> 5) & 0x7fff;
@@ -360,7 +373,7 @@ mod tests {
                 assert_eq!(PauthState::strip(signed, tcr).unwrap(), pointer);
             }
         }
-        assert_eq!(state.sign(1, 2, 0, 17), Err(PauthError::Unsupported));
+        assert_eq!(state.sign(1, 2, 0, 18), Err(PauthError::Unsupported));
         assert_eq!(state.sign(1, 2, 0, tcr | (1 << 37)), Err(PauthError::Unsupported));
     }
 }

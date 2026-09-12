@@ -18,24 +18,27 @@ static int v2_provenance_valid(const vf_memory_reply_v2 *r) {
     if(r->context==VF_MEMORY_V2_INPUT)return !(r->metadata_flags&1) && (r->level==0 || r->level==UINT32_MAX);
     return r->level<=3 && (r->metadata_flags&1);
 }
+static int v2_alignment_required(const vf_memory_request_v2 *q) {
+    return (q->address&(q->width-1)) &&
+        (q->operation==VF_MEMORY_FETCH || (q->controls.sctlr&2));
+}
 static int v2_fault_valid(const vf_memory_request_v2 *q,const vf_memory_reply_v2 *r,uint64_t *esr) {
     int fetch=q->operation==VF_MEMORY_FETCH;
-    int misaligned=(q->address&(q->width-1))!=0;
     /* The CPU knows alignment before consulting any table. A callback may
      * report a host failure, but may not replace this architectural priority. */
-    if(misaligned && r->fault!=(fetch?VF_MEMORY_V2_PC_ALIGNMENT:VF_MEMORY_V2_DATA_ALIGNMENT))return 0;
+    if(v2_alignment_required(q) && r->fault!=(fetch?VF_MEMORY_V2_PC_ALIGNMENT:VF_MEMORY_V2_DATA_ALIGNMENT))return 0;
     if(r->fault==VF_MEMORY_V2_PC_ALIGNMENT || r->fault==VF_MEMORY_V2_DATA_ALIGNMENT) {
         if(r->address!=q->address || r->level!=UINT32_MAX || r->context!=VF_MEMORY_V2_INPUT || r->metadata_flags)return 0;
         if(r->fault==VF_MEMORY_V2_PC_ALIGNMENT) {
             if(!fetch || !(q->pc&3) || r->fsc)return 0;
             *esr=UINT64_C(0x8a000000);return 1;
         }
-        if(fetch || !(q->address&(q->width-1)) || r->fsc!=0x21)return 0;
+        if(fetch || !v2_alignment_required(q) || r->fsc!=0x21)return 0;
         *esr=((UINT64_C(0x24)+q->current_el)<<26)|(UINT64_C(1)<<25)|0x21|
             (q->operation==VF_MEMORY_STORE?64:0);return 1;
     }
     if(r->level>3 || r->fault<VF_MEMORY_V2_ADDRESS_SIZE || r->fault>VF_MEMORY_V2_ACCESS_FLAG ||
-       ((r->address-q->address)%q->width))return 0;
+       ((fetch || (q->controls.sctlr&2)) && ((r->address-q->address)%q->width)))return 0;
     unsigned fsc;
     switch(r->fault) {
     case VF_MEMORY_V2_ADDRESS_SIZE:fsc=r->level;break;
@@ -99,7 +102,7 @@ static int memory_exchange_version(vf_cpu *cpu,vf_memory_callback_v2 callback,vo
     int physical_dynamic=version==3 && !(q->controls.sctlr&1);
     if(r->result==VF_MEMORY_V2_OK) {
         if(wrapping || (physical_dynamic && (q->address>=(UINT64_C(1)<<48) ||
-               bytes>(UINT64_C(1)<<48)-q->address)) || (q->address&(q->width-1)) ||
+               bytes>(UINT64_C(1)<<48)-q->address)) || v2_alignment_required(q) ||
            r->fault || r->fsc || r->esr || r->address || r->context || r->level!=UINT32_MAX || r->metadata_flags ||
            (r->value0&~mask) || (r->value1&~mask) || (q->count==1 && r->value1) ||
            (q->operation==VF_MEMORY_STORE && (r->value0 || r->value1)))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
@@ -120,7 +123,7 @@ static int memory_exchange_version(vf_cpu *cpu,vf_memory_callback_v2 callback,vo
         result->last_reply=*r;result->base.last_address=r->address;
         return v2_error(result,r->result==VF_MEMORY_V2_UNAVAILABLE?VF_PROVIDER_UNAVAILABLE_V2:VF_PROVIDER_UNSUPPORTED);
     }
-    if(wrapping && !(q->address&(q->width-1)))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
+    if(wrapping && !v2_alignment_required(q))return v2_error(result,VF_PROVIDER_INVALID_REPLY);
     if(physical_dynamic && r->fault!=VF_MEMORY_V2_PC_ALIGNMENT && r->fault!=VF_MEMORY_V2_DATA_ALIGNMENT)
         return v2_error(result,VF_PROVIDER_INVALID_REPLY);
     uint64_t esr;
@@ -156,7 +159,7 @@ static int memory_data_step_version(vf_cpu *cpu,const vf_memory_controls_v2 *con
     if(shape.rn==31 && (cpu->sctlr&(cpu->current_el==VF_EL0?16u:8u)) && (base&15)) {
         cpu->far=base;(void)vf_cpu_commit_status(cpu,VF_SP_ALIGNMENT_FAULT);return VF_SP_ALIGNMENT_FAULT;
     }
-    uint64_t updated=base+(int64_t)shape.displacement,address=shape.mode==1?base:updated;
+    uint64_t updated=base+memory_offset(cpu,&shape),address=shape.mode==1?base:updated;
     vf_memory_request_v2 q=memory_request_v2(cpu,controls,shape.read?VF_MEMORY_LOAD:VF_MEMORY_STORE,shape.width,shape.count,address);
     if(version==3){q.abi_version=3;q.controls=*controls;}
     uint64_t mask=shape.width==8?UINT64_MAX:(UINT64_C(1)<<(shape.width*8))-1;
@@ -184,14 +187,43 @@ static int memory_control_read_v2(vf_cpu *cpu) {
     if((w&31)!=31)cpu->x[w&31]=value;
     cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
 }
-int vf_run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
+static int stack_select_immutable_step(vf_cpu *cpu) {
+    uint32_t word=cpu->instruction;
+    if(cpu->current_el!=VF_EL1 || (word&UINT32_C(0xfffffeff))!=UINT32_C(0xd50040bf))return 0;
+    unsigned previous=(cpu->pstate&1)?VF_EL1:VF_EL0;
+    cpu->sp_el[previous]=cpu->sp;
+    cpu->pstate=(cpu->pstate&~UINT64_C(1))|((word>>8)&1);
+    cpu->sp=cpu->sp_el[(cpu->pstate&1)?VF_EL1:VF_EL0];
+    cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
+}
+static int pauth_immutable_step(vf_cpu *cpu) {
+    if(!cpu->pauth_step || cpu->current_el!=VF_EL1)return 0;
+    vf_pauth_context context={0};
+    for(unsigned i=0;i<31;i++)context.x[i]=cpu->x[i];
+    for(unsigned i=0;i<5;i++)for(unsigned j=0;j<2;j++)context.keys[i][j]=cpu->pauth_keys[i][j];
+    context.sp=cpu->sp;context.pc=cpu->pc;context.sctlr=cpu->sctlr;
+    context.tcr=cpu->tcr;context.current_el=cpu->current_el;
+    if(cpu->pauth_step(&context,cpu->instruction) || context.sctlr!=cpu->sctlr ||
+       context.tcr!=cpu->tcr || context.current_el!=cpu->current_el || context.reserved)return 0;
+    for(unsigned i=0;i<31;i++)cpu->x[i]=context.x[i];
+    for(unsigned i=0;i<5;i++)for(unsigned j=0;j<2;j++)cpu->pauth_keys[i][j]=context.keys[i][j];
+    cpu->sp=context.sp;cpu->pc=context.pc;
+    cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
+}
+static int run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
     vf_protect protect,void *opaque,const vf_memory_controls_v2 *controls,
-    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result) {
+    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result,int allow_pauth) {
     if(!result)return VF_DATA_FAULT;
     if(!cpu || !code || !code->bytes || !protect || !callback || !owner || !budget ||
        !vf_memory_controls_valid_v2(controls) || !vf_cpu_state_valid(cpu) ||
        cpu->exception_pending!=VF_EXCEPTION_NONE)return v2_error(result,VF_PROVIDER_INVALID_REQUEST);
     uint64_t start=cpu->retired;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+    provider_native_entry cache[64]={0};
+    size_t slots=code->capacity/NEXTCORE_PROVIDER_CACHE_SLOT_BYTES;
+    if(slots>64)slots=64;
+    size_t victim=0;
+#endif
     while(cpu->retired-start<budget) {
         if(!v2_controls_match(cpu,controls))return cpu->status=v2_error(result,VF_PROVIDER_INVALID_REQUEST);
         int status=vf_cpu_poll_interrupt(cpu);if(status!=VF_NEXT)return cpu->status=status;
@@ -199,18 +231,70 @@ int vf_run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
         vf_memory_reply_v2 reply;status=memory_exchange_v2(cpu,callback,owner,&q,&reply,result);
         if(status!=VF_NEXT)return cpu->status=status;
         uint32_t instruction=(uint32_t)reply.value0;
-        if(protect(code->bytes,code->capacity,0,opaque))return cpu->status=VF_PROTECTION;
-        status=translate_impl(code,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
-        if(status!=VF_NEXT)return cpu->status=status;
-        if(protect(code->bytes,code->capacity,1,opaque))return cpu->status=VF_PROTECTION;
-        status=execute_native_block(cpu,code,0,0);
+        vf_code entry=*code;
+        int hit=0;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+        size_t selected=0;
+        int publish=0;
+        for(size_t i=0;i<slots;i++) {
+            if(cache[i].valid && cache[i].pc==cpu->pc &&
+               cache[i].instruction==instruction && cache[i].current_el==cpu->current_el) {
+                entry=(vf_code){code->bytes+i*NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,
+                    NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,cache[i].used};
+                hit=1;break;
+            }
+        }
+        if(!hit && slots) {
+            selected=victim;
+            cache[selected].valid=0;
+            entry=(vf_code){code->bytes+selected*NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,
+                NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,0};
+            publish=1;
+        }
+#endif
+        if(!hit) {
+            /* No native entry is running; page-wide changes may cover siblings. */
+            if(protect(code->bytes,code->capacity,0,opaque))return cpu->status=VF_PROTECTION;
+            status=translate_impl(&entry,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+            if(status==VF_CODE_FULL && publish) {
+                for(size_t i=0;i<slots;i++)cache[i].valid=0;
+                victim=0;publish=0;entry=*code;
+                status=translate_impl(&entry,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
+            }
+#endif
+            code->used=entry.used;
+            if(status!=VF_NEXT)return cpu->status=status;
+            if(protect(code->bytes,code->capacity,1,opaque))return cpu->status=VF_PROTECTION;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+            if(publish) {
+                cache[selected]=(provider_native_entry){cpu->pc,instruction,cpu->current_el,entry.used,1};
+                victim=(selected+1)%slots;
+            }
+#endif
+        }
+        code->used=entry.used;
+        /* No guest RAM host pointer is supplied to the generated entry. */
+        status=execute_native_block(cpu,&entry,0,0);
         if((uint32_t)status==VF_MEMORY_DISPATCH) {
             status=memory_data_step_v2(cpu,controls,callback,owner,result);
             if(status!=VF_NEXT)return cpu->status=status;continue;
         }
         if((status==VF_UNDEFINED_INSTRUCTION || status==VF_SYSTEM_REGISTER_TRAP) &&
-           (platform_slow_step(cpu) || memory_control_read_v2(cpu)))continue;
+           (platform_slow_step(cpu) || memory_control_read_v2(cpu) || stack_select_immutable_step(cpu) ||
+            (allow_pauth && pauth_immutable_step(cpu))))continue;
         if(status!=VF_NEXT){(void)vf_cpu_commit_status(cpu,status);return cpu->status=status;}
     }
     return cpu->status=VF_BUDGET;
+}
+int vf_run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
+    vf_protect protect,void *opaque,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result) {
+    return run_memory_provider_v2(cpu,code,budget,protect,opaque,controls,callback,owner,result,0);
+}
+int vf_run_memory_provider_pauth_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
+    vf_protect protect,void *opaque,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 callback,void *owner,vf_memory_run_result_v2 *result) {
+    if(!cpu || !cpu->pauth_step)return result?v2_error(result,VF_PROVIDER_INVALID_REQUEST):VF_DATA_FAULT;
+    return run_memory_provider_v2(cpu,code,budget,protect,opaque,controls,callback,owner,result,1);
 }

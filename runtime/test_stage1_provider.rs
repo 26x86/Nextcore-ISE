@@ -1,4 +1,6 @@
 //! Authored Linux x86 proof: generated x86 invokes canonical translated memory.
+#[path="test_unaligned_profile.rs"]mod unaligned_profile;
+#[path="test_mapped_provider.rs"]mod mapped_provider;
 use core::ffi::c_void;
 use nextcore_memory_service::{abi::{FETCH,LOAD,STORE},abi_v2::*,stage1::{MemoryServiceV2,vf_memory_service_step_v2}};
 #[path="preos/src/platform.rs"]mod platform;
@@ -255,4 +257,112 @@ fn run_with_stack(c:Controls,tables:&[u8],ram:&mut[u8],entry:u64,stack:u64,initi
             assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!((b.pc,r.base.execution.esr,r.base.data_requests),(VA,1<<25,0));assert_eq!(ram,before);
         }
     }
+}
+
+#[test]
+fn extended_arithmetic_native_through_v2_provider() {
+    for sixteen in [false, true] {
+        let (c, tables, mut ram, _, _) = fixture(sixteen, &[0x8b218003, 0xcb210c62, 0xeb21c05f, HLT]);
+        let before = ram.clone(); let (r, requests) = run(c, &tables, &mut ram, VA, [0, 0xff, 0, 0], 0);
+        let b = r.base.execution.base;
+        assert_eq!((b.status, b.retired, b.compiled_blocks, b.x2, b.x3), (1, 4, 4, u64::MAX - 2040, u64::MAX));
+        assert_eq!((r.base.execution.pstate >> 28, r.base.fetch_requests, r.base.data_requests), (10, 4, 0));
+        assert!(requests.iter().all(|q| q.operation == FETCH)); assert_eq!(ram, before);
+    }
+}
+
+#[test]
+fn conditional_selection_native_through_v2_provider() {
+    for sixteen in [false, true] {
+        let (c, tables, mut ram, _, _) = fixture(sixteen, &[0xf100143f, 0x9a9f0022, 0x9a8217e2, 0x5a8113e0, 0xda8217e3, HLT]);
+        let before = ram.clone(); let (r, requests) = run(c, &tables, &mut ram, VA, [u64::MAX, 5, 0, 0], 0);
+        let b = r.base.execution.base;
+        assert_eq!((b.status, b.retired, b.compiled_blocks), (1, 6, 6));
+        assert_eq!((b.x0, b.x1, b.x2, b.x3), (0xfffffffa, 5, 6, u64::MAX - 5));
+        assert_eq!((r.base.execution.pstate, r.base.fetch_requests, r.base.data_requests), (0x600003c5, 6, 0));
+        assert!(requests.iter().all(|q| q.operation == FETCH)); assert_eq!(ram, before);
+    }
+}
+
+#[path="register_offset_provider_cases.rs"]mod register_offset_cases;
+#[test]fn register_offset_v2_all_forms_and_precise_service_faults() {
+    for sixteen in [false,true] {for case in register_offset_cases::cases() {
+        let(c,tables,mut ram,step,_)=fixture(sixteen,&[case.word,HLT]);let address=VA+step as u64;
+        ram[3*step..3*step+8].copy_from_slice(&0x80ff7f0102030480u64.to_le_bytes());
+        let initial=[0,address.wrapping_sub(case.offset),case.index,0x1234567887654321];
+        let mut regs=initial;let mut expected=ram.clone();register_offset_cases::expected(&case,&mut regs,&mut expected,3*step);
+        let(r,requests)=run(c,&tables,&mut ram,VA,initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks),(1,2,2));assert_eq!([b.x0,b.x1,b.x2,b.x3],regs);
+        assert_eq!((r.base.execution.pstate,r.base.execution.sp,r.base.data_requests,r.base.completed_data_operations),(0x3c5,VA+0x400,1,1));
+        let q=requests.iter().find(|q|q.operation!=FETCH).unwrap();assert_eq!((q.address,q.width,q.count),(address,case.bytes as u32,1));assert_eq!(ram,expected);
+    }
+    for word in register_offset_cases::invalid() {
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[word,HLT]);let before=ram.clone();let initial=[1,VA+128,0,3];
+        let(r,_)=run(c,&tables,&mut ram,VA,initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,r.base.data_requests,r.base.execution.esr),(8,0,0,1<<25));assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(ram,before);
+    }
+    for read in [false,true] {for fault in 0..4 {
+        let word=register_offset_cases::word(1,u32::from(read),6,1,1,2,2);
+        let(c,mut tables,mut ram,step,leaf)=fixture(sixteen,&[word,HLT]);
+        let address=VA+step as u64+if fault==2 {1}else{0};let initial=[1,address+2,u64::MAX,3];
+        if fault==0 || fault==3 {tables[leaf+8..leaf+16].fill(0);}
+        if fault==1 {tables[leaf+8..leaf+16].copy_from_slice(&(RAM+3*step as u64|if read {3}else{0x483}).to_le_bytes());}
+        let before=ram.clone();let(r,_)=run(c,&tables,&mut ram,VA,initial,if fault==3 {5}else{0});let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,r.base.completed_data_operations),(if fault==3 {4}else if fault==2 {12}else{17},0,0));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(ram,before);
+        let esr=0x96000000|if read {0}else{64}|if fault==2 {0x21}else if fault==1 {if read {11}else{15}}else{7};
+        assert_eq!(r.base.execution.esr,if fault==3 {0}else{esr});assert_eq!(r.base.guest_far,if fault==3 {0}else{address});
+        assert_eq!(r.base.provider_status,if fault==3 {3}else{0});
+    }}
+    }
+}
+
+fn test_bit_branch(op:u32,bit:u32,imm:i32,rt:u32)->u32 {
+    0x36000000|op<<24|(bit>>5)<<31|(bit&31)<<19|((imm as u32)&0x3fff)<<5|rt
+}
+#[test]fn test_bit_v2_fetch_trace_and_target_translation_fault_are_precise() {
+    for sixteen in [false,true] {for bit in 0..64 {for op in 0..2 {for set in [false,true] {for zr in [false,true] {
+        let source=if set {1u64<<bit}else{0};let take=(set&&!zr)==(op!=0);let word=test_bit_branch(op,bit,2,if zr {31}else{1});
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[word,HLT,HLT]);let before=ram.clone();let initial=[0,source,8,9];
+        let(r,requests)=run(c,&tables,&mut ram,VA,initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,VA+if take {12}else{8}));assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);
+        assert_eq!((r.base.execution.pstate,r.base.fetch_requests,r.base.data_requests),(0x3c5,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[VA,VA+if take {8}else{4}]);assert_eq!(ram,before);
+    }}}}
+    let(c,tables,mut ram,_,_)=fixture(sixteen,&[test_bit_branch(0,63,-8192,31),HLT]);let before=ram.clone();let initial=[1,2,3,4];
+    let(r,requests)=run(c,&tables,&mut ram,VA,initial,0);let b=r.base.execution.base;
+    assert_eq!((b.status,b.retired,b.compiled_blocks,r.base.fetch_requests,r.base.provider_status),(16,1,1,2,0));
+    assert_eq!((b.pc,r.base.execution.elr,r.base.guest_far,r.base.execution.esr),(VA-32768,VA-32768,VA-32768,0x86000007));
+    assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(requests[1].address,VA-32768);assert_eq!(ram,before);
+    }
+}
+
+#[path="multiply_add_cases.rs"] mod multiply_add_cases;
+#[test]fn multiply_add_v2_executes_through_both_granules() {
+    for sixteen in [false,true] {multiply_add_cases::each(|case| {
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[case.word,HLT]);let before=ram.clone();let expected=multiply_add_cases::expected(case,case.initial);
+        let(r,requests)=run(c,&tables,&mut ram,VA,case.initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,VA+8));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);
+        assert_eq!((r.base.execution.pstate,r.base.fetch_requests,r.base.data_requests),(0x3c5,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[VA,VA+4]);assert_eq!(ram,before);
+    });}
+}
+
+#[path="bfm_cases.rs"] mod bfm_cases;
+#[test]fn bfm_v2_executes_through_both_granules() {
+    for sixteen in [false,true] {bfm_cases::each(|case| {
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[case.word,HLT]);let before=ram.clone();let expected=bfm_cases::expected(case,case.initial);
+        let(r,requests)=run(c,&tables,&mut ram,VA,case.initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,VA+8));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);
+        assert_eq!((r.base.execution.pstate,r.base.fetch_requests,r.base.data_requests),(0x3c5,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[VA,VA+4]);assert_eq!(ram,before);
+    });}
+}
+
+#[test]fn bfm_v2_invalid_fields_preserve_state() {
+    for sixteen in [false,true] {for word in bfm_cases::invalid() {
+        let(c,tables,mut ram,_,_)=fixture(sixteen,&[word,HLT]);let before=ram.clone();let initial=[1,2,3,4];let(r,_)=run(c,&tables,&mut ram,VA,initial,0);let b=r.base.execution.base;
+        assert_eq!((b.status,b.retired,b.pc,r.base.fetch_requests,r.base.data_requests,r.base.execution.esr),(8,0,VA,1,0,1<<25));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(r.base.execution.pstate,0x3c5);assert_eq!(ram,before);
+    }}
 }

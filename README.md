@@ -20,10 +20,9 @@ clang -std=c11 -O2 -Wall -Wextra -Werror -fsanitize=address,undefined \
 ```
 
 Native execution is tested on Linux x86_64 with clang and rustc. The PAC provider
-currently supports the tested EL1, 48-bit, TBI-disabled address regime. Native
+supports tested EL1, 47/48-bit, TBI-disabled address regimes. Native
 32/64-bit immediate arithmetic commits ARM NZCV flags, including all conditional
-branches, and the boot bridge accepts explicit initial argument registers. Guest MMU
-enablement is still a native-JIT boundary. Synthetic PAC execution and GOP
+branches, and the boot bridge accepts explicit initial argument registers. The native immutable stage-1 provider supports the documented mapped profiles. Synthetic PAC execution and GOP
 readback establish component behavior; they do not establish macOS boot or Metal
 hardware acceleration. Previous release metadata is retained in `repository.json`.
 
@@ -32,4 +31,43 @@ Thread-pointer MRS/MSR executes natively for the documented baseline EL regime;
 see `docs/EFI_THREAD_REGISTERS.md`. The reference MMU now decodes TG0/TG1
 separately and preserves disabled-walk faults. `python3 tools/probe_mmu_granules.py`
 checks independently authored 4 KiB and 16 KiB TTBR1 translations in QEMU's CPU
-model. This does not enable native-JIT MMU translation.
+model. See [stage-1 memory service](docs/NATIVE_MMU_PROVIDER_V2.md) for the separate native provider contract.
+
+## Current bounded CPU validation
+
+Exact [ISAR2 scalar reads](docs/ISAR2_SCALAR_PROFILE.md) retain live EL1 and
+HCR/SCR gates. The [PAC address-selection contract](docs/MAPPED_PAUTH_V2.md)
+separates signing bit 63 from authentication/stripping bit 55. Its adapted APA1
+QEMU oracle is explicitly distinct from identical-state hardware execution.
+The fixed mapped profile keeps address PAC disabled; active XPAC and cache
+regressions do not prove enabled mapped signing or a complete CPU feature model.
+
+```sh
+python3 runtime/tests/verify_isar2_native.py --output /tmp/isar2-native
+```
+
+The PAC oracle runner requires an explicitly supplied, separately built test
+QEMU, its build receipt and the frozen pre-fix source for its negative control;
+see `python3 runtime/tests/verify_pac_address_selection.py --help`.
+These authored component checks do not establish physical or macOS boot.
+
+## Bounded memory feature profile
+
+[MMFR0 and ASID8](docs/MMFR0_ASID8_PROFILE.md) defines the explicit EL1 memory
+model `0x0f100005`: little endian, 48-bit maximum PA, eight-bit ASIDs and
+4 KiB/16 KiB stage-1 pages. Immutable profiles 1/3 select the ASID from the
+A1-selected TTBR; dynamic profile 2 retains its zero-ASID restriction. Native,
+C API and reference MMFR0 reads share the same live EL1/HCR/SCR gate and constant
+identity, including when retained storage fields are mutated by a host test.
+
+```sh
+python3 runtime/tests/verify_mmfr0_native.py --output /tmp/mmfr0-native
+python3 runtime/tests/verify_asid8_native.py --output /tmp/asid8-native
+```
+
+MMFR0 validation passes 964 native assertions, 31 provider tests in each of
+three cache modes and 34 reference tests. Actual Cortex-A72 reports `0x1124`,
+which differs from the software policy: 32 Arm observations verify access and
+encoding, not equal feature identities. ASID tests pass 35 provider tests per
+cache mode and 102 reference tests, rejecting three compiled tag-selection
+mutants. These proofs do not establish complete Arm conformance or physical boot.

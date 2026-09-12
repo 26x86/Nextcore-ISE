@@ -7,9 +7,9 @@
   "crate": "nextcore-ise",
   "description": "instruction-set emulation and CPU feature policy",
   "development": {
-    "branch": "codex/arm64e-ubfm",
-    "base_commit": "e4c318ff707ff57eaf128ffd66cc962a210ab8e1",
-    "updated_utc": "2026-09-08T21:03:07.026203+00:00",
+    "branch": "codex/physical-arm-runtime-20260912",
+    "base_commit": "bd3a8195385106ce9bdeb09160a3f1bfb447ea11",
+    "updated_utc": "2026-09-12T19:37:39.979969+00:00",
     "dependency_revisions": {},
     "integration": "Git submodule with an immutable gitlink; workspace source patches for local development"
   },

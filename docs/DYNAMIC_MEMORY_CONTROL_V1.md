@@ -22,7 +22,7 @@ DAIF writes remain unsupported system boundaries in this bounded dispatcher; the
 
 ## Fixed-width ABI
 
-The new data request/reply use the existing 160/128-byte field layout, align 8, with discriminator 3; the embedded Controls80 uses discriminator 3/profile 2 and the current nonzero effective epoch. Request fields and raw width/sign conventions otherwise retain the v2 contract. New named aliases may share the canonical record definitions; old v2 validators still require discriminator 2/profile 1/epoch 1. No reserved field changes meaning for an old caller.
+The new data request/reply use the existing 160/128-byte field layout, align 8, with discriminator 3; the embedded Controls80 uses discriminator 3/profile 2 and the current nonzero effective epoch. Request fields and raw width/sign conventions otherwise retain the v2 contract. New named aliases may share the canonical record definitions; immutable v2 validators require discriminator 2, epoch 1 and their explicitly selected profile (1 or the separate unaligned profile 3). The dynamic entry remains profile 2 with its original alignment contract. No reserved field changes meaning for an old caller.
 
 ControlSnapshot64 consists of eight u64: SCTLR, TTBR0, TTBR1, TCR, MAIR, HCR, SCR, reserved=0.
 

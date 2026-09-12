@@ -64,14 +64,22 @@ fn req(c:Controls,operation:u32,width:u32,count:u32,address:u64)->Request {
 #[test]fn controls_requests_and_missing_tables_have_fresh_diagnostics() {
     let (c,tables,mut ram,va,_,_)=fixture(false);
     for bit in [2u64,12,19,24,25,31] {let mut bad=c;bad.sctlr^=1<<bit;assert!(!controls_valid(&bad));}
-    for bit in [8u64,12,22,36,37,39,40,41,42,59] {let mut bad=c;bad.tcr|=1<<bit;assert!(!controls_valid(&bad));}
+    for bit in [8u64,12,36,37,39,40,41,42,59] {let mut bad=c;bad.tcr|=1<<bit;assert!(!controls_valid(&bad));}
+    // A1 selects the immutable eight-bit ASID; changing it after construction is still rejected.
+    let mut a1=c;a1.tcr|=1<<22;assert!(controls_valid(&a1));
+    for upper in [false,true] {
+        let mut tagged=c;if upper {tagged.ttbr1|=1<<48;} else {tagged.ttbr0|=1<<48;}
+        assert!(controls_valid(&tagged));
+        if upper {tagged.ttbr1|=1<<56;} else {tagged.ttbr0|=1<<56;}
+        assert!(!controls_valid(&tagged));
+    }
     let mut service=MemoryServiceV2::new(&mut ram,0x40000000,&tables[..8],0x10000000,c).unwrap();
     let out=service.execute(&req(c,LOAD,8,1,va));
     assert_eq!((out.result,out.fault,out.esr,out.fsc,out.value0,out.value1),(UNAVAILABLE,0,0,0,0,0));
     assert_eq!((out.context,out.level,out.metadata_flags,out.descriptor_pa),(WALK,1,HAS_DESCRIPTOR,0x10001000));
-    for change in 0..5 {
+    for change in 0..6 {
         let mut r=req(c,STORE,8,1,va);match change {0=>r.controls.epoch=2,1=>r.pstate|=1<<22,
-            2=>r.value1=1,3=>r.current_el=0,_=>r.flags=1};
+            2=>r.value1=1,3=>r.current_el=0,4=>r.flags=1,_=>r.controls.tcr^=1<<22};
         assert_eq!(service.execute(&r),service.empty(INVALID_REQUEST));
     }
     let r=req(c,LOAD,8,1,va);let mut reply=Reply{esr:u64::MAX,descriptor_pa:u64::MAX,..Reply::default()};

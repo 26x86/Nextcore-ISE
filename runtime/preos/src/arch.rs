@@ -350,6 +350,9 @@ pub(crate) enum SystemRegister {
     TpidrroEl0 = 36,
     TpidrEl1 = 37,
     PlatformOverride = 38,
+    IdAa64Zfr0El1 = 39,
+    IdAa64Isar0El1 = 40,
+    IdAa64Isar2El1 = 41,
 }
 
 impl SystemRegister {
@@ -358,6 +361,9 @@ impl SystemRegister {
     /// the access direction is decided by the instruction decoder.
     fn from_instruction(word: u32) -> Option<Self> {
         match word & !31 {
+            0xd538_0480 => Some(Self::IdAa64Zfr0El1),
+            0xd538_0600 => Some(Self::IdAa64Isar0El1),
+            0xd538_0640 => Some(Self::IdAa64Isar2El1),
             0xd53d_f500 | 0xd51d_f500 => Some(Self::PlatformOverride),
             0xd53b_d040 | 0xd51b_d040 => Some(Self::TpidrEl0),
             0xd53b_d060 | 0xd51b_d060 => Some(Self::TpidrroEl0),
@@ -377,7 +383,7 @@ impl SystemRegister {
             0xd53b_e220 | 0xd51b_e220 => Some(Self::CntpCtlEl0),
             0xd53b_e240 | 0xd51b_e240 => Some(Self::CntpCvalEl0),
             0xd538_4240 => Some(Self::CurrentEl),
-            0xd538_0700 | 0xd518_0700 => Some(Self::IdAa64Mmfr0El1),
+            0xd538_0700 => Some(Self::IdAa64Mmfr0El1),
             0xd538_0620 | 0xd518_0620 => Some(Self::IdAa64Isar1El1),
             0xd53b_e040 | 0xd51b_e040 => Some(Self::CntvctEl0),
             0xd53b_e320 | 0xd51b_e320 => Some(Self::CntvCtlEl0),
@@ -496,7 +502,7 @@ impl SystemRegisters {
             cntp_cval_el0: 0,
             // Bounded 4K/16K translation and baseline QARMA5 authentication.
             // Enhanced PAuth, FPAC and generic authentication remain absent.
-            id_aa64mmfr0_el1: 0x0010_1122,
+            id_aa64mmfr0_el1: 0x0f10_0005,
             id_aa64isar1_el1: 0x10,
             cntvct_el0: 0,
             cntv_ctl_el0: 0,
@@ -847,6 +853,11 @@ impl GuestCpuState {
     }
 
     pub(crate) fn read_sysreg(&mut self, reg: SystemRegister) -> Result<u64, SysRegFault> {
+        if matches!(reg, SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1 | SystemRegister::IdAa64Isar2El1 | SystemRegister::IdAa64Mmfr0El1) {
+            return if self.current_el==ExceptionLevel::El1 && self.sys.hcr_el2==0 && self.sys.scr_el3==0 {
+                Ok(if reg==SystemRegister::IdAa64Mmfr0El1 {0x0f10_0005} else {0})
+            } else { Err(SysRegFault::Unknown) };
+        }
         if reg==SystemRegister::PlatformOverride {
             return if self.platform.profile==crate::platform::PROFILE_IRQ_COMPAT_V1 && self.current_el==ExceptionLevel::El1 && self.sys.hcr_el2==0 && self.sys.scr_el3==0 {
                 Ok(self.platform.override_value)
@@ -859,7 +870,7 @@ impl GuestCpuState {
             return Err(SysRegFault::Privilege);
         }
         match reg {
-            SystemRegister::PlatformOverride => unreachable!(),
+            SystemRegister::PlatformOverride | SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1 | SystemRegister::IdAa64Isar2El1 => unreachable!(),
             SystemRegister::TpidrEl0 => Ok(self.sys.tpidr_el0),
             SystemRegister::TpidrroEl0 => Ok(self.sys.tpidrro_el0),
             SystemRegister::TpidrEl1 => Ok(self.sys.tpidr_el1),
@@ -878,7 +889,7 @@ impl GuestCpuState {
             SystemRegister::CntpCtlEl0 => Ok(self.timer.ctl),
             SystemRegister::CntpCvalEl0 => Ok(self.timer.cval),
             SystemRegister::CurrentEl => Ok(u64::from(self.current_el as u8) << 2),
-            SystemRegister::IdAa64Mmfr0El1 => Ok(self.sys.id_aa64mmfr0_el1),
+            SystemRegister::IdAa64Mmfr0El1 => unreachable!(),
             SystemRegister::IdAa64Isar1El1 => Ok(self.sys.id_aa64isar1_el1),
             SystemRegister::CntvctEl0 => Ok(self.virtual_timer.counter),
             SystemRegister::CntvCtlEl0 => Ok(self.virtual_timer.ctl),
@@ -935,7 +946,7 @@ impl GuestCpuState {
                 }
             }
             SystemRegister::Ttbr0El1 => {
-                if value & 0xfff != 0 {
+                if value & 0xfff != 0 || value>>56!=0 {
                     return Err(SysRegFault::InvalidValue);
                 }
                 let old = self.sys.ttbr0_el1;
@@ -949,7 +960,7 @@ impl GuestCpuState {
                 }
             }
             SystemRegister::Ttbr1El1 => {
-                if value & 0xfff != 0 {
+                if value & 0xfff != 0 || value>>56!=0 {
                     return Err(SysRegFault::InvalidValue);
                 }
                 let old = self.sys.ttbr1_el1;
@@ -961,6 +972,9 @@ impl GuestCpuState {
                 }
             }
             SystemRegister::TcrEl1 => {
+                // Reject unimplemented HA/HD and hierarchy-disable controls,
+                // including while the MMU is off, before changing any state.
+                if value&((1u64<<36)|(0xfu64<<39))!=0 {return Err(SysRegFault::InvalidValue);}
                 let old = self.sys.tcr_el1;
                 self.sys.tcr_el1 = value;
                 if self.sys.sctlr_el1 & SCTLR_M != 0 && self.sync_mmu().is_err() {
@@ -980,6 +994,9 @@ impl GuestCpuState {
             | SystemRegister::CurrentEl
             | SystemRegister::IdAa64Mmfr0El1
             | SystemRegister::IdAa64Isar1El1
+            | SystemRegister::IdAa64Zfr0El1
+            | SystemRegister::IdAa64Isar0El1
+            | SystemRegister::IdAa64Isar2El1
             | SystemRegister::CntvctEl0 => {
                 return Err(SysRegFault::ReadOnly)
             }
@@ -1030,11 +1047,15 @@ impl GuestCpuState {
     }
 
     fn sync_mmu(&mut self) -> Result<(), ()> {
+        if self.sys.tcr_el1&(1u64<<36)!=0 || (self.sys.ttbr0_el1|self.sys.ttbr1_el1)>>56!=0 {
+            return Err(());
+        }
         if self.sys.sctlr_el1 & SCTLR_M == 0 {
             self.mmu.disable();
             return Ok(());
         }
-        let asid = (self.sys.ttbr0_el1 >> 48) as u16;
+        let selected=if self.sys.tcr_el1&(1<<22)!=0 {self.sys.ttbr1_el1} else {self.sys.ttbr0_el1};
+        let asid = ((selected >> 48)&255) as u16;
         if !self.mmu.configure_tcr(
             self.sys.ttbr0_el1,
             self.sys.ttbr1_el1,
@@ -1169,7 +1190,11 @@ impl GuestCpuState {
         -> Result<(), (ExceptionKind, u64)> {
         let (size_code, opc) = (word >> 30, (word >> 22) & 3);
         let (rn, rt) = ((word >> 5) & 31, word & 31);
-        if word & (1 << 26) != 0 ||
+        let register_offset = word & 0x3b200c00 == 0x38200800;
+        let writeback = word & 0x3b200400 == 0x38000400;
+        let option = (word >> 13) & 7;
+        if (writeback && rn != 31 && rn == rt) ||
+            (register_offset && option & 2 == 0) || word & (1 << 26) != 0 ||
             (opc >= 2 && (size_code == 3 || (opc == 3 && size_code == 2))) {
             return Err((ExceptionKind::UndefinedInstruction, self.pc));
         }
@@ -1186,7 +1211,19 @@ impl GuestCpuState {
         if rn == 31 && self.sys.sctlr_el1 & sa != 0 && base & 15 != 0 {
             return Err((ExceptionKind::SpAlignmentFault, base));
         }
-        let address = base.wrapping_add(u64::from((word >> 10) & 4095) << size_code);
+        let offset = if register_offset {
+            let raw = self.read_reg((word >> 16) & 31, false);
+            let extended = match option {
+                2 => u64::from(raw as u32),
+                6 => (raw as u32 as i32 as i64) as u64,
+                _ => raw,
+            };
+            extended << if word & (1 << 12) != 0 {size_code} else {0}
+        } else if word & 0x3b200c00 == 0x38000000 || writeback {
+            ((((word >> 12) & 511) as i64) << 55 >> 55) as u64
+        } else {u64::from((word >> 10) & 4095) << size_code};
+        let updated_base = base.wrapping_add(offset);
+        let address = if writeback && word & (1 << 11) == 0 {base} else {updated_base};
         if address & (size as u64 - 1) != 0 {
             // Device-nGnRnE when MMU-off. Translated A=0 requires memory
             // attributes and a spanning transaction, neither exposed yet.
@@ -1207,6 +1244,7 @@ impl GuestCpuState {
             let value = if opc >= 2 {sign_extend(value, (size * 8) as u32) as u64} else {value};
             self.write_reg(rt, value, false, opc == 2 || size == 8);
         }
+        if writeback { self.write_reg(rn, updated_base, true, true); }
         self.pc = self.pc.wrapping_add(4);
         Ok(())
     }
@@ -1640,6 +1678,32 @@ impl GuestCpuState {
             return StepResult::Continue;
         }
 
+        // Ordinary MADD/MSUB only; widened and high-half encodings stay gated.
+        if word & 0x7fe00000 == 0x1b000000 {
+            let product = self.read_reg(rn, false).wrapping_mul(self.read_reg((word >> 16) & 31, false));
+            let addend = self.read_reg((word >> 10) & 31, false);
+            let result = if word & (1 << 15) != 0 { addend.wrapping_sub(product) }
+                else { addend.wrapping_add(product) };
+            self.write_reg(rd, result, false, wide);
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
+        }
+
+        // Conditional selection reads ZR for every register31 operand.
+        if word & 0x3fe00800 == 0x1a800000 {
+            let value = if self.condition_holds((word >> 12) & 15) {
+                self.read_reg(rn, false)
+            } else {
+                let mut other = self.read_reg((word >> 16) & 31, false);
+                if word & (1 << 30) != 0 { other = !other; }
+                if word & (1 << 10) != 0 { other = other.wrapping_add(1); }
+                other
+            };
+            self.write_reg(rd, value, false, wide);
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
+        }
+
         if word&0x3fe00410==0x3a400000 {
             if self.condition_holds((word>>12)&15) {
                 let right=if word&(1<<11)!=0 {u64::from((word>>16)&31)}
@@ -1649,6 +1713,22 @@ impl GuestCpuState {
             } else {
                 self.pstate=(self.pstate&!0xf0000000)|((word&15)<<28);
             }
+            self.pc=pc.wrapping_add(4);return StepResult::Continue;
+        }
+        if word&0x7f800000==0x33000000 {
+            let r=(word>>16)&63;let s=(word>>10)&63;
+            if ((word>>22)&1)!=u32::from(wide) || (!wide && (r|s)&32!=0) {
+                self.raise(GuestException {kind:ExceptionKind::UndefinedInstruction,
+                    instruction:word,syndrome:word as u64,far:pc,pc});
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            }
+            let width=if wide {64}else{32};
+            let low=|bits:u32|u64::MAX>>(64-bits);
+            let rotate=|x:u64|if wide{x.rotate_right(r)}else{u64::from((x as u32).rotate_right(r))};
+            let wmask=rotate(low(s+1));let tmask=low((s.wrapping_sub(r)&(width-1))+1);
+            let old=self.read_reg(rd,false);let source=self.read_reg(rn,false);
+            let bottom=(old&!wmask)|(rotate(source)&wmask);
+            self.write_reg(rd,(old&!tmask)|(bottom&tmask),false,wide);
             self.pc=pc.wrapping_add(4);return StepResult::Continue;
         }
         if word&0x7f800000==0x53000000 {
@@ -1682,6 +1762,76 @@ impl GuestCpuState {
                 self.pstate=(self.pstate&!0xf0000000)|(n<<31)|((u32::from(result==0))<<30);
             }
             self.pc=pc.wrapping_add(4);return StepResult::Continue;
+        }
+        // Logical shifted register. Register 31 is ZR in every position.
+        if word & 0x1f000000 == 0x0a000000 {
+            let op = (word >> 29) & 3;
+            let shift = (word >> 22) & 3;
+            let amount = (word >> 10) & 63;
+            if !wide && amount >= 32 {
+                self.raise(GuestException {
+                    kind: ExceptionKind::UndefinedInstruction,
+                    instruction: word,
+                    syndrome: word as u64,
+                    far: pc,
+                    pc,
+                });
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            }
+            let source = self.read_reg((word >> 16) & 31, false);
+            let mut right = if wide {
+                match shift {
+                    0 => source << amount,
+                    1 => source >> amount,
+                    2 => ((source as i64) >> amount) as u64,
+                    _ => source.rotate_right(amount),
+                }
+            } else {
+                let source = source as u32;
+                u64::from(match shift {
+                    0 => source << amount,
+                    1 => source >> amount,
+                    2 => ((source as i32) >> amount) as u32,
+                    _ => source.rotate_right(amount),
+                })
+            };
+            if word & (1 << 21) != 0 { right = !right; }
+            let left = self.read_reg(rn, false);
+            let mut value = match op {
+                1 => left | right,
+                2 => left ^ right,
+                _ => left & right,
+            };
+            if !wide { value = u64::from(value as u32); }
+            self.write_reg(rd, value, false, wide);
+            if op == 3 { self.set_nzcv(value, wide, false, false); }
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
+        }
+        // LSLV/LSRV/ASRV/RORV: both sources are read before writing Rd.
+        if word & 0x7fe0f000 == 0x1ac02000 {
+            let shift = (word >> 10) & 3;
+            let count = (self.read_reg((word >> 16) & 31, false) & if wide {63} else {31}) as u32;
+            let source = self.read_reg(rn, false);
+            let value = if wide {
+                match shift {
+                    0 => source << count,
+                    1 => source >> count,
+                    2 => ((source as i64) >> count) as u64,
+                    _ => source.rotate_right(count),
+                }
+            } else {
+                let source = source as u32;
+                u64::from(match shift {
+                    0 => source << count,
+                    1 => source >> count,
+                    2 => ((source as i32) >> count) as u32,
+                    _ => source.rotate_right(count),
+                })
+            };
+            self.write_reg(rd, value, false, wide);
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
         }
         // MOVZ/MOVK, 32- and 64-bit forms.
         let move_op = word & 0x7f800000;
@@ -1717,6 +1867,41 @@ impl GuestCpuState {
             let immediate = u64::from((word >> 10) & 0xfff) << shift;
             let left = self.read_reg(rn, true);
             let (value, carry, overflow) = add_sub(left, immediate, subtract, wide);
+            self.write_reg(rd, value, !set_flags, wide);
+            if set_flags {
+                self.set_nzcv(value, wide, carry, overflow);
+            }
+            self.pc = pc.wrapping_add(4);
+            return StepResult::Continue;
+        }
+
+        // ADD/SUB extended register. Rn=31 is SP, Rm=31 is ZR.
+        if word & 0x1fe00000 == 0x0b200000 {
+            let subtract = word & (1 << 30) != 0;
+            let set_flags = word & (1 << 29) != 0;
+            let option = (word >> 13) & 7;
+            let amount = (word >> 10) & 7;
+            if amount > 4 {
+                self.raise(GuestException {
+                    kind: ExceptionKind::UndefinedInstruction,
+                    instruction: word,
+                    syndrome: word as u64,
+                    far: pc,
+                    pc,
+                });
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            }
+            let width = if wide { 64 } else { 32 };
+            let bits = (8u32 << (option & 3)).min(width);
+            let raw = self.read_reg((word >> 16) & 31, false);
+            let extended = if option & 4 != 0 {
+                (((raw << (64 - bits)) as i64) >> (64 - bits)) as u64
+            } else {
+                raw & (u64::MAX >> (64 - bits))
+            };
+            let right = extended << amount;
+            let left = self.read_reg(rn, true);
+            let (value, carry, overflow) = add_sub(left, right, subtract, wide);
             self.write_reg(rd, value, !set_flags, wide);
             if set_flags {
                 self.set_nzcv(value, wide, carry, overflow);
@@ -1779,8 +1964,9 @@ impl GuestCpuState {
             };
         }
 
-        // Integer unsigned-offset stores, zero loads and signed W/X loads.
-        if word & 0x3b000000 == 0x39000000 {
+        // Integer scaled/unscaled immediate and register-offset scalar transfers.
+        if word & 0x3b000000 == 0x39000000 || word & 0x3b200c00 == 0x38200800 ||
+            word & 0x3b200c00 == 0x38000000 || word & 0x3b200400 == 0x38000400 {
             return match self.scalar_memory(bus, word) {
                 Ok(()) => StepResult::Continue,
                 Err((kind, far)) => {
@@ -1811,19 +1997,41 @@ impl GuestCpuState {
         }
 
         // Unconditional branch (register): BR, BLR, RET.
-        if (word & 0xFE1F_FC00) == 0xD61F_0000 {
-            let rn_val = (word >> 5) & 31;
-            let target = self.read_reg(rn_val, true);
-            // BLR (opc=001) saves return address in X30.
-            if word & 0x0020_0000 != 0 {
+        let branch_register = word & 0xffff_fc1f;
+        if matches!(branch_register, 0xd61f_0000 | 0xd63f_0000 | 0xd65f_0000) {
+            // Match the native profile's Rn31 rejection. Architecturally XZR
+            // is the source here, never SP; this is a supported-profile limit.
+            if rn == 31 {
+                self.raise(GuestException {
+                    kind: ExceptionKind::UndefinedInstruction,
+                    instruction: word,
+                    syndrome: word as u64,
+                    far: pc,
+                    pc,
+                });
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            }
+            let target = self.read_reg(rn, false);
+            // Capture the target before BLR writes X30, including BLR X30.
+            if branch_register == 0xd63f_0000 {
                 self.x[30] = pc.wrapping_add(4);
             }
             self.pc = target;
             return StepResult::Continue;
         }
 
+        if word & 0x7e000000 == 0x36000000 {
+            let bit = ((word >> 26) & 32) | ((word >> 19) & 31);
+            let selected = (self.read_reg(rd, false) >> bit) & 1;
+            let take = selected == ((word >> 24) & 1) as u64;
+            let offset = sign_extend(u64::from((word >> 5) & 0x3fff), 14) * 4;
+            self.pc = pc.wrapping_add(if take {offset as u64} else {4});
+            return StepResult::Continue;
+        }
+
         if word & 0x7e000000 == 0x34000000 {
             let value = self.read_reg(rd, false);
+            let value = if wide { value } else { u64::from(value as u32) };
             let nonzero = word & (1 << 24) != 0;
             let offset = sign_extend(u64::from((word >> 5) & 0x7ffff), 19) << 2;
             let take = if nonzero { value != 0 } else { value == 0 };
@@ -2142,6 +2350,75 @@ mod tests {
         if opc==3 || (opc==1 && bytes<8) {signed as u32 as u64} else {signed}
     }
 
+    fn register_memory_word(size:u32,opc:u32,option:u32,scale:u32,rn:u32,rm:u32,rt:u32)->u32 {
+        0x38200800 | size<<30 | opc<<22 | rm<<16 | option<<13 | scale<<12 | rn<<5 | rt
+    }
+    fn independent_index(raw:u64,option:u32,shift:u32)->u64 {
+        let mut value=if option&1!=0 {i128::from(raw)} else {i128::from(raw&0xffffffff)};
+        if option==6 && raw&0x80000000!=0 {value-=1i128<<32;}
+        (value*(1i128<<shift)) as u64
+    }
+    #[test]
+    fn register_offset_scalar_all_forms_extensions_scaling_and_aliases() {
+        let indices=[0u64,1,u64::MAX,0x80000000,0xdeadbeefffffffff,0xdeadbeef00000001,0x8000000000000000,0x1234000000000040];
+        let base=0x40000000u64;let mut cases=0;
+        for size in 0..4 {for opc in 0..4 {if !scalar_valid(size,opc) {continue;}
+        for option in [2u32,3,6,7] {for scale in 0..2 {for (sample,&raw) in indices.iter().enumerate() {
+        for rn in [3u32,31] {for rm in [4u32,31] {for rt in [2u32,3,4,31] {
+            let bytes=1usize<<size;
+            let disp=independent_index(if rm==31 {0} else {raw},option,if scale!=0 {size} else {0});
+            let pointer=(base+512).wrapping_sub(disp);
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=base;cpu.sp=pointer;cpu.pstate=0xb00003c5;
+            for index in 0..31 {cpu.x[index]=0xabcdef1200000000+index as u64;}
+            cpu.x[3]=pointer;cpu.x[4]=raw;
+            let mut ram=[0u8;1024];for (index,byte) in ram.iter_mut().enumerate(){*byte=(index*19+sample*37)as u8;}
+            ram[..4].copy_from_slice(&register_memory_word(size,opc,option,scale,rn,rm,rt).to_le_bytes());
+            let mut expected=ram;let mut regs=cpu.x;
+            if opc!=0 {let mut value=0u64;for i in 0..bytes {value|=u64::from(ram[512+i])<<(i*8);}
+                if rt!=31 {regs[rt as usize]=scalar_expected(value,bytes,opc);}}
+            else {let value=if rt==31 {0} else {cpu.x[rt as usize]};for i in 0..bytes {expected[512+i]=(value>>(i*8))as u8;}}
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram,base}),StepResult::Continue);
+            assert_eq!((cpu.x,cpu.sp,cpu.pc,cpu.pstate),(regs,pointer,base+4,0xb00003c5));assert_eq!(ram,expected);cases+=1;
+        }}}}}}}}
+        assert_eq!(cases,13312);
+    }
+    #[test]
+    fn register_offset_scalar_invalid_encodings_and_faults_preserve_state() {
+        let base=0x40000000u64;
+        for size in 0..4 {for opc in 0..4 {for option in 0..8 {for scale in 0..2 {for vector in 0..2 {
+            if scalar_valid(size,opc) && option&2!=0 && vector==0 {continue;}
+            let word=register_memory_word(size,opc,option,scale,3,4,2)|(vector<<26);
+            let mut ram=[0xa5;512];ram[..4].copy_from_slice(&word.to_le_bytes());let before=ram;
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=base;cpu.x[3]=base+128;cpu.x[4]=1;cpu.sp=base+256;cpu.pstate=0xb00003c5;
+            let regs=cpu.x;
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram,base}),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+            assert_eq!((cpu.x,cpu.sp,cpu.pc,cpu.pstate),(regs,base+256,base,0xb00003c5));assert_eq!(ram,before);assert_eq!(cpu.sys.esr_el1,1<<25);
+        }}}}}
+        for size in 0..4 {for opc in 0..4 {if !scalar_valid(size,opc) {continue;}
+        for option in [2u32,3,6,7] {for scale in 0..2 {for el in [ExceptionLevel::El0,ExceptionLevel::El1] {for fault in 0..4 {
+            let bytes=1usize<<size;if fault==3 && bytes==1 {continue;}
+            let address=match fault {0=>base-bytes as u64,1=>base+512,2=>base+128,_=>base+129};
+            let length=if fault==2 {128+bytes-1} else {512};
+            let disp=independent_index(u64::MAX,option,if scale!=0 {size} else {0});
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=base;cpu.current_el=el;cpu.pstate=if el==ExceptionLevel::El0 {0} else {5};
+            cpu.x[3]=address.wrapping_sub(disp);cpu.x[4]=u64::MAX;cpu.sp=base+256;
+            let regs=cpu.x;let flags=cpu.pstate;
+            let mut ram=[0xa5;512];ram[..4].copy_from_slice(&register_memory_word(size,opc,option,scale,3,4,4).to_le_bytes());let before=ram;
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram[..length],base}),StepResult::Exception(if fault==3 {ExceptionKind::AlignmentFault} else {ExceptionKind::DataAbort}));
+            assert_eq!((cpu.x,cpu.sp,cpu.pc,cpu.pstate),(regs,base+256,base,flags));assert_eq!(ram,before);
+            assert_eq!(cpu.sys.far_el1,address);assert_eq!(cpu.sys.esr_el1,((0x24+el as u64)<<26)|(1<<25)|(if opc==0 {64}else{0})|(if fault==3 {0x21}else{7}));
+        }}}}
+        for el in [ExceptionLevel::El0,ExceptionLevel::El1] {
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=base;cpu.current_el=el;cpu.pstate=if el==ExceptionLevel::El0 {0}else{5};
+            cpu.sp=base+129;cpu.sys.sctlr_el1=if el==ExceptionLevel::El0 {16}else{8};cpu.x[4]=u64::MAX;let regs=cpu.x;
+            let mut ram=[0xa5;512];ram[..4].copy_from_slice(&register_memory_word(size,opc,3,0,31,4,4).to_le_bytes());let before=ram;
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut ram,base}),StepResult::Exception(ExceptionKind::SpAlignmentFault));
+            assert_eq!((cpu.x,cpu.sp,cpu.pc),(regs,base+129,base));assert_eq!(ram,before);
+            assert_eq!((cpu.sys.esr_el1,cpu.sys.far_el1),(0x9a000000,base+129));
+        }
+        }}
+    }
+
     #[test]
     fn scalar_width_sign_and_every_imm12_match_independent_byte_model() {
         let mut ram=[0xa5;65536];let base=0x80000000;
@@ -2447,6 +2724,53 @@ mod tests {
     }
 
     #[test]
+    fn merging_bitfield_all_immediates_match_independent_bit_origins() {
+        fn run(width:u32,r:u32,s:u32,role:usize,source:u64,old:u64,flags:u32) {
+            let (rn,rd)=[(0u32,2u32),(31,2),(0,31),(0,0),(31,31)][role];
+            let mut cpu=GuestCpuState::reset(0);for (i,v) in cpu.x.iter_mut().enumerate(){*v=0xfedcba9800000000+i as u64;}
+            if rd!=31{cpu.x[rd as usize]=old;}if rn!=31{cpu.x[rn as usize]=source;}
+            cpu.sp=0x8765432100;cpu.pstate=0x3c5|(flags<<28);let mut expected=cpu.x;
+            let src=if rn==31{0}else{expected[rn as usize]};let dst=if rd==31{0}else{expected[rd as usize]};let mut result=0u64;
+            for bit in 0..width {
+                let first=if s>=r{0}else{width-r};let last=if s>=r{s-r}else{width-r+s};
+                let value=if bit<first||bit>last{(dst>>bit)&1}else{(src>>(if s>=r{bit+r}else{bit-first}))&1};
+                result|=value<<bit;
+            }
+            if rd!=31{expected[rd as usize]=result;}
+            let word=0x33000000|(u32::from(width==64)<<31)|(u32::from(width==64)<<22)|(r<<16)|(s<<10)|(rn<<5)|rd;
+            let mut bytes=word.to_le_bytes();let before=bytes;let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut bytes),1,|_|{});
+            assert_eq!(result.status,ArchRunStatus::Budget);assert_eq!((cpu.pc,cpu.retired,cpu.sp,cpu.pstate),(4,1,0x8765432100,0x3c5|(flags<<28)));
+            assert_eq!(cpu.x,expected);assert_eq!(bytes,before);
+        }
+        let sources=[0,u64::MAX,0xaaaaaaaa55555555,0x55555555aaaaaaaa,0x80000000,0x8000000000000000];
+        let destinations=[0,u64::MAX,0xa5a5a5a55a5a5a5a,0x0123456789abcdef];let mut cases=0;
+        for width in [32,64] {for r in 0..width {for s in 0..width {for (a,&source) in sources.iter().enumerate(){for (d,&old) in destinations.iter().enumerate(){for role in 0..5 {
+            run(width,r,s,role,source,old,(r+s+a as u32+d as u32+role as u32)&15);cases+=1;
+        }}}}}}
+        for width in [32,64] {for flags in 0..16 {for role in 0..5 {for edge in 0..4 {
+            run(width,if edge&1!=0{width-1}else{0},if edge&2!=0{width-1}else{0},role,u64::MAX,0x0123456789abcdef,flags);cases+=1;
+        }}}}
+        assert_eq!(cases,615040);
+    }
+
+    #[test]
+    fn merging_bitfield_invalid_fields_and_other_opcodes_preserve_state() {
+        fn reject(word:u32) {
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=u64::MAX;cpu.x[2]=0x987654321;cpu.sp=0x123456780;cpu.pstate=0xb00003c5;let before=cpu.x;
+            let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut word.to_le_bytes()),1,|_|{});
+            assert_eq!(result.exception.unwrap().kind,ExceptionKind::UndefinedInstruction);
+            assert_eq!(cpu.x,before);assert_eq!((cpu.pc,cpu.retired,cpu.sp,cpu.pstate,cpu.sys.esr_el1),(0,0,0x123456780,0xb00003c5,1<<25));
+        }
+        let mut count=0;
+        for sf in 0..2 {for n in 0..2 {for r in 0..64 {for s in 0..64 {
+            if sf==n && (sf!=0 || (r<32 && s<32)){continue;}
+            reject(0x33000002u32|(sf<<31)|(n<<22)|(r<<16)|(s<<10));count+=1;
+        }}}}
+        for word in [0x33800002,0xb3c00002,0x73000002,0xf3400002,0x13000002,0x93400002] {reject(word);count+=1;}
+        assert_eq!(count,11270);
+    }
+
+    #[test]
     fn unsigned_bitfield_all_immediates_match_independent_bit_placement() {
         fn run(width:u32,r:u32,s:u32,source:u64,rn:u32,rd:u32,flags:u32) {
             let mut expected=0u64;
@@ -2478,7 +2802,7 @@ mod tests {
     #[test]
     fn unsigned_bitfield_reserved_and_other_bitfield_opcodes_do_not_modify_state() {
         for word in [0xd3000002u32,0x53400002,0x53200002,0x53008002,0x53608002,
-            0x33000002,0xb3400002,0x13000002,0x93400002,0x73000002,0xf3400002] {
+            0xb3000002,0x33400002,0x13000002,0x93400002,0x73000002,0xf3400002] {
             let mut cpu=GuestCpuState::reset(0);cpu.x[0]=u64::MAX;cpu.x[2]=0x76543210;cpu.sp=0x9870;cpu.pstate=0xb00003c5;
             let registers=cpu.x;let mut bytes=word.to_le_bytes();let before=bytes;
             let result=cpu.run_loaded_with_bus(&mut RamBus::new(&mut bytes),1,|_|{});
@@ -2563,6 +2887,279 @@ mod tests {
             assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),StepResult::Exception(ExceptionKind::UndefinedInstruction));
             assert_eq!(cpu.x[0],u64::MAX);assert_eq!(cpu.pc,0);
         }
+    }
+
+    #[test]
+    fn reference_compare_branch_obeys_width_and_signed_displacement() {
+        let values = [0u64, 1, 1 << 32, 1 << 63, 0xffff_ffff_0000_0000, u64::MAX];
+        for wide in [false, true] { for nonzero in [false, true] { for rt in [0u32, 31] {
+            for value in values { for pc in [0u64, 0x4000_0000, u64::MAX - 3] {
+                for immediate in [-262144i32, -1, 0, 1, 262143] {
+                    let word = 0x3400_0000 | (u32::from(wide) << 31)
+                        | (u32::from(nonzero) << 24) | ((immediate as u32 & 0x7ffff) << 5) | rt;
+                    let tested = if rt == 31 { 0 } else if wide { value } else { value % (1u64 << 32) };
+                    let take = (tested != 0) == nonzero;
+                    let expected_pc = (i128::from(pc) + if take { i128::from(immediate) * 4 } else { 4 }) as u64;
+                    let mut cpu = GuestCpuState::reset(0);
+                    cpu.pc = pc; cpu.x[0] = value; cpu.sp = 0x9870; cpu.pstate = 0xa000_03c5;
+                    let registers = cpu.x;
+                    let mut code = word.to_le_bytes();
+                    assert_eq!(cpu.execute_one(&mut RamBus { ram: &mut code, base: pc }), StepResult::Continue);
+                    assert_eq!((cpu.pc, cpu.x, cpu.sp, cpu.pstate), (expected_pc, registers, 0x9870, 0xa000_03c5), "word={word:08x} source={value:016x}");
+                    assert!(cpu.pending_exception.is_none());
+                    assert_eq!(code, word.to_le_bytes());
+                }
+            }}
+        }}}
+    }
+
+    #[test]
+    fn reference_register_branch_exact_forms_capture_target_before_link() {
+        for opcode in [0xd61f_0000u32, 0xd63f_0000, 0xd65f_0000] {
+            for rn in [0u32, 16, 30] { for target in [0u64, 4, 0x4000, 1, u64::MAX] {
+                for pc in [0u64, 0x4000_0000, u64::MAX - 3] {
+                    let mut cpu = GuestCpuState::reset(0);
+                    cpu.pc = pc; cpu.x[30] = 0x1234; cpu.x[rn as usize] = target;
+                    cpu.sp = 0x9870; cpu.pstate = 0xb000_03c5;
+                    let mut expected = cpu.x;
+                    if opcode == 0xd63f_0000 { expected[30] = pc.wrapping_add(4); }
+                    let mut code = (opcode | (rn << 5)).to_le_bytes();
+                    let before = code;
+                    assert_eq!(cpu.execute_one(&mut RamBus { ram: &mut code, base: pc }), StepResult::Continue);
+                    assert_eq!((cpu.pc, cpu.x, cpu.sp, cpu.pstate), (target, expected, 0x9870, 0xb000_03c5));
+                    assert!(cpu.pending_exception.is_none());
+                    assert_eq!(code, before);
+                }
+            }}
+        }
+    }
+
+    #[test]
+    fn reference_register_branch_rejects_reserved_fixed_fields() {
+        // These are not authenticated-branch encodings handled by the PAC path.
+        for word in [0xd61f_0001u32, 0xd63f_0010, 0xd65f_001f, 0xd67f_0000, 0xd6bf_0000, 0xd71f_0000] {
+            let mut cpu = GuestCpuState::reset(0);
+            cpu.x[0] = 32; cpu.x[30] = 0x1234; cpu.sp = 0x9870; cpu.pstate = 0xb000_03c5;
+            let registers = cpu.x;
+            let mut ram = [0xa5u8; 8];
+            let result = cpu.run_bounded(&word.to_le_bytes(), &mut ram, 1);
+            assert_eq!((result.status, result.retired, result.pc), (ArchRunStatus::Exception, 0, 0), "word={word:08x}");
+            assert_eq!(result.exception.unwrap().kind, ExceptionKind::UndefinedInstruction);
+            assert_eq!((cpu.x, cpu.sp, cpu.pstate, cpu.sys.esr_el1), (registers, 0x9870, 0xb000_03c5, 1 << 25));
+        }
+    }
+
+    #[test]
+    fn reference_register_branch_rn31_matches_restricted_native_profile() {
+        // The ISA reads XZR here. The current native profile rejects Rn31;
+        // matching that restriction must never substitute SP as the target.
+        for opcode in [0xd61f_0000u32, 0xd63f_0000, 0xd65f_0000] {
+            let word = opcode | (31 << 5);
+            let mut cpu = GuestCpuState::reset(0);
+            cpu.x[30] = 0x1234; cpu.sp = 0x9870; cpu.pstate = 0xb000_03c5;
+            let registers = cpu.x;
+            let mut ram = [0xa5u8; 8];
+            let result = cpu.run_bounded(&word.to_le_bytes(), &mut ram, 1);
+            assert_eq!((result.status, result.retired, result.pc), (ArchRunStatus::Exception, 0, 0));
+            assert_eq!(result.exception.unwrap().kind, ExceptionKind::UndefinedInstruction);
+            assert_eq!((cpu.x, cpu.sp, cpu.pstate, cpu.sys.esr_el1), (registers, 0x9870, 0xb000_03c5, 1 << 25));
+        }
+    }
+
+    #[test]
+    fn reference_branch_commits_before_target_fetch_and_respects_budget() {
+        for wide in [false, true] { for nonzero in [false, true] {
+            let word = 0x3400_0040u32 | (u32::from(wide) << 31) | (u32::from(nonzero) << 24);
+            let mut program = [0u8; 12]; program[..4].copy_from_slice(&word.to_le_bytes());
+            program[8..12].copy_from_slice(&0xd440_0000u32.to_le_bytes());
+            let take = wide == nonzero;
+            let mut cpu = GuestCpuState::reset(0); cpu.x[0] = 1 << 32;
+            let mut ram = [0u8; 12];
+            let result = cpu.run_bounded(&program, &mut ram, 1);
+            assert_eq!((result.status, result.retired, result.pc), (ArchRunStatus::Budget, 1, if take { 8 } else { 4 }));
+            let result = cpu.run_bounded(&program, &mut ram, 3);
+            assert_eq!((result.status, result.retired, result.pc), if take { (ArchRunStatus::Halt, 2, 12) } else { (ArchRunStatus::Exception, 1, 4) });
+        }}
+        for opcode in [0xd61f_0000u32, 0xd63f_0000, 0xd65f_0000] {
+            let mut cpu = GuestCpuState::reset(0); cpu.x[0] = 32; cpu.x[30] = 0x1234;
+            let mut ram = [0u8; 8];
+            let result = cpu.run_bounded(&opcode.to_le_bytes(), &mut ram, 1);
+            assert_eq!((result.status, result.retired, result.pc), (ArchRunStatus::Budget, 1, 32));
+            assert_eq!(cpu.x[30], if opcode == 0xd63f_0000 { 4 } else { 0x1234 });
+            let result = cpu.run_bounded(&opcode.to_le_bytes(), &mut ram, 2);
+            assert_eq!((result.status, result.retired, result.pc), (ArchRunStatus::Exception, 1, 32));
+            assert_eq!(result.exception.unwrap().kind, ExceptionKind::InstructionAbort);
+            assert_eq!(cpu.sys.far_el1, 32);
+        }
+    }
+
+    fn test_bit_word(op:u32,bit:u32,immediate:i32,rt:u32)->u32 {
+        0x36000000|op<<24|(bit>>5)<<31|(bit&31)<<19|((immediate as u32)&0x3fff)<<5|rt
+    }
+    #[test]
+    fn test_bit_branches_all_bits_immediates_flags_and_wrapping_pc() {
+        fn one(pc:u64,op:u32,bit:u32,immediate:i32,source:u64,rt:u32,flags:u32) {
+            let selected=rt!=31 && source&(1u64<<bit)!=0;
+            let take=if op==0 {!selected}else{selected};
+            let expected=(i128::from(pc)+if take {i128::from(immediate)*4}else{4})as u64;
+            let mut cpu=GuestCpuState::reset(0);cpu.pc=pc;cpu.sp=0x9876543210;cpu.pstate=0x3c5|(flags<<28);
+            for index in 0..31 {cpu.x[index]=0xabcdef1200000000+index as u64;}cpu.x[0]=source;let regs=cpu.x;
+            let mut code=test_bit_word(op,bit,immediate,rt).to_le_bytes();let before=code;
+            assert_eq!(cpu.execute_one(&mut RamBus{ram:&mut code,base:pc}),StepResult::Continue);
+            assert_eq!((cpu.pc,cpu.x,cpu.sp,cpu.pstate),(expected,regs,0x9876543210,0x3c5|(flags<<28)));assert_eq!(code,before);
+        }
+        let offsets=[-8192i32,-8191,-1,0,1,2,8191];let mut cases=0;
+        for bit in 0..64 {for op in 0..2 {for flags in 0..16 {for data in 0..6 {for immediate in offsets {for rt in [0,31] {
+            let source=match data {0=>0,1=>u64::MAX,2=>1u64<<bit,3=>!(1u64<<bit),4=>0xffffffff00000000,_=>0x0123456789abcdef};
+            one(0x40000000,op,bit,immediate,source,rt,flags);cases+=1;
+        }}}}}}
+        for immediate in -8192..8192 {for bit in [0,31,32,63] {for op in 0..2 {for set in [false,true] {
+            one(0x40000000,op,bit,immediate,if set {1u64<<bit}else{0},0,immediate as u32&15);cases+=1;
+        }}}}
+        for pc in [0,4,u64::MAX-7,u64::MAX-3] {for bit in 0..64 {for op in 0..2 {for set in [false,true] {for immediate in offsets {
+            one(pc,op,bit,immediate,if set {1u64<<bit}else{0},0,15);cases+=1;
+        }}}}}
+        assert_eq!(cases,441344);
+    }
+    #[test]
+    fn test_bit_branches_commit_before_next_fetch_and_count_budget() {
+        for op in 0..2 {for missing in [false,true] {
+            let word=test_bit_word(op,7,if missing {8191}else{0},0);
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=if op==1 {128}else{0};let mut ram=[0u8;8];
+            let result=cpu.run_bounded(&word.to_le_bytes(),&mut ram,7);
+            assert_eq!((result.status,result.retired,result.pc),(if missing {ArchRunStatus::Exception}else{ArchRunStatus::Budget},if missing {1}else{7},if missing {32764}else{0}));
+            if missing {assert_eq!(result.exception.unwrap().kind,ExceptionKind::InstructionAbort);assert_eq!(cpu.sys.far_el1,32764);}
+        }}
+        for op in 0..2 {
+            let mut code=[0u8;12];code[..4].copy_from_slice(&test_bit_word(op,63,2,31).to_le_bytes());code[8..12].copy_from_slice(&0xd4400000u32.to_le_bytes());
+            let mut cpu=GuestCpuState::reset(0);let mut ram=[0u8;12];let result=cpu.run_bounded(&code,&mut ram,8);
+            assert_eq!((result.status,result.retired,result.pc),(if op==0 {ArchRunStatus::Halt}else{ArchRunStatus::Exception},if op==0 {2}else{1},if op==0 {12}else{4}));
+        }
+    }
+
+    #[test]
+    fn multiply_add_matches_wider_unsigned_oracle_and_preserves_state() {
+        let values=[0u64,1,u64::MAX,0x7fffffff,0x80000000,0xffffffff,0x8000000000000000,0xabcdef0187654321];
+        let roles=[(0u32,1u32,2u32,3u32),(31,1,2,3),(0,31,2,3),(0,1,31,3),(0,1,2,31),(0,1,2,0),
+            (0,1,2,1),(0,1,2,2),(0,0,0,0),(31,31,31,31),(30,29,28,27),(1,1,1,1)];
+        let mut cases=0;
+        for wide in [false,true] {for sub in [false,true] {for flags in 0..16u32 {for (rn,rm,ra,rd) in roles {
+        for a in values {for b in values {for c in values {
+            let mut cpu=GuestCpuState::reset(0);for (i,r) in cpu.x.iter_mut().enumerate(){*r=0xfedcba9800000000+i as u64;}
+            if rn!=31{cpu.x[rn as usize]=a;}if rm!=31{cpu.x[rm as usize]=b;}if ra!=31{cpu.x[ra as usize]=c;}
+            cpu.sp=0x8765432100;cpu.pstate=0x3c5|(flags<<28);let mut expected=cpu.x;
+            let mask=if wide {u64::MAX}else{u32::MAX as u64};
+            let read=|r:u32|if r==31{0u128}else{u128::from(expected[r as usize]&mask)};
+            let product=read(rn)*read(rm);let total=if sub{u128::from(mask)+1+read(ra)-(product&u128::from(mask))}else{read(ra)+product};
+            if rd!=31{expected[rd as usize]=total as u64&mask;}
+            let word=0x1b000000|(u32::from(wide)<<31)|(u32::from(sub)<<15)|(rm<<16)|(ra<<10)|(rn<<5)|rd;
+            let mut bytes=word.to_le_bytes();let before=bytes;
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),StepResult::Continue);
+            assert_eq!(cpu.x,expected);assert_eq!((cpu.pc,cpu.sp,cpu.pstate),(4,0x8765432100,0x3c5|(flags<<28)));assert_eq!(bytes,before);cases+=1;
+        }}}}}}}
+        assert_eq!(cases,393216);
+    }
+
+    #[test]
+    fn multiply_add_neighboring_families_remain_rejected() {
+        for sf in 0..2 {for op54 in 0..4 {for op31 in 0..8 {for sub in 0..2 {
+            if op54==0&&op31==0{continue;}
+            let word=0x1b017c02u32|(sf<<31)|(op54<<29)|(op31<<21)|(sub<<15);
+            let mut cpu=GuestCpuState::reset(0);cpu.x[0]=17;cpu.x[1]=23;cpu.x[2]=31;cpu.sp=0x1000;cpu.pstate=0xb00003c5;let before=cpu.x;
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word.to_le_bytes())),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+            assert_eq!(cpu.x,before);assert_eq!((cpu.pc,cpu.sp,cpu.pstate,cpu.sys.esr_el1),(0,0x1000,0xb00003c5,1<<25));
+        }}}}
+    }
+
+    #[test]
+    fn conditional_selection_all_conditions_flags_widths_and_aliases() {
+        let values = [0u64, 1, u64::MAX, 0x7fffffff, 0x80000000, 0xffffffff,
+            0x8000000000000000, 0xabcdef0180000081];
+        let roles = [(0u32,1u32,2u32),(31,1,2),(0,31,2),(31,31,2),(0,1,31),(0,1,0),(0,1,1),(0,0,0)];
+        let mut cases = 0;
+        for width in [32u32,64] {for op in 0..4 {for cond in 0..16 {for flags in 0..16 {
+            let n=flags&8!=0;let z=flags&4!=0;let c=flags&2!=0;let v=flags&1!=0;
+            let truth=[z,!z,c,!c,n,!n,v,!v,c&&!z,!c||z,n==v,n!=v,!z&&n==v,z||n!=v,true,true];
+            let mask=u64::MAX>>(64-width);
+            for (index,&a) in values.iter().enumerate() {for &(rn,rm,rd) in &roles {
+                let word=0x1a800000|(u32::from(width==64)<<31)|((op>>1)<<30)|((op&1)<<10)|
+                    (cond<<12)|(rm<<16)|(rn<<5)|rd;
+                let mut cpu=GuestCpuState::reset(0);
+                for index in 0..31 {cpu.x[index]=0xfedcba9800000000+index as u64;}
+                cpu.x[0]=a;cpu.x[1]=values[7-index];cpu.sp=0x9876543210;cpu.pstate=0x3c5|(flags<<28);
+                let left=if rn==31 {0} else {cpu.x[rn as usize]&mask};
+                let right=if rm==31 {0} else {cpu.x[rm as usize]&mask};
+                let otherwise=match op {0=>right,1=>right.wrapping_add(1),2=>mask-right,_=>0u64.wrapping_sub(right)};
+                let mut expected=cpu.x;
+                if rd!=31 {expected[rd as usize]=(if truth[cond as usize] {left} else {otherwise})&mask;}
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word.to_le_bytes())),StepResult::Continue);
+                assert_eq!((cpu.x,cpu.sp,cpu.pstate,cpu.pc),(expected,0x9876543210,0x3c5|(flags<<28),4));
+                cases+=1;
+            }}
+            for bad in 1..4 {
+                let word=0x1a810002|(u32::from(width==64)<<31)|((op>>1)<<30)|((op&1)<<10)|
+                    (cond<<12)|(if bad&1!=0 {1<<29}else{0})|(if bad&2!=0 {1<<11}else{0});
+                let mut cpu=GuestCpuState::reset(0);cpu.x[0]=1;cpu.x[1]=2;cpu.x[2]=3;cpu.sp=0x9870;cpu.pstate=0x3c5|(flags<<28);
+                let before=cpu.x;
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut word.to_le_bytes())),StepResult::Exception(ExceptionKind::UndefinedInstruction));
+                assert_eq!((cpu.x,cpu.sp,cpu.pstate,cpu.pc),(before,0x9870,0x3c5|(flags<<28),0));
+                assert_eq!(cpu.sys.esr_el1,1<<25);
+            }
+        }}}}
+        assert_eq!(cases,131072);
+    }
+
+    #[test]
+    fn extended_arithmetic_all_options_shifts_widths_and_register_roles() {
+        let values = [0u64, 1, u64::MAX, 0x7f, 0x80, 0xff, 0x7fff, 0x8000,
+            0xffff, 0x7fffffff, 0x80000000, 0xffffffff, 0x7fffffffffffffff,
+            0x8000000000000000, 0xabcdef0180000081];
+        let mut cases = 0;
+        for width in [32u32, 64] { for op in 0..4 { for option in 0..8 {
+            for shift in 0..5 { for mode in 0..6 { for &raw_a in &values { for &raw_b in &values {
+                let rn = if mode == 1 {31} else {0};
+                let rm = if mode == 2 {31} else {1};
+                let rd = match mode {3 => 31, 4 => 0, 5 => 1, _ => 2};
+                let mask = u64::MAX >> (64 - width);
+                let sign = 1u64 << (width - 1);
+                let a = raw_a & mask;
+                let source = if rm == 31 {0} else {raw_b};
+                let bits = (8u32 << (option & 3)).min(width);
+                // Independent bit selection oracle, not the implementation shifts.
+                let mut b = 0u64;
+                for bit in 0..width - shift {
+                    if bit >= bits && option & 4 == 0 {continue;}
+                    if source & (1u64 << bit.min(bits - 1)) != 0 {b |= 1u64 << (bit + shift);}
+                }
+                let result = if op & 2 != 0 {a.wrapping_sub(b)} else {a.wrapping_add(b)} & mask;
+                let carry = if op & 2 != 0 {a >= b} else {u128::from(a) + u128::from(b) > u128::from(mask)};
+                let overflow = (a ^ result) & (if op & 2 != 0 {a ^ b} else {!(a ^ b)}) & sign != 0;
+                let flags = (u32::from(result & sign != 0) << 3) | (u32::from(result == 0) << 2) |
+                    (u32::from(carry) << 1) | u32::from(overflow);
+                let word = 0x0b200000 | (u32::from(width == 64) << 31) | (op << 29) |
+                    (rm << 16) | (option << 13) | (shift << 10) | (rn << 5) | rd;
+                let mut cpu = GuestCpuState::reset(0);
+                cpu.x[0] = raw_a; cpu.x[1] = raw_b; cpu.x[2] = 0xfedcba9876543210;
+                cpu.sp = raw_a; cpu.pstate = 0xf00003c5;
+                let mut expected = cpu.x;
+                if rd != 31 {expected[rd as usize] = result;}
+                let sp = if rd == 31 && op & 1 == 0 {result} else {raw_a};
+                let pstate = if op & 1 != 0 {0x3c5 | (flags << 28)} else {0xf00003c5};
+                let mut bytes = word.to_le_bytes();
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)), StepResult::Continue);
+                assert_eq!((cpu.x, cpu.sp, cpu.pstate, cpu.pc), (expected, sp, pstate, 4));
+                cases += 1;
+            }}}}
+            for bad in 0..6 {
+                let word = 0x0b20003f | (u32::from(width == 64) << 31) | (op << 29) |
+                    (option << 13) | if bad < 3 {(bad + 5) << 10} else {(bad - 2) << 22};
+                let mut cpu = GuestCpuState::reset(0); cpu.sp = 0x12345678; cpu.pstate = 0xf00003c5;
+                let mut bytes = word.to_le_bytes();
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)), StepResult::Exception(ExceptionKind::UndefinedInstruction));
+                assert_eq!((cpu.pc, cpu.sp, cpu.pstate), (0, 0x12345678, 0xf00003c5));
+            }
+        }}}
+        assert_eq!(cases, 432000);
     }
 
     #[test]
