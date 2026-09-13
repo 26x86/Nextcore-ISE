@@ -44,7 +44,7 @@ int main(void) {
         for(unsigned mode=0;mode<4;mode++)for(unsigned edge=0;edge<4;edge++)
             one(&code,width,edge&1?width-1:0,edge&2?width-1:0,UINT64_MAX,mode&1?31:0,mode&2?31:0,flags);
     const uint32_t invalid[]={0xd3000002,0x53400002,0x53200002,0x53008002,0x53608002,
-        0x33000002,0xb3400002,0x13000002,0x93400002,0x73000002,0xf3400002};
+        0xb3000002,0x33400002,0x13000002,0x93400002,0x73000002,0xf3400002};
     for(unsigned i=0;i<sizeof(invalid)/sizeof(invalid[0]);i++) {
         vf_cpu cpu;vf_cpu_reset(&cpu,VF_EL1);cpu.x[0]=UINT64_MAX;cpu.x[2]=0x76543210;cpu.sp=0x9870;cpu.pstate=0xb00003c5;
         uint8_t ram[8]={0};CHECK(vf_run(&cpu,(const uint8_t*)&invalid[i],4,ram,8,&code,1,perms,0)==VF_UNDEFINED_INSTRUCTION);

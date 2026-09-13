@@ -6,7 +6,7 @@ Before BP36, the native and reference translators did not implement UBFM. This c
 
 The primary instruction source is Arm A-profile A64 ISA, UBFM (page1052 onward in [Arm publication](https://documentation-service.arm.com/static/67e40f3398aa3c3b6eea6a85)); its public encoding and operation define this work. The [Arm Instruction Set Reference Guide, D2.180](https://documentation-service.arm.com/static/6245c734b059dc5ff9a8bdab) independently describes the unsigned move and aliases. No original operating-system instruction, operand or implementation supplies test values.
 
-Recognize fixed instruction bits with `(word & 0x7f800000) == 0x53000000`. `sf` selects width32/64; `N` must equal `sf`. For width32 both immediate high bits must be zero. A mismatch is Undefined before register/PC/retirement effects. The adjacent BFM/SBFM and reserved opcode variants remain unsupported.
+Recognize fixed instruction bits with `(word & 0x7f800000) == 0x53000000`. `sf` selects width32/64; `N` must equal `sf`. For width32 both immediate high bits must be zero. A mismatch is Undefined before register/PC/retirement effects. BFM is implemented separately with destination merging; SBFM and reserved opcode variants remain unsupported.
 
 Let width be W, rotation be R and endpoint be S. All R,S in0..W-1 are accepted, including a full-width field. If S>=R, copy source bits R..S to the low destination bits. Otherwise insert source bits0..S at destination bit W-R. All destination bits outside that field are zero. This is equivalent to Arm's ROR plus write/top mask operation and covers LSL/LSR immediate, UBFX, UBFIZ, UXTB and UXTH aliases without separate alias decoders.
 

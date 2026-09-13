@@ -235,3 +235,105 @@ fn public_entry_rejects_missing_callback_overflow_and_known_alias_before_effects
         assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!((b.pc,r.execution.esr,r.data_requests),(BASE,1<<25,0));assert_eq!(ram,before);
     }
 }
+
+#[test]
+fn extended_arithmetic_native_through_v1_provider() {
+    let words = [0x8b218003, 0xcb210c62, 0xeb21c05f, HLT];
+    let mut ram = payload(&words, 256); let before = ram.clone();
+    let (r, requests) = run(&mut ram, [0, 0xff, 0, 0], BASE + 256, 8, 0);
+    let b = r.execution.base;
+    assert_eq!((b.status, b.retired, b.compiled_blocks, b.x2, b.x3), (1, 4, 4, u64::MAX - 2040, u64::MAX));
+    assert_eq!((r.execution.pstate >> 28, r.fetch_requests, r.data_requests), (10, 4, 0));
+    assert!(requests.iter().all(|q| q.operation == FETCH)); assert_eq!(ram, before);
+}
+
+#[test]
+fn conditional_selection_native_through_v1_provider() {
+    let mut ram = payload(&[0xf100143f, 0x9a9f0022, 0x9a8217e2, 0x5a8113e0, 0xda8217e3, HLT], 256); let before = ram.clone();
+    let (r, requests) = run(&mut ram, [u64::MAX, 5, 0, 0], BASE + 256, 16, 0);
+    let b = r.execution.base;
+    assert_eq!((b.status, b.retired, b.compiled_blocks), (1, 6, 6));
+    assert_eq!((b.x0, b.x1, b.x2, b.x3), (0xfffffffa, 5, 6, u64::MAX - 5));
+    assert_eq!((r.execution.pstate, r.fetch_requests, r.data_requests), (0x600003c5, 6, 0));
+    assert!(requests.iter().all(|q| q.operation == FETCH)); assert_eq!(ram, before);
+}
+
+#[path="register_offset_provider_cases.rs"]mod register_offset_cases;
+#[test]fn register_offset_v1_all_forms_and_host_or_guest_failures() {
+    for case in register_offset_cases::cases() {
+        let address=BASE+128;let mut ram=payload(&[case.word,HLT],256);
+        ram[128..136].copy_from_slice(&0x80ff7f0102030480u64.to_le_bytes());
+        let initial=[0, address.wrapping_sub(case.offset), case.index, 0x1234567887654321];
+        let mut expected_regs=initial;let mut expected_ram=ram.clone();register_offset_cases::expected(&case,&mut expected_regs,&mut expected_ram,128);
+        let (r,requests)=run(&mut ram,initial,BASE+256,8,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks),(1,2,2));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected_regs);
+        assert_eq!((r.execution.pstate,r.execution.sp,r.data_requests,r.completed_data_operations),(0x3c5,BASE+256,1,1));
+        let data=requests.iter().find(|q|q.operation!=FETCH).unwrap();assert_eq!((data.address,data.width,data.count),(address,case.bytes as u32,1));assert_eq!(ram,expected_ram);
+    }
+    for word in register_offset_cases::invalid() {
+        let mut ram=payload(&[word,HLT],256);let before=ram.clone();let initial=[1,BASE+128,0,3];
+        let(r,_)=run(&mut ram,initial,BASE+256,8,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,r.data_requests,r.execution.esr),(8,0,0,1<<25));assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(ram,before);
+    }
+    for read in [false,true] {for fault in 0..3 {
+        let word=register_offset_cases::word(1,u32::from(read),6,1,1,2,2);
+        let address=if fault==0 {BASE+256}else{BASE+129};let initial=[1,address+2,u64::MAX,3];
+        let mut ram=payload(&[word,HLT],256);let before=ram.clone();let(r,_)=run(&mut ram,initial,BASE+256,8,if fault==2 {11}else{0});let b=r.execution.base;
+        assert_eq!((b.status,b.retired,r.completed_data_operations),(if fault==1 {12}else{4},0,0));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(ram,before);
+        assert_eq!(r.provider_status,if fault==0 {1}else if fault==2 {3}else{0});
+        assert_eq!(r.execution.esr,if fault==1 {0x96000021|if read {0}else{64}}else{0});
+        assert_eq!(r.guest_far,if fault==1 {address}else{0});
+    }}
+}
+
+fn test_bit_branch(op:u32,bit:u32,imm:i32,rt:u32)->u32 {
+    0x36000000|op<<24|(bit>>5)<<31|(bit&31)<<19|((imm as u32)&0x3fff)<<5|rt
+}
+#[test]fn test_bit_v1_fetches_only_committed_pc_and_retains_branch_on_fault() {
+    for bit in 0..64 {for op in 0..2 {for set in [false,true] {for zr in [false,true] {
+        let source=if set {1u64<<bit}else{0};let take=(set&&!zr)==(op!=0);
+        let word=test_bit_branch(op,bit,2,if zr {31}else{1});let mut ram=payload(&[word,HLT,HLT],256);let before=ram.clone();let initial=[0,source,8,9];
+        let(r,requests)=run(&mut ram,initial,BASE+256,8,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,BASE+if take {12}else{8}));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!((r.execution.pstate,r.execution.sp,r.fetch_requests,r.data_requests),(0x3c5,BASE+256,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[BASE,BASE+if take {8}else{4}]);assert_eq!(ram,before);
+    }}}}
+    let mut ram=payload(&[0xd1000421,test_bit_branch(1,0,-1,1),HLT],256);
+    let(r,requests)=run(&mut ram,[0,2,8,9],BASE+256,8,0);
+    assert_eq!((r.execution.base.status,r.execution.base.retired,r.execution.base.x1,r.fetch_requests),(1,5,0,5));
+    assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[BASE,BASE+4,BASE,BASE+4,BASE+8]);
+    let mut ram=payload(&[test_bit_branch(0,63,-8192,31),HLT],256);let before=ram.clone();let(r,requests)=run(&mut ram,[1,2,3,4],BASE+256,8,0);let b=r.execution.base;
+    assert_eq!((b.status,b.retired,b.compiled_blocks,r.fetch_requests,r.provider_status),(4,1,1,2,1));
+    assert_eq!((b.pc,r.last_address),(BASE-32768,BASE-32768));assert_eq!(requests[1].address,BASE-32768);assert_eq!(ram,before);
+}
+
+#[path="multiply_add_cases.rs"] mod multiply_add_cases;
+#[test]fn multiply_add_v1_executes_without_data_requests() {
+    multiply_add_cases::each(|case| {
+        let mut ram=payload(&[case.word,HLT],256);let before=ram.clone();let expected=multiply_add_cases::expected(case,case.initial);
+        let(r,requests)=run(&mut ram,case.initial,BASE+256,8,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,BASE+8));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);
+        assert_eq!((r.execution.pstate,r.execution.sp,r.fetch_requests,r.data_requests),(0x3c5,BASE+256,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[BASE,BASE+4]);assert_eq!(ram,before);
+    });
+}
+
+#[path="bfm_cases.rs"] mod bfm_cases;
+#[test]fn bfm_v1_executes_without_data_requests() {
+    bfm_cases::each(|case| {
+        let mut ram=payload(&[case.word,HLT],256);let before=ram.clone();let expected=bfm_cases::expected(case,case.initial);
+        let(r,requests)=run(&mut ram,case.initial,BASE+256,8,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,b.compiled_blocks,b.pc),(1,2,2,BASE+8));assert_eq!([b.x0,b.x1,b.x2,b.x3],expected);
+        assert_eq!((r.execution.pstate,r.execution.sp,r.fetch_requests,r.data_requests),(0x3c5,BASE+256,2,0));
+        assert_eq!(requests.iter().map(|q|q.address).collect::<Vec<_>>(),[BASE,BASE+4]);assert_eq!(ram,before);
+    });
+}
+
+#[test]fn bfm_v1_invalid_fields_preserve_state() {
+    for word in bfm_cases::invalid() {
+        let mut ram=payload(&[word,HLT],256);let before=ram.clone();let initial=[1,2,3,4];let(r,_)=run(&mut ram,initial,BASE+256,8,0);let b=r.execution.base;
+        assert_eq!((b.status,b.retired,b.pc,r.fetch_requests,r.data_requests,r.execution.esr),(8,0,BASE,1,0,1<<25));
+        assert_eq!([b.x0,b.x1,b.x2,b.x3],initial);assert_eq!(r.execution.pstate,0x3c5);assert_eq!(ram,before);
+    }
+}

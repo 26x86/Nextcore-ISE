@@ -26,8 +26,9 @@ The change extends the existing BP31 C JIT and Rust reference runtime:
   the new entry. `runtime/arch.c` remains the precise exception/register bank.
   C control writes and reference TLBI counters are not a substitute for service
   reconfiguration; the immutable v2 entry stops at those instructions.
-* The PAC slow path retains its M=1 gate and receives no new hidden permission
-  to modify the translated regime. The new entry has no PAC callback argument.
+* The original `vf_boot_run_memory_v2` retains its no-PAC gate. The separately
+  selected `vf_boot_run_memory_pauth_v2` has an explicit callback and rejects
+  immutable control changes before commitment; see `MAPPED_PAUTH_V2.md`.
 
 ## Canonical shared-source packaging
 
@@ -72,17 +73,43 @@ The initial profile is deliberately specific:
 | --- | --- |
 | EL/PSTATE | AArch64 EL0t, EL1t or EL1h; current_el must match PSTATE mode. Only existing NZCV/DAIF/SP selection bits are variable; PAN/UAO/TCO and unmodeled state are zero. |
 | SCTLR | `0x30d00803`, optionally OR SA bit 3 and SA0 bit 4. This preserves the baseline RES1 pattern and requires M=1, A=1, little endian, C=I=WXN=0. All other values reject this profile before effects. |
-| TCR | TG0/TG1 select the same 4 KiB or 16 KiB granule with their distinct encodings; both T0SZ/T1SZ are architecturally valid. IPS=0..5, EPD0/1 modeled. IRGN/ORGN/SH fields are zero: noncacheable, nonshareable table walks. All remaining bits zero, including A1/AS/TBI/HA/HD/HPD/TBID/E0PD/DS. |
-| TTBR0/1 | ASID=0, CnP=0, no unmodeled high bits, whole-granule aligned table roots. The existing `T1SZ=0 means absent` shortcut is not accepted by this strict profile; use valid T1SZ plus EPD1 for a disabled upper walk. |
+| TCR | TG0/TG1 select the same 4 KiB or 16 KiB granule with their distinct encodings; both T0SZ/T1SZ are architecturally valid. IPS=0..5, EPD0/1 and A1 modeled. IRGN/ORGN/SH fields are zero: noncacheable, nonshareable table walks. All remaining bits zero, including AS/TBI/HA/HD/HPD/TBID/E0PD/DS. |
+| TTBR0/1 | Eight-bit ASID in bits 55:48; A1 selects the active tag at construction. Bits 63:56 and CnP are zero, with whole-granule aligned table roots. The existing `T1SZ=0 means absent` shortcut is not accepted by this strict profile; use valid T1SZ plus EPD1 for a disabled upper walk. Full control-snapshot immutability remains; dynamic profile 2 retains its separate ASID=0/A1=0 restriction. |
 | MAIR | exactly `0x44`: Attr0 is Normal inner/outer noncacheable; Attr1..7 are zero and cannot be selected by accepted leaf descriptors. |
 | HCR/SCR | zero inactive diagnostic fields; this profile exposes only EL0/EL1, with EL2/EL3 absent, a single Non-secure PA domain, and no stage 2. This is not a measured hardware HCR/SCR reset claim. |
 | Epoch | exactly 1 for the complete run; immutable controls and table image. |
 
-A=1 makes natural element alignment a fully supported rule for this first
-stage. A=0 is a profile rejection, not a fabricated alignment exception for
-Normal memory. Broader Normal unaligned handling and Device memory are separate
-extensions. M=1 PAC execution remains explicitly unavailable until its existing
-provider and control contract are extended; PAC with M=0 is preserved.
+A=1 makes natural element alignment a fully supported rule for profile 1.
+That profile still rejects A=0. The separately selected profile 3 below permits
+ordinary Normal-memory unaligned transfers. Device memory remains outside both
+immutable profiles. The original v2 entry still does not dispatch PAC. Its
+separate PAC-capable entry and immutable-control checks are documented in
+`MAPPED_PAUTH_V2.md`; the M=0 entry retains its existing behavior.
+
+### Fixed Normal-NC unaligned profile 3
+
+Current Status: The immutable v2 service and native consumer also admit
+`PROFILE_FIXED_NC_UNALIGNED` (C: `VF_MEMORY_V2_FIXED_NC_UNALIGNED`), value 3.
+It requires SCTLR `0x30d00801`, optionally OR SA/SA0, with the same remaining
+controls, epoch, ABI version, table ownership and descriptor subset as profile 1.
+It does not reinterpret the dynamic ABI discriminator 3 or dynamic profile 2.
+
+Target State: Permit existing ordinary scalar/pair data transfers at unaligned
+virtual addresses while checking every transferred byte before any RAM mutation
+or register/writeback commitment. Adjacent virtual pages may have nonadjacent
+physical backing. A later page fault, unsupported attribute or missing backing
+must leave the complete transfer uncommitted. Fetch and configured SP alignment
+checks remain active. Native reply validation rejects a fabricated ordinary data
+alignment fault in this profile. Atomic and exclusive instructions are not added.
+
+Arm's [memory attributes guide](https://documentation-service.arm.com/static/63a43e333f28e5456434e18b)
+sections 3.2 and 12.1 distinguish disabled-translation Device data accesses from
+ordinary Normal-memory accesses with alignment checking disabled. This explicit
+mapped profile provides the latter environment; it does not change the M=0 path.
+It does not by itself supply an original kernel entry ABI. The separate
+PAC-capable entry requires an explicit canonical callback and preserves the
+selected SCTLR enable semantics. Authored native and EFI results must remain
+distinct from physical macOS startup.
 
 Both VA halves support the existing walker limits: 4 KiB TnSZ16..39, 16 KiB
 TnSZ17..47, IPS32/36/40/42/44/48. Physical backing can be smaller than the
@@ -407,3 +434,22 @@ Historical BP29 `tools/mmu_fault_levels/compare_walker.py`, its README and
 `results.json` describe their original source revision and remain unchanged.
 Use `compare_current_walker.py` for the extracted canonical enum and current
 walker; it records both current source hashes and never rewrites old receipts.
+
+### Immutable EL1 stack selection
+
+Both immutable v2 entries accept only the two immediate SPSel selections at
+EL1, independently of PAC callback availability. The handler saves the live SP
+to the currently selected bank, changes only PSTATE.SP, then loads SP_EL0 or
+SP_EL1. Selecting the same bank preserves the live SP even if its saved bank
+copy was stale. Subsequent instructions observe the selected stack immediately,
+without an added barrier; see [Arm's public PSTATE synchronization discussion](https://community.arm.com/forums/f/architectures-and-processors-forum/8141/is-any-synchronization-barrier-instruction-necessary-after-writing-spsel-to-switch-to-sp0-on-armv8).
+
+The step preserves current EL, NZCV, DAIF, immutable memory controls, PAC keys,
+and other registers. It advances PC with unsigned wrap, retires once and updates
+the counter once. It makes no data request and does not fault merely because
+the selected SP is unaligned; a subsequent stack access applies its existing
+alignment policy. The next iteration retains control, interrupt and fresh-fetch
+validation. EL0 and reserved immediate encodings retain their prior failure
+paths. This handler does not accept DAIF, TLBI, ERET or arbitrary system writes;
+M0 and dynamic paths remain unchanged. Authored bank-switch and following-access
+checks are required before any claim about original execution progress.

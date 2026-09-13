@@ -14,6 +14,7 @@ static NEXT_TOKEN:AtomicU64=AtomicU64::new(1);
 fn mapped(s:c::Snapshot)->m::Controls {let mut v=s.controls(1);v.abi_version=2;v.profile=1;v.sctlr|=1;v}
 pub fn controls_valid_dynamic(v:&m::Controls)->bool {
     v.abi_version==3 && v.struct_size==80 && v.profile==2 && v.reserved==0 && v.epoch!=0 &&
+        (v.ttbr0|v.ttbr1)>>48==0 && v.tcr&((1u64<<22)|(1u64<<36))==0 &&
         controls_valid(&mapped(c::Snapshot::from_controls(*v)))
 }
 #[derive(Clone,Copy)]

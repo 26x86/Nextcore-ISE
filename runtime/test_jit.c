@@ -80,7 +80,7 @@ int main(void) {
      * instructions until a C interpreter/IR path can commit them safely. */
     uint64_t sysreg_value=0;vf_cpu_reset(&s,VF_EL1);
     CHECK(vf_cpu_read_sysreg(&s,VF_SYSREG_KEY_CURRENT_EL,&sysreg_value)==VF_SYSREG_OK && sysreg_value==4);
-    CHECK(vf_cpu_read_sysreg(&s,VF_SYSREG_KEY_ID_AA64MMFR0_EL1,&sysreg_value)==VF_SYSREG_OK && sysreg_value==UINT64_C(0x00101122));
+    CHECK(vf_cpu_read_sysreg(&s,VF_SYSREG_KEY_ID_AA64MMFR0_EL1,&sysreg_value)==VF_SYSREG_OK && sysreg_value==UINT64_C(0x0f100005));
     CHECK(vf_cpu_write_sysreg(&s,VF_SYSREG_KEY_TTBR0_EL1,0x4000)==VF_SYSREG_OK);
     CHECK(vf_cpu_read_sysreg(&s,VF_SYSREG_KEY_TTBR0_EL1,&sysreg_value)==VF_SYSREG_OK && sysreg_value==0x4000);
     CHECK(vf_cpu_write_sysreg(&s,VF_SYSREG_KEY_TTBR0_EL1,0x4001)==VF_SYSREG_INVALID_VALUE);

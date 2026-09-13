@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "tests/pauth_width_oracle.h"
 
 extern int vf_preos_pauth_step(vf_pauth_context *,uint32_t);
 static unsigned checks;
@@ -30,8 +31,26 @@ int main(void) {
     c.x[1]=UINT64_C(0xbf37000000000130);
     CHECK(vf_preos_pauth_step(&c,0xdac11041)==0);
     CHECK(c.x[1]==UINT64_C(0x2000000000000130));
-    c.tcr=17;vf_pauth_context before=c;
+    c.tcr=18;vf_pauth_context before=c;
     CHECK(vf_preos_pauth_step(&c,0xdac10041)!=0 && memcmp(&before,&c,sizeof(c))==0);
+    const unsigned enables[]={31,30,27,13};
+    for(size_t i=0;i<sizeof(width_oracle)/sizeof(width_oracle[0]);i++) {
+        const uint64_t *v=width_oracle[i];unsigned key=(unsigned)v[1];
+        memset(&c,0,sizeof(c));c.current_el=1;c.sctlr=UINT64_C(1)<<enables[key];c.tcr=v[6];
+        c.keys[key][0]=v[4];c.keys[key][1]=v[5];c.x[1]=v[2];c.x[2]=v[3];
+        uint32_t sign=0xdac10041|(key<<10),auth=0xdac11041|(key<<10);
+        uint32_t strip=key<2?0xdac143e1:0xdac147e1;
+        /* QEMU APA5 adds pointer XOR above the address bits; baseline APA1
+         * agrees only for these lower-range pointers. Preserve upper captures
+         * for XPAC/disabled comparisons, never normalize their signed values. */
+        if ((v[2] >> 63) == 0) {
+            CHECK(vf_preos_pauth_step(&c,sign)==0 && c.x[1]==v[7]);
+            CHECK(vf_preos_pauth_step(&c,auth)==0 && c.x[1]==v[8]);
+        }
+        c.x[1]=v[7];CHECK(vf_preos_pauth_step(&c,strip)==0 && c.x[1]==v[9]);
+        c.sctlr=0;c.x[1]=v[2];CHECK(vf_preos_pauth_step(&c,sign)==0 && c.x[1]==v[10]);
+        c.x[1]=v[7];CHECK(vf_preos_pauth_step(&c,auth)==0 && c.x[1]==v[11]);
+    }
 
     uint8_t ram[0x4000]={0};
     uint8_t *code=mmap(0,16384,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);

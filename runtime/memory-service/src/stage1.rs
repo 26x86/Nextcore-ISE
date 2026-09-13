@@ -1,4 +1,9 @@
 //! Immutable Normal-NC stage-1 profile using the canonical preos walker.
+//! Profile 1 retains SCTLR.A=1. Explicit profile 3 fixes SCTLR.A=0 and permits
+//! ordinary unaligned data only: fetch remains aligned and every byte is
+//! translated/preflighted before stores commit. Wrapping spans are unsupported
+//! after mandatory alignment priority. Tables stay immutable; no entry/PAC or
+//! readiness contract is supplied by either profile.
 use crate::abi::{FETCH,LOAD,STORE};
 use crate::abi_v2::*;
 use crate::exception_level::ExceptionLevel;
@@ -11,15 +16,17 @@ use core::ffi::c_void;
 pub enum Error {InvalidRange,InvalidControls}
 
 pub fn controls_valid(c:&Controls)->bool {
-    let allowed_tcr=0x3fu64|(1<<7)|(3<<14)|(0x3f<<16)|(1<<23)|(3<<30)|(7<<32);
-    if c.abi_version!=VERSION || c.struct_size!=80 || c.profile!=PROFILE_FIXED_NC ||
+    let allowed_tcr=0x3fu64|(1<<7)|(3<<14)|(0x3f<<16)|(1<<22)|(1<<23)|(3<<30)|(7<<32);
+    let sctlr=match c.profile {PROFILE_FIXED_NC=>0x30d00803,
+        PROFILE_FIXED_NC_UNALIGNED=>0x30d00801,_=>return false};
+    if c.abi_version!=VERSION || c.struct_size!=80 ||
         c.reserved!=0 || c.epoch!=1 || c.mair!=0x44 || c.hcr!=0 || c.scr!=0 ||
-        c.sctlr&!0x18!=0x30d00803 || c.tcr&!allowed_tcr!=0 || (c.tcr>>32)&7>5 {return false;}
+        c.sctlr&!0x18!=sctlr || c.tcr&!allowed_tcr!=0 || (c.tcr>>32)&7>5 {return false;}
     let tg0=(c.tcr>>14)&3;let tg1=(c.tcr>>30)&3;
     let (min,max,alignment)=match (tg0,tg1) {(0,2)=>(16,39,0x1000),(2,1)=>(17,47,0x4000),_=>return false};
     let t0=c.tcr&63;let t1=(c.tcr>>16)&63;
     if !(min..=max).contains(&t0) || !(min..=max).contains(&t1) {return false;}
-    let mask=0x0000ffffffffffffu64&!(alignment-1);
+    let mask=(0x0000ffffffffffffu64&!(alignment-1))|0x00ff000000000000;
     c.ttbr0&!mask==0 && c.ttbr1&!mask==0
 }
 
@@ -93,7 +100,7 @@ impl<'a> MemoryServiceV2<'a> {
     pub fn execute(&mut self,r:&Request)->Reply {self.execute_counted(r,&mut 0)}
     fn execute_counted(&mut self,r:&Request,table_reads:&mut u64)->Reply {
         if !self.request_valid(r) {return self.empty(INVALID_REQUEST);}
-        if r.address&(u64::from(r.width)-1)!=0 {
+        if r.address&(u64::from(r.width)-1)!=0 && (r.operation==FETCH || r.controls.sctlr&2!=0) {
             let mut out=self.empty(GUEST_FAULT);out.address=r.address;out.context=INPUT;
             if r.operation==FETCH {out.fault=PC_ALIGNMENT;out.esr=0x8a000000;}
             else {out.fault=DATA_ALIGNMENT;out.fsc=0x21;

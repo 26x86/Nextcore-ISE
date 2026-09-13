@@ -155,7 +155,11 @@ static uint32_t exception_syndrome(enum vf_exception_kind kind,
         if (!(instruction & UINT32_C(0x00400000))) extra |= UINT32_C(1) << 6;
     }
     if ((kind == VF_EXCEPTION_DATA_ABORT || kind == VF_EXCEPTION_ALIGNMENT_FAULT) &&
-        (instruction & UINT32_C(0x3f000000)) == UINT32_C(0x39000000) &&
+        ((instruction & UINT32_C(0x3f000000)) == UINT32_C(0x39000000) ||
+         (instruction & UINT32_C(0x3f200c00)) == UINT32_C(0x38000000) ||
+         (instruction & UINT32_C(0x3f200400)) == UINT32_C(0x38000400) ||
+         ((instruction & UINT32_C(0x3f200c00)) == UINT32_C(0x38200800) &&
+          (instruction & (UINT32_C(1)<<14)))) &&
         ((instruction >> 30) < 3 || ((instruction >> 22) & 3) < 2) &&
         !((instruction >> 30) == 2 && ((instruction >> 22) & 3) == 3)) {
         extra = UINT32_C(1) << 25; /* Integer scalar abort, IL=1, ISV=0. */
@@ -171,7 +175,7 @@ void vf_cpu_reset(vf_cpu *cpu, uint32_t initial_el) {
     cpu->current_el = initial_el;
     cpu->pstate = mode_for_el(initial_el);
     cpu->cntfrq = UINT64_C(24000000);
-    cpu->id_aa64mmfr0 = UINT64_C(0x00101122);
+    cpu->id_aa64mmfr0 = UINT64_C(0x0f100005);
     cpu->id_aa64isar1 = 0;
     cpu->tcr = 16;
     cpu->status = VF_NEXT;
@@ -354,6 +358,11 @@ int vf_cpu_read_sysreg(const vf_cpu *cpu, uint32_t key, uint64_t *value) {
             return VF_SYSREG_UNKNOWN;
         *value=cpu->platform_override;return VF_SYSREG_OK;
     }
+    /* Exact ZFR0/ISAR0/ISAR2 reads in the bounded scalar profile. */
+    if(key==UINT32_C(0x4024) || key==UINT32_C(0x4030) || key==UINT32_C(0x4032) || key==UINT32_C(0x4038)) {
+        if(cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)return VF_SYSREG_UNKNOWN;
+        *value=key==UINT32_C(0x4038)?UINT64_C(0x0f100005):0;return VF_SYSREG_OK;
+    }
     minimum = sysreg_min_el(key);
     if (minimum < 0) return VF_SYSREG_UNKNOWN;
     if ((int)cpu->current_el < minimum)
@@ -445,7 +454,10 @@ int vf_cpu_write_sysreg(vf_cpu *cpu, uint32_t key, uint64_t value) {
     case VF_SYSREG_KEY_TTBR1_EL1:
         if (value & UINT64_C(0xfff)) return VF_SYSREG_INVALID_VALUE;
         cpu->ttbr1 = value; vf_cpu_invalidate_tlb(cpu); break;
-    case VF_SYSREG_KEY_TCR_EL1: cpu->tcr = value; vf_cpu_invalidate_tlb(cpu); break;
+    case VF_SYSREG_KEY_TCR_EL1:
+        /* HA/HD and HPD0/HPD1 have no implementation in this model. */
+        if (value & (UINT64_C(0xf) << 39)) return VF_SYSREG_INVALID_VALUE;
+        cpu->tcr = value; vf_cpu_invalidate_tlb(cpu); break;
     case VF_SYSREG_KEY_SPSR_EL1: cpu->spsr_el[VF_EL1] = value; break;
     case VF_SYSREG_KEY_ELR_EL1: cpu->elr_el[VF_EL1] = value; break;
     case VF_SYSREG_KEY_ESR_EL1: cpu->esr_el[VF_EL1] = value; break;

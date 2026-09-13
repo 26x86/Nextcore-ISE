@@ -197,9 +197,19 @@ static int system_boundary(uint32_t w, uint32_t current_el) {
 typedef struct {
     unsigned width,count,read,signed_load,result64,mode,rn,rt,rt2;
     int32_t displacement;
+    unsigned register_offset,rm,option,shift;
 } memory_shape;
+static int register_offset_family(uint32_t w) {
+    return (w&0x3b200c00)==0x38200800;
+}
+static int unscaled_offset_family(uint32_t w) {
+    return (w&0x3b200c00)==0x38000000;
+}
+static int scalar_writeback_family(uint32_t w) {
+    return (w&0x3b200400)==0x38000400;
+}
 static int memory_family(uint32_t w) {
-    return (w&0x3a000000)==0x28000000 || (w&0x3b000000)==0x39000000;
+    return (w&0x3a000000)==0x28000000 || (w&0x3b000000)==0x39000000 || register_offset_family(w) || unscaled_offset_family(w) || scalar_writeback_family(w);
 }
 static int decode_memory(uint32_t w,memory_shape *d) {
     *d=(memory_shape){0};d->rn=(w>>5)&31;d->rt=w&31;
@@ -211,12 +221,23 @@ static int decode_memory(uint32_t w,memory_shape *d) {
         d->width=opc==2?8:4;d->count=2;d->result64=opc==2;
         d->displacement=(int32_t)(sext((w>>15)&127,7)*d->width);return 1;
     }
-    if((w&0x3b000000)==0x39000000) {
+    if((w&0x3b000000)==0x39000000 || register_offset_family(w) || unscaled_offset_family(w) || scalar_writeback_family(w)) {
         unsigned size=w>>30,opc=(w>>22)&3;
+        d->register_offset=register_offset_family(w);
+        if(d->register_offset) {
+            d->rm=(w>>16)&31;d->option=(w>>13)&7;d->shift=(w&(1u<<12))?size:0;
+            if(!(d->option&2))return 0;
+        }
         if((w&(1u<<26)) || (opc>=2 && (size==3 || (opc==3 && size==2))))return 0;
         d->width=1u<<size;d->count=1;d->read=opc!=0;d->signed_load=opc>=2;
         d->result64=opc==2 || size==3;d->mode=2;
-        d->displacement=((w>>10)&4095)*d->width;return 1;
+        if(scalar_writeback_family(w)) {
+            d->mode=(w>>10)&3;
+            /* Explicit policy for constrained unpredictable base overlap. */
+            if(d->rn!=31 && d->rn==d->rt)return 0;
+        }
+        if(unscaled_offset_family(w) || scalar_writeback_family(w))d->displacement=(int32_t)sext((w>>12)&511,9);
+        else if(!d->register_offset)d->displacement=((w>>10)&4095)*d->width;return 1;
     }
     return 0;
 }
@@ -226,12 +247,43 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
     uint64_t base = cpu ? cpu->guest_ram_base : 0;
     c->used=0;
     for(unsigned n=0;n<limit;n++,pc+=4) {
-        if(!provider && ((pc&3) || size<4 || pc<base || pc-base>size-4 || pc>UINT64_MAX-4)) { finish(c,pc,n,VF_INSTRUCTION_ABORT);break; }
+        if(!provider && ((pc&3) || size<4 || pc<base || pc-base>size-4 || pc>UINT64_MAX-3)) { finish(c,pc,n,VF_INSTRUCTION_ABORT);break; }
         uint32_t w=word(guest+(provider?0:pc-base)); unsigned rd=w&31,rn=(w>>5)&31,wide=w>>31;
         unsigned thread = is_mrs_msr(w) ? thread_offset(sysreg_key(w)) : 0;
         if(provider && memory_family(w)) {
             field32(c,offsetof(vf_cpu,instruction),w);
             finish(c,pc,n,VF_MEMORY_DISPATCH);break;
+        } else if((w&0x3fe00800)==0x1a800000) {
+            /* CSEL/CSINC/CSINV/CSNEG: all R31 operands are ZR. */
+            size_t other=condition_false(c,(w>>12)&15);
+            load(c,rn,0,wide);
+            if(other) {
+                b(c,0xe9);size_t done=c->used;u32(c,0);fix(c,other);
+                load(c,(w>>16)&31,0,wide);
+                if(w&(1u<<30)) {if(wide)b(c,0x48);b(c,0xf7);b(c,0xd0);}
+                if(w&(1u<<10)) {if(wide)b(c,0x48);b(c,0x83);b(c,0xc0);b(c,1);}
+                fix(c,done);
+            }
+            save(c,rd,0); /* Conditional selection preserves guest PSTATE. */
+        } else if((w&0x7fe0f000)==0x1ac02000) {
+            /* Variable shifts: R31 is ZR; width supplies the x86 count mask. */
+            unsigned shift=(w>>10)&3;
+            load(c,(w>>16)&31,0,wide);b(c,0x49);b(c,0x89);b(c,0xc1);
+            load(c,rn,0,wide);
+            b(c,0x49);b(c,0x89);b(c,0xca); /* r10=RCX CPU pointer */
+            b(c,0x44);b(c,0x89);b(c,0xc9); /* ecx=r9d count */
+            if(wide)b(c,0x48);b(c,0xd3);b(c,shift==0?0xe0:shift==1?0xe8:shift==2?0xf8:0xc8);
+            b(c,0x4c);b(c,0x89);b(c,0xd1); /* Restore RCX before CPU access. */
+            save(c,rd,0); /* Host flags do not alter guest PSTATE. */
+        } else if((w&0x7fe00000)==0x1b000000) {
+            /* MADD/MSUB: every register31 is ZR, including the addend. */
+            load(c,(w>>16)&31,0,wide);b(c,0x49);b(c,0x89);b(c,0xc1);
+            load(c,rn,0,wide);
+            b(c,wide?0x49:0x41);b(c,0x0f);b(c,0xaf);b(c,0xc1); /* imul rax,r9 */
+            b(c,0x49);b(c,0x89);b(c,0xc1);
+            load(c,(w>>10)&31,0,wide);
+            b(c,wide?0x4c:0x44);b(c,(w&(1u<<15))?0x29:0x01);b(c,0xc8);
+            save(c,rd,0); /* Low-width arithmetic preserves guest PSTATE. */
         } else if((w&0x3fe00410)==0x3a400000) {
             /* CCMP/CCMN, register or imm5. R31 is ZR, never SP. */
             size_t fallback=condition_false(c,(w>>12)&15);
@@ -246,6 +298,24 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                 b(c,0x4c);b(c,0x21);b(c,0x89);u32(c,offsetof(vf_cpu,pstate));
                 b(c,0x48);b(c,0x09);b(c,0x81);u32(c,offsetof(vf_cpu,pstate));fix(c,done);
             }
+        } else if((w&0x7f800000)==0x33000000) {
+            unsigned r=(w>>16)&63,s=(w>>10)&63,width=wide?64:32;
+            if(((w>>22)&1)!=wide || (!wide && ((r|s)&32))) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            unsigned bits=s>=r?s-r+1:s+1,position=s>=r?0:width-r;
+            uint64_t low=bits==64?UINT64_MAX:(UINT64_C(1)<<bits)-1;
+            uint64_t selected=low<<position;
+            load(c,rn,0,wide);
+            if(s>=r && r) {if(wide)b(c,0x48);b(c,0xc1);b(c,0xe8);b(c,r);}
+            b(c,0x49);b(c,0xb9);u64(c,low);b(c,wide?0x4c:0x44);b(c,0x21);b(c,0xc8);
+            if(position) {if(wide)b(c,0x48);b(c,0xc1);b(c,0xe0);b(c,position);}
+            b(c,0x49);b(c,0x89);b(c,0xc2); /* R10 snapshots inserted source bits. */
+            load(c,rd,0,wide);b(c,0x49);b(c,0xb9);u64(c,~selected);
+            b(c,wide?0x4c:0x44);b(c,0x21);b(c,0xc8);
+            b(c,wide?0x4c:0x44);b(c,0x09);b(c,0xd0);
+            save(c,rd,0); /* BFM preserves PSTATE and unselected destination bits. */
         } else if((w&0x7f800000)==0x53000000) {
             /* UBFM, including every extract/insert/shift alias. R31 is ZR.
              * This branch is shared by direct and all provider entry paths. */
@@ -276,6 +346,21 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             b(c,wide?0x4c:0x44);b(c,op==1?0x09:op==2?0x31:0x21);b(c,0xc8);
             save(c,rd,op!=3);
             if(op==3)save_arithmetic_flags(c,0); /* Logical host C/V are zero. */
+        } else if((w&~UINT32_C(31))==UINT32_C(0xd5380480) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380600) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380640) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380700)) {
+            /* Exact scalar-profile ID read. Controls are live on cache hits. */
+            b(c,0x83);b(c,0xb9);u32(c,offsetof(vf_cpu,current_el));b(c,VF_EL1);
+            size_t bad_el=jcc(c,0x85);
+            b(c,0x48);b(c,0x8b);b(c,0x81);u32(c,offsetof(vf_cpu,hcr_el2));
+            b(c,0x48);b(c,0x0b);b(c,0x81);u32(c,offsetof(vf_cpu,scr_el3));
+            size_t allowed=jcc(c,0x84);
+            fix(c,bad_el);
+            field32(c,offsetof(vf_cpu,instruction),w);
+            finish(c,pc,n,VF_SYSTEM_REGISTER_TRAP);
+            fix(c,allowed);
+            imm(c,(w&~UINT32_C(31))==UINT32_C(0xd5380700)?UINT64_C(0x0f100005):0);save(c,rd,0);
         } else if(thread) {
             int read = (w & 0x00200000) != 0;
             if(current_el==VF_EL0 && (sysreg_key(w)==VF_SYSREG_KEY_TPIDR_EL1 ||
@@ -314,9 +399,25 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             uint64_t target=(w>>31)?(pc&~UINT64_C(0xfff))+(uint64_t)(displacement*4096)
                                    :pc+(uint64_t)displacement;
             imm(c,target);save(c,rd,0);
-        } else if((w&0x7fe0ffe0)==0x2a0003e0) {
-            /* MOV register alias: ORR Xd/XZR/Xm, LSL #0. */
-            load(c,(w>>16)&31,0,wide);save(c,rd,0);
+        } else if((w&0x1f000000)==0x0a000000) {
+            /* Logical shifted register: every R31 is ZR, including Rd. */
+            unsigned op=(w>>29)&3,rm=(w>>16)&31,shift=(w>>22)&3,amount=(w>>10)&63;
+            int invert=(w>>21)&1;
+            if(!wide && amount>=32) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            load(c,rm,0,wide);
+            if(amount) {if(wide)b(c,0x48);b(c,0xc1);b(c,shift==0?0xe0:shift==1?0xe8:shift==2?0xf8:0xc8);b(c,amount);}
+            if(invert) {if(wide)b(c,0x48);b(c,0xf7);b(c,0xd0);}
+            /* Keep the existing MOV alias as a short, flag-preserving path. */
+            if(!(op==1 && rn==31 && shift==0 && amount==0)) {
+                b(c,0x49);b(c,0x89);b(c,0xc1);
+                load(c,rn,0,wide);
+                b(c,wide?0x4c:0x44);b(c,op==1?0x09:op==2?0x31:0x21);b(c,0xc8);
+            }
+            save(c,rd,0);
+            if(op==3)save_arithmetic_flags(c,0); /* AND clears host C/V. */
         } else if((w&0x1f800000)==0x11000000) {
             /* ADD/SUB(S) immediate. Rn31 is SP; Rd31 is ZR for the flag
              * forms (CMP/CMN aliases), otherwise SP, including WSP. */
@@ -325,6 +426,27 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             load(c,rn,1,wide);if(wide)b(c,0x48);b(c,0x05+subtract*0x28);u32(c,v);
             save(c,rd,!flags);
             if(flags)save_arithmetic_flags(c,subtract);
+        } else if((w&0x1fe00000)==0x0b200000) {
+            /* ADD/SUB(S) extended register: Rn is SP, Rm is ZR. */
+            unsigned rm=(w>>16)&31,option=(w>>13)&7,amount=(w>>10)&7;
+            int subtract=(w>>30)&1,flags=(w>>29)&1;
+            if(amount>4) {
+                field32(c,offsetof(vf_cpu,instruction),w);
+                finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+            }
+            unsigned bits=8u<<(option&3),width=wide?64u:32u;
+            if(bits>width)bits=width;
+            load(c,rm,0,wide);
+            /* Pair shifts select the low source bits, then extend their sign. */
+            if(bits<width) {
+                if(wide)b(c,0x48);b(c,0xc1);b(c,0xe0);b(c,width-bits);
+                if(wide)b(c,0x48);b(c,0xc1);b(c,(option&4)?0xf8:0xe8);b(c,width-bits);
+            }
+            if(amount) {if(wide)b(c,0x48);b(c,0xc1);b(c,0xe0);b(c,amount);}
+            b(c,0x49);b(c,0x89);b(c,0xc1);
+            load(c,rn,1,wide);b(c,wide?0x4c:0x44);b(c,subtract?0x29:0x01);b(c,0xc8);
+            save(c,rd,!flags);
+            if(flags)save_arithmetic_flags(c,subtract); /* Extended arithmetic NZCV. */
         } else if((w&0x1f200000)==0x0b000000) {
             /* ADD/SUB(S) shifted register. Both R31 sources are ZR. */
             unsigned rm=(w>>16)&31,shift=(w>>22)&3,amount=(w>>10)&63;
@@ -405,7 +527,7 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             fix_to(c,first,data_target);fix_to(c,wrapped,data_target);
             fix_to(c,short_second,data_target);fix_to(c,second,data_target);
             fix(c,next);
-        } else if((w&0x3b000000)==0x39000000) {
+        } else if((w&0x3b000000)==0x39000000 || register_offset_family(w) || unscaled_offset_family(w) || scalar_writeback_family(w)) {
             memory_shape shape;int valid=decode_memory(w,&shape);
             unsigned bytes=shape.width;
             int read=shape.read,signed_load=shape.signed_load,result64=shape.result64;
@@ -426,7 +548,13 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                 b(c,0x49);b(c,0x89);b(c,0xc3);
                 b(c,0xa8);b(c,15);sp_align=jcc(c,0x85);
             }
-            b(c,0x48);b(c,0x05);u32(c,(uint32_t)shape.displacement);
+            if(shape.register_offset) {
+                b(c,0x49);b(c,0x89);b(c,0xc3); /* Preserve base before loading index. */
+                load(c,shape.rm,0,shape.option&1);
+                if(shape.option==6){b(c,0x48);b(c,0x63);b(c,0xc0);} /* SXTW index. */
+                if(shape.shift){b(c,0x48);b(c,0xc1);b(c,0xe0);b(c,shape.shift);}
+                b(c,0x4c);b(c,0x01);b(c,0xd8); /* rax=index+base modulo 64 bits. */
+            } else if(shape.mode!=1) {b(c,0x48);b(c,0x05);u32(c,(uint32_t)shape.displacement);}
             b(c,0x49);b(c,0x89);b(c,0xc3); /* r11=guest EA, r9=checked offset */
             b(c,0x49);b(c,0x89);b(c,0xc1);
             /* Supported native regime is MMU-off Device-nGnRnE. */
@@ -446,6 +574,11 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
                 load(c,rd,0,bytes==8);
                 if(bytes==2)b(c,0x66);
                 b(c,bytes==8?0x4a:0x42);b(c,bytes==1?0x88:0x89);b(c,0x04);b(c,0x0a);
+            }
+            if(shape.mode!=2) {
+                b(c,0x4c);b(c,0x89);b(c,0xd8); /* rax=successful EA */
+                if(shape.mode==1){b(c,0x48);b(c,0x05);u32(c,(uint32_t)shape.displacement);}
+                save(c,rn,1);
             }
             b(c,0xe9);size_t next=c->used;u32(c,0);
             size_t sp_target=c->used;
@@ -467,6 +600,13 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             if(condition>=14) { finish(c,target,n+1,VF_NEXT);break; }
             size_t fall=condition_false(c,condition);
             finish(c,target,n+1,VF_NEXT);
+            fix(c,fall);finish(c,pc+4,n+1,VF_NEXT);break;
+        } else if((w&0x7e000000)==0x36000000) {
+            unsigned bit=((w>>26)&32)|((w>>19)&31);
+            load(c,rd,0,bit>=32);
+            if(bit>=32)b(c,0x48);b(c,0x0f);b(c,0xba);b(c,0xe0);b(c,bit);
+            size_t fall=jcc(c,(w&(1u<<24))?0x83:0x82); /* BT result is host CF. */
+            finish(c,pc+(uint64_t)(sext((w>>5)&0x3fff,14)*4),n+1,VF_NEXT);
             fix(c,fall);finish(c,pc+4,n+1,VF_NEXT);break;
         } else if((w&0x7e000000)==0x34000000) {
             load(c,rd,0,wide);b(c,0x48);b(c,0x85);b(c,0xc0);
@@ -655,6 +795,15 @@ static uint64_t memory_register(const vf_cpu *cpu,unsigned reg,int sp) {
 static void memory_save(vf_cpu *cpu,unsigned reg,uint64_t value,int wide) {
     if(reg!=31)cpu->x[reg]=wide?value:(uint32_t)value;
 }
+static uint64_t memory_offset(const vf_cpu *cpu,const memory_shape *shape) {
+    if(!shape->register_offset)return (uint64_t)(int64_t)shape->displacement;
+    uint64_t value=memory_register(cpu,shape->rm,0);
+    if(!(shape->option&1)) {
+        value=(uint32_t)value;
+        if(shape->option==6 && (value&(UINT64_C(1)<<31)))value|=UINT64_C(0xffffffff00000000);
+    }
+    return value<<shape->shift;
+}
 static int memory_data_step(vf_cpu *cpu,vf_memory_callback_v1 callback,void *owner,
                             vf_memory_run_result_v1 *result) {
     memory_shape shape;
@@ -665,7 +814,7 @@ static int memory_data_step(vf_cpu *cpu,vf_memory_callback_v1 callback,void *own
     if(shape.rn==31 && (cpu->sctlr&(cpu->current_el==VF_EL0?16u:8u)) && (base&15)) {
         cpu->far=base;(void)vf_cpu_commit_status(cpu,VF_SP_ALIGNMENT_FAULT);return VF_SP_ALIGNMENT_FAULT;
     }
-    uint64_t updated=base+(int64_t)shape.displacement;
+    uint64_t updated=base+memory_offset(cpu,&shape);
     uint64_t address=shape.mode==1?base:updated;
     uint64_t mask=shape.width==8?UINT64_MAX:(UINT64_C(1)<<(shape.width*8))-1;
     vf_memory_request_v1 request={1,sizeof(request),shape.read?VF_MEMORY_LOAD:VF_MEMORY_STORE,0,
@@ -688,6 +837,20 @@ static int memory_data_step(vf_cpu *cpu,vf_memory_callback_v1 callback,void *own
     cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);result->completed_data_operations++;
     return VF_NEXT;
 }
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+/* Run-local only; see docs/PROVIDER_NATIVE_CACHE.md. Tiny test slots exercise
+ * full-buffer fallback without changing the production storage contract. */
+#ifndef NEXTCORE_PROVIDER_CACHE_SLOT_BYTES
+#define NEXTCORE_PROVIDER_CACHE_SLOT_BYTES 1024
+#endif
+_Static_assert(NEXTCORE_PROVIDER_CACHE_SLOT_BYTES>=64,"provider cache slot minimum");
+typedef struct {
+    uint64_t pc;
+    uint32_t instruction,current_el;
+    size_t used;
+    int valid;
+} provider_native_entry;
+#endif
 int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
     vf_protect protect,void *protect_opaque,vf_memory_callback_v1 callback,void *owner,
     vf_memory_run_result_v1 *result) {
@@ -696,6 +859,12 @@ int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
        !vf_cpu_state_valid(cpu) || cpu->exception_pending!=VF_EXCEPTION_NONE)
         return provider_error(result,VF_PROVIDER_INVALID_REQUEST);
     uint64_t start=cpu->retired;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+    provider_native_entry cache[64]={0};
+    size_t slots=code->capacity/NEXTCORE_PROVIDER_CACHE_SLOT_BYTES;
+    if(slots>64)slots=64;
+    size_t victim=0;
+#endif
     while(cpu->retired-start<budget) {
         if((cpu->sctlr&1) || cpu->current_el>VF_EL1 || cpu->hcr_el2 || cpu->scr_el3) {
             cpu->instruction=0;return cpu->status=VF_SYSTEM_REGISTER_TRAP;
@@ -708,12 +877,51 @@ int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
         status=memory_exchange(cpu,callback,owner,&request,&reply,result);
         if(status!=VF_NEXT)return cpu->status=status;
         uint32_t instruction=(uint32_t)reply.value0;
-        if(protect(code->bytes,code->capacity,0,protect_opaque))return cpu->status=VF_PROTECTION;
-        status=translate_impl(code,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
-        if(status!=VF_NEXT)return cpu->status=status;
-        if(protect(code->bytes,code->capacity,1,protect_opaque))return cpu->status=VF_PROTECTION;
+        vf_code entry=*code;
+        int hit=0;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+        size_t selected=0;
+        int publish=0;
+        for(size_t i=0;i<slots;i++) {
+            if(cache[i].valid && cache[i].pc==cpu->pc &&
+               cache[i].instruction==instruction && cache[i].current_el==cpu->current_el) {
+                entry=(vf_code){code->bytes+i*NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,
+                    NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,cache[i].used};
+                hit=1;break;
+            }
+        }
+        if(!hit && slots) {
+            selected=victim;
+            cache[selected].valid=0;
+            entry=(vf_code){code->bytes+selected*NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,
+                NEXTCORE_PROVIDER_CACHE_SLOT_BYTES,0};
+            publish=1;
+        }
+#endif
+        if(!hit) {
+            /* No native entry is running; page-wide changes may cover siblings. */
+            if(protect(code->bytes,code->capacity,0,protect_opaque))return cpu->status=VF_PROTECTION;
+            status=translate_impl(&entry,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+            if(status==VF_CODE_FULL && publish) {
+                for(size_t i=0;i<slots;i++)cache[i].valid=0;
+                victim=0;publish=0;entry=*code;
+                status=translate_impl(&entry,cpu,(const uint8_t *)&instruction,4,cpu->pc,1,1);
+            }
+#endif
+            code->used=entry.used;
+            if(status!=VF_NEXT)return cpu->status=status;
+            if(protect(code->bytes,code->capacity,1,protect_opaque))return cpu->status=VF_PROTECTION;
+#ifndef NEXTCORE_DISABLE_PROVIDER_CACHE
+            if(publish) {
+                cache[selected]=(provider_native_entry){cpu->pc,instruction,cpu->current_el,entry.used,1};
+                victim=(selected+1)%slots;
+            }
+#endif
+        }
+        code->used=entry.used;
         /* No guest RAM host pointer is supplied to the generated entry. */
-        status=execute_native_block(cpu,code,0,0);
+        status=execute_native_block(cpu,&entry,0,0);
         if((uint32_t)status==VF_MEMORY_DISPATCH) {
             status=memory_data_step(cpu,callback,owner,result);
             if(status!=VF_NEXT)return cpu->status=status;
