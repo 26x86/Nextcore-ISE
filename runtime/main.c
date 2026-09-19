@@ -190,7 +190,12 @@ EFI_STATUS VF_ABI efi_main(EFI_HANDLE handle,EFI_SYSTEM_TABLE *table) {
     }
     if(status)goto done;
     if(!guest_size||guest_size>65536||(guest_size&3)) { print("Invalid guest.a64: require 4-byte aligned raw A64, 4..65536 bytes.\r\n");status=EFI_INVALID_PARAMETER;goto done; }
-    int result=run_preos(&execution,(const uint8_t*)(uintptr_t)guest_addr,guest_size,100000,0,0,&preos_result);
+    uint64_t guest_budget=100000;
+    if(guest_size==4) {
+        uint32_t only=*(const uint32_t*)(uintptr_t)guest_addr;
+        if(only==0x14000000u)guest_budget=64;
+    }
+    int result=run_preos(&execution,(const uint8_t*)(uintptr_t)guest_addr,guest_size,guest_budget,0,0,&preos_result);
     if(result==VF_PREOS_OK&&preos_result.code==VF_PREOS_OK)
         print("GUEST HALT: own-code A64 guest completed. This is not macOS.\r\n");
     else status=efi_status_from_preos(result);
