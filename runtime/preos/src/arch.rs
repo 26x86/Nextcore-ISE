@@ -1385,7 +1385,9 @@ impl GuestCpuState {
             let mut context = PauthContext::new(self.x, self.sp, self.pc,
                 self.sys.sctlr_el1, self.sys.tcr_el1, self.pauth, self.current_el as u32);
             if let Some(result) = pauth::step(&mut context, word) {
-                if result.is_ok() {
+                // The callback ABI does not carry higher-level trap controls.
+                // Reject unsupported regimes before committing its local state.
+                if result.is_ok() && self.sys.hcr_el2 == 0 && self.sys.scr_el3 == 0 {
                     self.x = context.x; self.sp = context.sp; self.pc = context.pc;
                     self.pauth = context.state();
                     return StepResult::Continue;
@@ -3514,6 +3516,77 @@ mod tests {
         assert_eq!(cpu.pc, 0x400);
         assert!(cpu.pending_exception.is_none());
         assert!(cpu.state_valid());
+    }
+
+    #[test]
+    fn pauth_rejects_unsupported_higher_level_controls() {
+        for el in [0, 1] {
+            for control in 0..2 {
+                for word in [0xdac10020u32, 0xdac11020, 0xdac143e0,
+                    0x9ac13002, 0xd65f0bff] {
+                    let mut ram = word.to_le_bytes();
+                    let mut cpu = GuestCpuState::reset(0);
+                    assert!(cpu.set_exception_level(el));
+                    cpu.x[0] = 0x130; cpu.x[1] = 0x9876; cpu.x[30] = 0x130;
+                    cpu.sys.sctlr_el1 = 1 << 31;
+                    cpu.sys.tcr_el1 = 16 | (16 << 16);
+                    if control == 0 { cpu.sys.hcr_el2 = 1; }
+                    else { cpu.sys.scr_el3 = 1; }
+                    let initial_x = cpu.x;
+                    let initial_sp = cpu.sp;
+                    let initial_keys = cpu.pauth;
+                    assert_eq!(cpu.execute_one(&mut RamBus::new(&mut ram)),
+                        StepResult::Exception(ExceptionKind::UndefinedInstruction));
+                    assert_eq!(cpu.pc, 0);
+                    assert_eq!(cpu.x, initial_x);
+                    assert_eq!(cpu.sp, initial_sp);
+                    assert_eq!(cpu.pauth, initial_keys);
+                    assert_eq!(cpu.current_el as u8, el);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn el0_pauth_state_survives_exception_and_eret() {
+        let mut ram = [0u8; 4096];
+        for (offset, word) in [(0, 0xdac10020u32), (4, 0xffffffff),
+            (8, 0x9ac13002), (0x400, 0xdac11020), (0x404, 0xd69f03e0)] {
+            ram[offset..offset+4].copy_from_slice(&word.to_le_bytes());
+        }
+        let mut cpu = GuestCpuState::reset(0);
+        let key = super::super::pauth::Key {
+            lo: 0x48ad369c24681357, hi: 0xb752c963db97eca8,
+        };
+        cpu.pauth.keys = [key; 5];
+        cpu.sys.sctlr_el1 = 1 << 31;
+        cpu.sys.tcr_el1 = 16 | (16 << 16);
+        cpu.sp_el[0] = 0x800;
+        assert!(cpu.set_exception_level(0));
+        cpu.x[0] = 0x130; cpu.x[1] = 0x9876;
+        let initial_keys = cpu.pauth;
+        let mut bus = RamBus::new(&mut ram);
+        assert_eq!(cpu.execute_one(&mut bus), StepResult::Continue);
+        assert_eq!(cpu.x[0], 0xbf36000000000130);
+        assert_eq!(cpu.execute_one(&mut bus),
+            StepResult::Exception(ExceptionKind::UndefinedInstruction));
+        assert_eq!(cpu.current_el, ExceptionLevel::El0);
+        assert_eq!(cpu.take_pending_exception().unwrap().kind,
+            ExceptionKind::UndefinedInstruction);
+        assert_eq!(cpu.current_el, ExceptionLevel::El1);
+        assert_eq!(cpu.pc, 0x400);
+        assert_eq!(cpu.execute_one(&mut bus), StepResult::Continue);
+        assert_eq!(cpu.x[0], 0x130);
+        // An authored trap handler skips the deliberately undefined word.
+        cpu.write_sysreg(SystemRegister::ElrEl1, 8).unwrap();
+        assert_eq!(cpu.execute_one(&mut bus), StepResult::Continue); // ERET.
+        assert_eq!(cpu.current_el, ExceptionLevel::El0);
+        assert_eq!(cpu.sp, 0x800);
+        assert_eq!(cpu.pc, 8);
+        assert_eq!(cpu.execute_one(&mut bus), StepResult::Continue);
+        assert_eq!(cpu.x[2], 0xbf3684bf00000000);
+        assert_eq!(cpu.pauth, initial_keys);
+        assert!(cpu.pending_exception.is_none() && cpu.state_valid());
     }
 
     #[test]

@@ -86,6 +86,47 @@ int main(void) {
     CHECK(extended.base.status==19 && extended.base.fault_instruction==sp_fault_program[3]);
     CHECK(extended.base.retired==3 && extended.base.pc==entry+12 && extended.base.compiled_blocks>0);
     CHECK(extended.esr==UINT64_C(0x9a000000) && extended.sp==base+sizeof(ram)+1);
+    /* Execute userspace PAC through native translation and the real Rust
+     * callback, with independent captured tags rather than round trips alone. */
+    vf_code native={code,16384,0};
+    vf_cpu user;vf_cpu_reset(&user,VF_EL0);
+    user.pauth_step=vf_preos_pauth_step;
+    user.sctlr=UINT64_C(1)<<31;user.tcr=16;
+    user.pauth_keys[0][0]=user.pauth_keys[4][0]=UINT64_C(0x48ad369c24681357);
+    user.pauth_keys[0][1]=user.pauth_keys[4][1]=UINT64_C(0xb752c963db97eca8);
+    user.x[0]=0x130;user.x[1]=0x9876;user.x[4]=0x1000;
+    const uint32_t user_program[]={0xdac10020,0xf9000080,0xdac11020,0x9ac13002,0xd4400000};
+    CHECK(vf_run(&user,(const uint8_t*)user_program,sizeof(user_program),ram,sizeof(ram),
+                 &native,16,perms,0)==VF_HALT);
+    memcpy(&signed_word,ram+0x1000,8);
+    CHECK(signed_word==UINT64_C(0xbf36000000000130));
+    CHECK(user.x[0]==0x130 && user.x[2]==UINT64_C(0xbf3684bf00000000));
+    CHECK(user.current_el==VF_EL0 && user.retired==5 && user.exception_pending==0);
+    CHECK(user.pc==sizeof(user_program) && native.used>0);
+    /* Privileged key writes remain denied even with the callback installed. */
+    const uint32_t key_write[]={0xd5182100};
+    vf_cpu_reset(&user,VF_EL0);user.pauth_step=vf_preos_pauth_step;
+    user.x[0]=UINT64_MAX;
+    CHECK(vf_run(&user,(const uint8_t*)key_write,sizeof(key_write),ram,sizeof(ram),
+                 &native,4,perms,0)==VF_SYSTEM_REGISTER_TRAP);
+    CHECK(user.pauth_keys[0][0]==0 && user.retired==0 && user.pc==0);
+    /* Higher-level controls are outside the callback's architectural profile. */
+    const uint32_t controlled_words[]={0xdac10020,0xdac11020,0xdac143e0,0x9ac13002,0xd65f0bff};
+    for(unsigned el=0;el<=1;el++)for(unsigned control=0;control<2;control++)
+    for(unsigned i=0;i<sizeof(controlled_words)/sizeof(*controlled_words);i++) {
+        vf_cpu_reset(&user,el);user.pauth_step=vf_preos_pauth_step;
+        user.x[0]=0x130;user.x[1]=0x9876;user.x[30]=0x130;
+        user.sctlr=UINT64_C(1)<<31;user.tcr=16;
+        if(control)user.scr_el3=1;else user.hcr_el2=1;
+        vf_cpu before=user;
+        CHECK(vf_run(&user,(const uint8_t*)&controlled_words[i],4,ram,sizeof(ram),
+                     &native,1,perms,0)==VF_UNDEFINED_INSTRUCTION);
+        CHECK(user.pc==0 && user.retired==0 && user.current_el==el);
+        CHECK(memcmp(user.x,before.x,sizeof(user.x))==0 && user.sp==before.sp);
+        CHECK(memcmp(user.pauth_keys,before.pauth_keys,sizeof(user.pauth_keys))==0);
+        CHECK(user.sctlr==before.sctlr && user.tcr==before.tcr &&
+              user.hcr_el2==before.hcr_el2 && user.scr_el3==before.scr_el3);
+    }
     CHECK(munmap(code,16384)==0);
     printf("{\"passed\":true,\"assertions\":%u,\"native_jit_executed\":true,\"software_qarma5\":true,\"wx_enforced\":true}\n",checks);
     return 0;
