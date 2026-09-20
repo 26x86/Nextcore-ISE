@@ -659,7 +659,8 @@ int vf_host_supported(void) {
 }
 
 static int pauth_slow_step(vf_cpu *cpu) {
-    if(!cpu->pauth_step || cpu->current_el!=VF_EL1 || (cpu->sctlr&1))return 0;
+    if(!cpu->pauth_step || cpu->current_el>VF_EL1 || (cpu->sctlr&1) ||
+       cpu->hcr_el2 || cpu->scr_el3)return 0;
     vf_pauth_context context={0};
     for(unsigned i=0;i<31;i++)context.x[i]=cpu->x[i];
     for(unsigned i=0;i<5;i++)for(unsigned j=0;j<2;j++)context.keys[i][j]=cpu->pauth_keys[i][j];

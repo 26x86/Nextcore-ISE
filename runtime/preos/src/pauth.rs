@@ -206,7 +206,7 @@ pub(crate) fn step(context: &mut PauthContext, word: u32) -> Option<Result<(), P
 
     // PACGA is a generic MAC; address-PAC enable bits and address size do not gate it.
     if word & 0xffe0fc00 == 0x9ac03000 {
-        if context.current_el != 1 || context.reserved != 0 { return Some(Err(PauthError::Unsupported)); }
+        if context.current_el > 1 || context.reserved != 0 { return Some(Err(PauthError::Unsupported)); }
         let value = qarma5(context.reg(rn, false), context.reg((word >> 16) & 31, true),
             context.keys[4]) & 0xffff_ffff_0000_0000;
         next.put(rd, value);
@@ -285,7 +285,9 @@ pub(crate) fn step(context: &mut PauthContext, word: u32) -> Option<Result<(), P
         pointer = context.x[30]; modifier = context.sp;
     } else { return None; }
 
-    if context.current_el != 1 || context.reserved != 0 { return Some(Err(PauthError::Unsupported)); }
+    // PAC instructions are unprivileged in the supported EL0/EL1 regime;
+    // architectural key/control register accesses above remain EL1-only.
+    if context.current_el > 1 || context.reserved != 0 { return Some(Err(PauthError::Unsupported)); }
     let enable_bit = [31, 30, 27, 13][key];
     let state = context.state();
     let result = if operation == 2 { PauthState::strip(pointer, context.tcr) }
@@ -315,6 +317,116 @@ pub unsafe extern "C" fn vf_preos_pauth_step(context: *mut PauthContext, word: u
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn user_context(el: u32) -> PauthContext {
+        let key = Key { lo: 0x48ad369c24681357, hi: 0xb752c963db97eca8 };
+        let mut x = core::array::from_fn(|i| 0x1000 + i as u64);
+        x[0] = 0x130;
+        x[1] = 0x9876;
+        PauthContext::new(x, 0x9876, 0x80,
+            (1 << 31) | (1 << 30) | (1 << 27) | (1 << 13),
+            16 | (16 << 16), PauthState { keys: [key; 5] }, el)
+    }
+
+    fn unchanged(actual: &PauthContext, expected: &PauthContext) {
+        assert_eq!(actual.x, expected.x);
+        assert_eq!(actual.sp, expected.sp);
+        assert_eq!(actual.pc, expected.pc);
+        assert_eq!(actual.sctlr, expected.sctlr);
+        assert_eq!(actual.tcr, expected.tcr);
+        assert_eq!(actual.keys, expected.keys);
+        assert_eq!(actual.current_el, expected.current_el);
+        assert_eq!(actual.reserved, expected.reserved);
+    }
+
+    #[test]
+    fn el0_pac_and_authenticate_execute_fixed_vectors() {
+        // Same externally executed QARMA5 vector as qemu_executed_pacia_vector;
+        // deliberately identical keys isolate instruction class and EL behavior.
+        for el in [0, 1] {
+            for key in 0..4 {
+                let mut context = user_context(el);
+                let original = context;
+                let sign = 0xdac10020 | (key << 10); // PAC{IA,IB,DA,DB} X0, X1.
+                assert_eq!(step(&mut context, sign), Some(Ok(())));
+                let mut expected = original;
+                expected.x[0] = 0xbf36000000000130;
+                expected.pc += 4;
+                unchanged(&context, &expected);
+                assert_eq!(step(&mut context, sign | 0x1000), Some(Ok(())));
+                expected.x[0] = 0x130;
+                expected.pc += 4;
+                unchanged(&context, &expected);
+
+                context = original;
+                context.x[0] = 0xbf36000000000130 ^ (1 << 48);
+                assert_eq!(step(&mut context, sign | 0x1000), Some(Ok(())));
+                assert_ne!(context.x[0], 0x130);
+                assert_eq!((context.x[0] >> 61) & 3, if key & 1 == 0 { 1 } else { 2 });
+                assert_eq!(context.current_el, el);
+            }
+        }
+    }
+
+    #[test]
+    fn el0_pacga_and_disabled_controls_have_distinct_effects() {
+        let mut context = user_context(0);
+        context.sctlr = 0;
+        let original = context;
+        assert_eq!(step(&mut context, 0x9ac13002), Some(Ok(()))); // PACGA X2,X0,X1.
+        let mut expected = original;
+        expected.x[2] = 0xbf3684bf00000000; // Existing external PACGA vector.
+        expected.pc += 4;
+        unchanged(&context, &expected);
+        for key in 0..4 {
+            for auth in [0, 0x1000] {
+                context = original;
+                context.x[0] = 0xbf36000000000130;
+                expected = context;
+                expected.pc += 4;
+                assert_eq!(step(&mut context, 0xdac10020 | (key << 10) | auth), Some(Ok(())));
+                unchanged(&context, &expected);
+            }
+        }
+        assert_eq!(step(&mut context, 0xdac143e0), Some(Ok(()))); // XPACI X0.
+        assert_eq!(context.x[0], 0x130);
+    }
+
+    #[test]
+    fn el0_stack_hint_and_authenticated_return_use_real_tags() {
+        let mut context = user_context(0);
+        context.x[30] = 0x130;
+        assert_eq!(step(&mut context, 0xd503233f), Some(Ok(()))); // PACIASP.
+        assert_eq!(context.x[30], 0xbf36000000000130);
+        assert_eq!(step(&mut context, 0xd65f0bff), Some(Ok(()))); // RETAA.
+        assert_eq!(context.pc, 0x130);
+        assert_eq!(context.x[30], 0xbf36000000000130);
+        assert_eq!(context.sp, 0x9876);
+        assert_eq!(context.current_el, 0);
+    }
+
+    #[test]
+    fn el0_cannot_access_privileged_registers_or_expand_supported_levels() {
+        for syskey in [0x4108,0x4109,0x410a,0x410b,0x4110,0x4111,
+            0x4112,0x4113,0x4118,0x4119,0x4080,0x4102,0x4031] {
+            for encoding in [0xd5200000, 0xd5000000] {
+                let mut context = user_context(0);
+                let original = context;
+                assert_eq!(step(&mut context, encoding | (syskey << 5) | 3),
+                    Some(Err(PauthError::Unsupported)));
+                unchanged(&context, &original);
+            }
+        }
+        for el in [0, 1, 2, 3, u32::MAX] {
+            for word in [0xdac10020, 0xdac11020, 0xdac143e0, 0x9ac13002, 0xd65f0bff] {
+                let mut context = user_context(el);
+                if el < 2 { context.reserved = 1; }
+                let original = context;
+                assert_eq!(step(&mut context, word), Some(Err(PauthError::Unsupported)));
+                unchanged(&context, &original);
+            }
+        }
+    }
 
     #[test]
     fn layer_inverses_and_involutory_matrix() {
