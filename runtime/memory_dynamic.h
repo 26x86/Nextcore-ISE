@@ -67,6 +67,10 @@ int vf_boot_run_memory_dynamic(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
     uint8_t *,size_t,uint64_t,vf_protect,void *,const uint64_t [4],
     const vf_boot_options_v2 *,const vf_memory_controls_v2 *,vf_memory_callback_v2,
     vf_dynamic_callback,void *,vf_memory_run_result_dynamic *);
+int vf_boot_run_memory_dynamic_pauth(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
+    uint8_t *,size_t,uint64_t,vf_protect,void *,const uint64_t [4],vf_pauth_step,
+    const vf_boot_options_v2 *,const vf_memory_controls_v2 *,vf_memory_callback_v2,
+    vf_dynamic_callback,void *,vf_memory_run_result_dynamic *);
 int vf_run_memory_provider_dynamic(vf_cpu *,vf_code *,uint64_t,vf_protect,void *,
     const vf_memory_controls_v2 *,vf_memory_callback_v2,vf_dynamic_callback,void *,vf_memory_run_result_dynamic *);
 #endif

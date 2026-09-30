@@ -82,6 +82,8 @@ enum vf_termination_reason {
     VF_TERMINATION_EXTERNAL_INTERRUPT = 18,
     VF_TERMINATION_INSTRUCTION_ABORT = 19,
     VF_TERMINATION_DATA_ABORT = 20,
+    /* Additive discriminator; existing values and ABI layouts stay fixed. */
+    VF_TERMINATION_FIQ_INTERRUPT = 21,
 };
 
 /* C owns both the trace endpoint and its opaque value.  The callback receives

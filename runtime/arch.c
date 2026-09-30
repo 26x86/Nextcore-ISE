@@ -27,8 +27,13 @@ static int sysreg_min_el(uint32_t key) {
     case VF_SYSREG_KEY_CURRENT_EL:
         return VF_EL0;
     case VF_SYSREG_KEY_ID_AA64ISAR1_EL1:
+    case VF_SYSREG_KEY_CPACR_EL1:
+    case VF_SYSREG_KEY_ID_AA64PFR0_EL1:
+    case VF_SYSREG_KEY_ID_AA64PFR1_EL1:
+    case VF_SYSREG_KEY_ID_AA64PFR2_EL1:
     case VF_SYSREG_KEY_TPIDR_EL1:
     case VF_SYSREG_KEY_ID_AA64MMFR0_EL1:
+    case VF_SYSREG_KEY_ID_AA64MMFR2_EL1:
     case VF_SYSREG_KEY_SCTLR_EL1:
     case VF_SYSREG_KEY_TTBR0_EL1:
     case VF_SYSREG_KEY_TTBR1_EL1:
@@ -77,7 +82,7 @@ static void update_timer_status(vf_cpu *cpu) {
 static int valid_exception_kind(enum vf_exception_kind kind) {
     return (kind >= VF_EXCEPTION_UNDEFINED_INSTRUCTION &&
            kind <= VF_EXCEPTION_EXTERNAL_INTERRUPT) || kind == VF_EXCEPTION_FIQ_INTERRUPT ||
-           kind == VF_EXCEPTION_SP_ALIGNMENT_FAULT;
+           kind == VF_EXCEPTION_SP_ALIGNMENT_FAULT || kind == VF_EXCEPTION_FP_ACCESS;
 }
 
 static uint32_t mode_for_el(uint32_t el) {
@@ -112,6 +117,9 @@ static uint32_t exception_syndrome(enum vf_exception_kind kind,
     uint32_t fsc = 0;
 
     switch (kind) {
+    case VF_EXCEPTION_FP_ACCESS:
+        /* A64 ConditionSyndrome is CV=1, COND=0xe (DDI0602). */
+        return (VF_ESR_EC_FP_ACCESS << 26) | (UINT32_C(1) << 25) | (UINT32_C(0x1e) << 20);
     case VF_EXCEPTION_SYSTEM_REGISTER_TRAP:
         ec = VF_ESR_EC_SYSREG;
         return (ec << 26) | (instruction & UINT32_C(0x01ffffff));
@@ -193,6 +201,9 @@ int vf_cpu_set_current_el(vf_cpu *cpu, uint32_t el) {
 int vf_cpu_state_valid(const vf_cpu *cpu) {
     uint64_t mode;
     if (!cpu || cpu->current_el > VF_EL3 ||
+        cpu->fp_execution_profile > VF_FP_EXECUTION_PARTIAL || cpu->fp_execution_reserved ||
+        (cpu->cpacr_el1 & ~UINT64_C(0x00300000)) ||
+        (cpu->fp_execution_profile == VF_FP_EXECUTION_ABSENT && cpu->cpacr_el1) ||
         (cpu->exception_pending != VF_EXCEPTION_NONE &&
          !valid_exception_kind((enum vf_exception_kind)cpu->exception_pending)) ||
         cpu->exception_target_el > VF_EL3 ||
@@ -303,6 +314,10 @@ int vf_cpu_commit_status(vf_cpu *cpu, int status) {
     far = cpu->far;
     instruction = cpu->instruction;
     switch (status) {
+    case VF_FP_ACCESS_TRAP:
+        kind = VF_EXCEPTION_FP_ACCESS;
+        far = 0;
+        break;
     case VF_BAD_INSTRUCTION:
     case VF_UNDEFINED_INSTRUCTION:
         kind = VF_EXCEPTION_UNDEFINED_INSTRUCTION;
@@ -353,15 +368,26 @@ int vf_cpu_commit_status(vf_cpu *cpu, int status) {
 int vf_cpu_read_sysreg(const vf_cpu *cpu, uint32_t key, uint64_t *value) {
     int minimum;
     if (!cpu || !value || !vf_cpu_state_valid(cpu)) return VF_SYSREG_INVALID_VALUE;
+    if (key==VF_SYSREG_KEY_FPCR || key==VF_SYSREG_KEY_FPSR)
+        return VF_SYSREG_UNDEFINED;
+    if(key==VF_SYSREG_KEY_CPACR_EL1) {
+        if(cpu->fp_execution_profile!=VF_FP_EXECUTION_PARTIAL)return VF_SYSREG_UNKNOWN;
+        if(cpu->current_el==VF_EL0)return VF_SYSREG_UNDEFINED;
+        if(cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)return VF_SYSREG_UNKNOWN;
+        *value=cpu->cpacr_el1;return VF_SYSREG_OK;
+    }
     if(key==VF_PLATFORM_OVERRIDE_KEY) {
         if(cpu->platform_profile!=VF_PLATFORM_IRQ_COMPAT_V1 || cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)
             return VF_SYSREG_UNKNOWN;
         *value=cpu->platform_override;return VF_SYSREG_OK;
     }
-    /* Exact ZFR0/ISAR0/ISAR2 reads in the bounded scalar profile. */
-    if(key==UINT32_C(0x4024) || key==UINT32_C(0x4030) || key==UINT32_C(0x4032) || key==UINT32_C(0x4038)) {
+    /* Scalar IDs retain absent FP/SIMD. The explicit partial research model
+     * reports baseline FP identity without claiming complete ISA coverage. */
+    if(key==VF_SYSREG_KEY_ID_AA64PFR0_EL1 || key==VF_SYSREG_KEY_ID_AA64PFR1_EL1 || key==VF_SYSREG_KEY_ID_AA64PFR2_EL1 || key==UINT32_C(0x4024) || key==UINT32_C(0x4030) || key==UINT32_C(0x4032) || key==VF_SYSREG_KEY_ID_AA64ISAR3_EL1 || key==UINT32_C(0x4038) || key==VF_SYSREG_KEY_ID_AA64MMFR1_EL1 || key==VF_SYSREG_KEY_ID_AA64MMFR2_EL1) {
         if(cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)return VF_SYSREG_UNKNOWN;
-        *value=key==UINT32_C(0x4038)?UINT64_C(0x0f100005):0;return VF_SYSREG_OK;
+        *value=key==UINT32_C(0x4038)?UINT64_C(0x0f100005):key==VF_SYSREG_KEY_ID_AA64PFR0_EL1?
+            (cpu->fp_execution_profile==VF_FP_EXECUTION_PARTIAL?VF_PFR0_FP_RESEARCH:VF_PFR0_SCALAR_PROFILE):0;
+        return VF_SYSREG_OK;
     }
     minimum = sysreg_min_el(key);
     if (minimum < 0) return VF_SYSREG_UNKNOWN;
@@ -413,6 +439,15 @@ int vf_cpu_read_sysreg(const vf_cpu *cpu, uint32_t key, uint64_t *value) {
 int vf_cpu_write_sysreg(vf_cpu *cpu, uint32_t key, uint64_t value) {
     int minimum;
     if (!cpu || !vf_cpu_state_valid(cpu)) return VF_SYSREG_INVALID_VALUE;
+    if (key==VF_SYSREG_KEY_FPCR || key==VF_SYSREG_KEY_FPSR)
+        return VF_SYSREG_UNDEFINED;
+    if(key==VF_SYSREG_KEY_CPACR_EL1) {
+        if(cpu->fp_execution_profile!=VF_FP_EXECUTION_PARTIAL)return VF_SYSREG_UNKNOWN;
+        if(cpu->current_el==VF_EL0)return VF_SYSREG_UNDEFINED;
+        if(cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)return VF_SYSREG_UNKNOWN;
+        if(value&~UINT64_C(0x00300000))return VF_SYSREG_INVALID_VALUE;
+        cpu->cpacr_el1=value;return VF_SYSREG_OK;
+    }
     if(key==VF_PLATFORM_OVERRIDE_KEY) {
         if(cpu->platform_profile!=VF_PLATFORM_IRQ_COMPAT_V1 || cpu->current_el!=VF_EL1 || cpu->hcr_el2 || cpu->scr_el3)
             return VF_SYSREG_UNKNOWN;
@@ -433,6 +468,10 @@ int vf_cpu_write_sysreg(vf_cpu *cpu, uint32_t key, uint64_t value) {
     case VF_SYSREG_KEY_CNTVCT_EL0:
     case VF_SYSREG_KEY_CURRENT_EL:
     case VF_SYSREG_KEY_ID_AA64MMFR0_EL1:
+    case VF_SYSREG_KEY_ID_AA64PFR0_EL1:
+    case VF_SYSREG_KEY_ID_AA64PFR1_EL1:
+    case VF_SYSREG_KEY_ID_AA64PFR2_EL1:
+    case VF_SYSREG_KEY_ID_AA64MMFR2_EL1:
     case VF_SYSREG_KEY_ID_AA64ISAR1_EL1:
         return VF_SYSREG_READ_ONLY;
     case VF_SYSREG_KEY_CNTP_TVAL_EL0:

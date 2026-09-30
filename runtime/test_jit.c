@@ -70,20 +70,27 @@ int main(void) {
     CHECK((s.esr>>26)==VF_ESR_EC_PC_ALIGNMENT);
     vf_cpu_reset(&s,VF_EL0);s.pc=4;CHECK(run(&s,loop,1,ram,&c,7)==VF_INSTRUCTION_ABORT);
     const uint32_t mrs_cntfrq[]={0xd53be000};vf_cpu_reset(&s,VF_EL0);
-    CHECK(run(&s,mrs_cntfrq,1,ram,&c,10)==VF_SYSTEM_REGISTER_TRAP);
-    CHECK(s.exception_pending==VF_EXCEPTION_SYSTEM_REGISTER_TRAP);CHECK(s.instruction==mrs_cntfrq[0]);
-    CHECK((s.esr>>26)==VF_ESR_EC_SYSREG);
+    CHECK(run(&s,mrs_cntfrq,1,ram,&c,1)==VF_BUDGET);
+    CHECK(s.retired==1 && s.pc==4 && s.x[0]==s.cntfrq);
+    CHECK(s.exception_pending==VF_EXCEPTION_NONE);
 
     /* The C-owned architectural state now has the same explicit register
-     * bank boundary as the Rust reference core.  Reads/writes are tested
-     * independently from the diagnostic JIT, which still rejects system
-     * instructions until a C interpreter/IR path can commit them safely. */
+     * bank boundary as the Rust reference core. */
     uint64_t sysreg_value=0;vf_cpu_reset(&s,VF_EL1);
     CHECK(vf_cpu_read_sysreg(&s,VF_SYSREG_KEY_CURRENT_EL,&sysreg_value)==VF_SYSREG_OK && sysreg_value==4);
     CHECK(vf_cpu_read_sysreg(&s,VF_SYSREG_KEY_ID_AA64MMFR0_EL1,&sysreg_value)==VF_SYSREG_OK && sysreg_value==UINT64_C(0x0f100005));
     CHECK(vf_cpu_write_sysreg(&s,VF_SYSREG_KEY_TTBR0_EL1,0x4000)==VF_SYSREG_OK);
     CHECK(vf_cpu_read_sysreg(&s,VF_SYSREG_KEY_TTBR0_EL1,&sysreg_value)==VF_SYSREG_OK && sysreg_value==0x4000);
     CHECK(vf_cpu_write_sysreg(&s,VF_SYSREG_KEY_TTBR0_EL1,0x4001)==VF_SYSREG_INVALID_VALUE);
+
+    /* A supported banked MRS outside the inline subset completes through the
+     * JIT slow path with the seeded architectural value. */
+    vf_cpu_reset(&s,VF_EL1);
+    CHECK(vf_cpu_write_sysreg(&s,VF_SYSREG_KEY_TTBR0_EL1,0x4000)==VF_SYSREG_OK);
+    const uint32_t read_ttbr0_el1[]={0xd5382000}; /* MRS X0, TTBR0_EL1 */
+    CHECK(run(&s,read_ttbr0_el1,1,ram,&c,1)==VF_BUDGET);
+    CHECK(s.retired==1 && s.pc==4 && s.x[0]==0x4000);
+
     CHECK(vf_cpu_set_current_el(&s,VF_EL0)==0);
     CHECK(vf_cpu_read_sysreg(&s,VF_SYSREG_KEY_SCTLR_EL1,&sysreg_value)==VF_SYSREG_PRIVILEGE);
     CHECK(vf_cpu_write_sysreg(&s,VF_SYSREG_KEY_CNTP_CVAL_EL0,3)==VF_SYSREG_OK);

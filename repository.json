@@ -1,18 +1,11 @@
 {
-  "schema": "26x86.repository/2",
+  "schema": "26x86.repository/3",
   "name": "Nextcore-ISE",
   "owner": "26x86",
   "public": true,
   "role": "nextcore-module",
   "crate": "nextcore-ise",
-  "description": "instruction-set emulation and CPU feature policy",
-  "development": {
-    "branch": "codex/physical-arm-runtime-20260912",
-    "base_commit": "bd3a8195385106ce9bdeb09160a3f1bfb447ea11",
-    "updated_utc": "2026-09-12T19:37:39.979969+00:00",
-    "dependency_revisions": {},
-    "integration": "Git submodule with an immutable gitlink; workspace source patches for local development"
-  },
+  "description": "Instruction policy and the freestanding ARM64e runtime",
   "release_provenance": {
     "schema": "26x86.repository/1",
     "name": "Nextcore-ISE",
@@ -30,5 +23,18 @@
     "previous_head": "073b8ced31d43c419ed2d9ea78d9ab8d8b372180",
     "dependency_tags": {},
     "export_method": "immutable git objects applied to existing main; manifest dependency rewrite only"
+  },
+  "publication": {
+    "snapshot": "engineering-preview-20260930",
+    "source_revision": "65909c23d2c62001c293a6c8a2f4ff024004100c",
+    "source_path": "nextcore/crates/nextcore-ise",
+    "previous_public_revision": "d32ec936213aeac1a6657c6016da2573c1cefceb",
+    "method": "Immutable reviewed Git blobs applied to existing public history",
+    "integration": "Tracked integration source; independent Git dependencies pin exact public revisions",
+    "dependencies": {},
+    "macos_boot_verified": false,
+    "metal_verified": false,
+    "physical_installation_verified": false,
+    "device_qualification_verified": false
   }
 }

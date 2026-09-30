@@ -19,6 +19,47 @@ fn fixture(sixteen:bool)->(Controls,std::vec::Vec<u8>,std::vec::Vec<u8>,u64,usiz
 fn req(c:Controls,operation:u32,width:u32,count:u32,address:u64)->Request {
     Request{abi_version:2,struct_size:160,operation,width,count,current_el:1,pc:address,address,pstate:5,controls:c,..Request::default()}
 }
+#[test]fn aligned_scalar_accesses_and_unaligned_page_spans_keep_backing_rules() {
+    for sixteen in [false,true] {
+        let (mut c,mut tables,mut ram,va,step,leaf)=fixture(sixteen);
+        c.profile=PROFILE_FIXED_NC_UNALIGNED;c.sctlr&=!2;
+        let mut service=MemoryServiceV2::new(&mut ram,0x40000000,&tables,0x10000000,c).unwrap();
+        let mut aligned=req(c,STORE,8,1,va+8);aligned.value0=0x1122334455667788;
+        assert_eq!(service.execute(&aligned),service.empty(OK));
+        assert_eq!(service.translations,1);
+        assert_eq!(service.execute(&req(c,LOAD,8,1,va+8)).value0,aligned.value0);
+        assert_eq!(service.translations,2);
+        assert_eq!(service.execute(&req(c,FETCH,4,1,va+8)).value0,0x55667788);
+        assert_eq!(service.translations,3);
+        let edge=va+step as u64-4;
+        let mut crossing=req(c,STORE,8,1,edge);crossing.value0=0x8877665544332211;
+        assert_eq!(service.execute(&crossing),service.empty(OK));
+        assert_eq!(service.translations,11);
+        assert_eq!(service.execute(&req(c,LOAD,8,1,edge)).value0,crossing.value0);
+        assert_eq!(service.translations,19);
+        drop(service);
+        let before=ram.clone();
+        tables[leaf+8..leaf+16].fill(0);
+        let out=MemoryServiceV2::new(&mut ram,0x40000000,&tables,0x10000000,c).unwrap().execute(&crossing);
+        assert_eq!((out.result,out.address,out.context),(GUEST_FAULT,va+step as u64,WALK));
+        assert_eq!(ram,before);
+    }
+}
+#[test]fn aligned_scalar_with_partial_backing_falls_back_without_a_partial_store() {
+    for sixteen in [false,true] {
+        let (c,mut tables,mut ram,va,step,leaf)=fixture(sixteen);
+        tables[leaf..leaf+8].copy_from_slice(&(0x40000403u64+(3*step) as u64).to_le_bytes());
+        ram.truncate(4*step-4);
+        let before=ram.clone();
+        let address=va+step as u64-8;
+        let mut store=req(c,STORE,8,1,address);store.value0=u64::MAX;
+        let mut service=MemoryServiceV2::new(&mut ram,0x40000000,&tables,0x10000000,c).unwrap();
+        let out=service.execute(&store);
+        assert_eq!((out.result,out.address),(UNAVAILABLE,address+4));
+        assert_eq!(service.translations,6);
+        assert_eq!(ram,before);
+    }
+}
 #[test]fn constructor_rejects_invalid_physical_ranges_without_effects() {
     let(c,tables,mut ram,_,_,_)=fixture(false);let before=ram.clone();
     for (base,table_base) in [(u64::MAX-7,0x10000000),(0x40000000,u64::MAX-7),

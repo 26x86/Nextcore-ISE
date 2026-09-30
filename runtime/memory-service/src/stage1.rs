@@ -33,6 +33,7 @@ pub fn controls_valid(c:&Controls)->bool {
 pub struct MemoryServiceV2<'a> {
     ram:&'a mut[u8],ram_base:u64,tables:&'a[u8],table_base:u64,
     controls:Controls,mmu:VfMmu,
+    #[cfg(test)] translations:u64,
 }
 fn overlaps(a:u64,n:u64,b:u64,m:u64)->bool {a<b+m && b<a+n}
 fn offset(address:u64,width:usize,base:u64,length:usize)->Option<usize> {
@@ -52,7 +53,8 @@ impl<'a> MemoryServiceV2<'a> {
         if !controls_valid(&controls) {return Err(Error::InvalidControls);}
         let mut mmu=VfMmu::disabled();
         if !mmu.configure_strict_nc(controls.ttbr0,controls.ttbr1,controls.tcr) {return Err(Error::InvalidControls);}
-        Ok(Self{ram,ram_base,tables,table_base,controls,mmu})
+        Ok(Self{ram,ram_base,tables,table_base,controls,mmu,
+            #[cfg(test)] translations:0})
     }
     pub fn controls(&self)->Controls {self.controls}
     pub fn base(&self)->u64 {self.ram_base}
@@ -113,6 +115,40 @@ impl<'a> MemoryServiceV2<'a> {
         }
         let el=ExceptionLevel::from_u8(r.current_el as u8).unwrap();
         let access=match r.operation {FETCH=>Access::Execute,STORE=>Access::Write,_=>Access::Read};
+        // A naturally aligned scalar fits in one supported granule. A single
+        // translation and whole-span backing check preserve the byte walk's
+        // fault priority and make a store atomic with respect to preflight.
+        if r.count==1 && matches!(r.width,4|8) && r.address&(u64::from(r.width)-1)==0 {
+            let table_base=self.table_base;let tables=self.tables;
+            #[cfg(test)] {self.translations+=1;}
+            let translated=match self.mmu.translate_detailed(r.address,access,el,|pa| {
+                *table_reads=table_reads.saturating_add(1);
+                let i=offset(pa,8,table_base,tables.len()).ok_or(TableReadError::Unavailable)?;
+                Ok(u64::from_le_bytes(tables[i..i+8].try_into().unwrap()))
+            }) {
+                Ok(value)=>value,Err(error)=>return self.failure(r,r.address,error),
+            };
+            if translated.attributes!=Some(MemoryAttributes{attr_index:0,shareability:0,mair:0x44}) {
+                let mut out=self.empty(UNSUPPORTED);out.address=r.address;return out;
+            }
+            let backing=if let Some(i)=offset(translated.pa,bytes,self.ram_base,self.ram.len()) {
+                Some((false,i))
+            } else {offset(translated.pa,bytes,self.table_base,self.tables.len()).map(|i|(true,i))};
+            if let Some((table,index))=backing {
+                if !table || r.operation!=STORE {
+                    let mut data=[0u8;8];
+                    if r.operation==STORE {
+                        self.ram[index..index+bytes].copy_from_slice(&r.value0.to_le_bytes()[..bytes]);
+                    } else {
+                        let source=if table {&self.tables[index..index+bytes]} else {&self.ram[index..index+bytes]};
+                        data[..bytes].copy_from_slice(source);
+                    }
+                    let mut out=self.empty(OK);
+                    if r.operation!=STORE {out.value0=u64::from_le_bytes(data);}
+                    return out;
+                }
+            }
+        }
         let mut places=[(false,0usize);16];
         for (byte,place) in places[..bytes].iter_mut().enumerate() {
             let va=r.address+byte as u64;
@@ -120,6 +156,7 @@ impl<'a> MemoryServiceV2<'a> {
             // Instruction fetch alignment is checked once above. Translate
             // the aligned instruction start, then use its validated page span.
             let query=if r.operation==FETCH {r.address} else {va};
+            #[cfg(test)] {self.translations+=1;}
             let result=self.mmu.translate_detailed(query,access,el,|pa| {
                 *table_reads=table_reads.saturating_add(1);
                 let i=offset(pa,8,table_base,tables.len()).ok_or(TableReadError::Unavailable)?;

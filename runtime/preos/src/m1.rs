@@ -1348,6 +1348,102 @@ fn guest_mmio_logical(address: u64, size: usize) -> Option<u64> {
     }
 }
 
+/// Window ids shared with `preos_bridge.h` (logical_base >> 12).
+const C_BRIDGE_WINDOW_AIC: u32 = 0x1;
+const C_BRIDGE_WINDOW_DART: u32 = 0x3;
+const C_BRIDGE_WINDOW_UART: u32 = 0x7;
+const C_BRIDGE_MMIO_OK: i32 = 0;
+const C_BRIDGE_MMIO_INVALID: i32 = 1;
+const C_BRIDGE_MMIO_WIDTH: i32 = 2;
+const C_BRIDGE_MMIO_READONLY: i32 = 3;
+const C_BRIDGE_MMIO_UNAVAILABLE: i32 = 4;
+
+fn c_bridge_window(logical: u64) -> Option<(u32, u32)> {
+    let window = (logical / M1_LOGICAL_WINDOW_BYTES) as u32;
+    let offset = (logical % M1_LOGICAL_WINDOW_BYTES) as u32;
+    match window {
+        C_BRIDGE_WINDOW_AIC | C_BRIDGE_WINDOW_DART | C_BRIDGE_WINDOW_UART => Some((window, offset)),
+        _ => None,
+    }
+}
+
+fn c_bridge_status_fault(status: i32) -> M1MmioFault {
+    match status {
+        C_BRIDGE_MMIO_READONLY => M1MmioFault::ReadOnly,
+        C_BRIDGE_MMIO_WIDTH => M1MmioFault::InvalidWidth,
+        C_BRIDGE_MMIO_UNAVAILABLE => M1MmioFault::Unmapped,
+        C_BRIDGE_MMIO_INVALID => M1MmioFault::InvalidRegister,
+        _ => M1MmioFault::Unsupported,
+    }
+}
+
+/// Reset Golden Gate C device stubs before an architectural guest run.
+///
+/// No-op under `cargo test` (no C bridge linked). Linked EFI/host builds call
+/// `vf_m1_guest_mmio_reset` so AIC/DART/UART windows match dart_v1/aic_v1.
+pub(crate) fn reset_c_guest_mmio_bridge() {
+    #[cfg(not(test))]
+    {
+        extern "C" {
+            fn vf_m1_guest_mmio_reset();
+        }
+        unsafe { vf_m1_guest_mmio_reset() }
+    }
+}
+
+fn c_bridge_mmio_read(logical: u64, width_bits: u32) -> Option<Result<u64, M1MmioFault>> {
+    let (window, offset) = c_bridge_window(logical)?;
+    #[cfg(test)]
+    {
+        let _ = (window, offset, width_bits);
+        None
+    }
+    #[cfg(not(test))]
+    {
+        extern "C" {
+            fn vf_m1_guest_mmio_read(
+                window: u32,
+                offset: u32,
+                width_bits: u32,
+                value: *mut u64,
+            ) -> i32;
+        }
+        let mut value = 0u64;
+        let status = unsafe { vf_m1_guest_mmio_read(window, offset, width_bits, &mut value) };
+        Some(if status == C_BRIDGE_MMIO_OK {
+            Ok(value)
+        } else {
+            Err(c_bridge_status_fault(status))
+        })
+    }
+}
+
+fn c_bridge_mmio_write(logical: u64, width_bits: u32, value: u64) -> Option<Result<(), M1MmioFault>> {
+    let (window, offset) = c_bridge_window(logical)?;
+    #[cfg(test)]
+    {
+        let _ = (window, offset, width_bits, value);
+        None
+    }
+    #[cfg(not(test))]
+    {
+        extern "C" {
+            fn vf_m1_guest_mmio_write(
+                window: u32,
+                offset: u32,
+                width_bits: u32,
+                value: u64,
+            ) -> i32;
+        }
+        let status = unsafe { vf_m1_guest_mmio_write(window, offset, width_bits, value) };
+        Some(if status == C_BRIDGE_MMIO_OK {
+            Ok(())
+        } else {
+            Err(c_bridge_status_fault(status))
+        })
+    }
+}
+
 fn mmio_fault_exception(fault: M1MmioFault) -> ExceptionKind {
     match fault {
         M1MmioFault::ReadOnly => ExceptionKind::PermissionFault,
@@ -1426,9 +1522,13 @@ impl GuestBus for M1GuestBus<'_> {
             if access == Access::Execute {
                 return Err(ExceptionKind::PermissionFault);
             }
+            let width_bits = (size * 8) as u32;
+            if let Some(bridged) = c_bridge_mmio_read(logical, width_bits) {
+                return bridged.map_err(mmio_fault_exception);
+            }
             return self
                 .graph
-                .mmio_read(logical, (size * 8) as u32)
+                .mmio_read(logical, width_bits)
                 .map_err(mmio_fault_exception);
         }
         bus_read_width(
@@ -1453,9 +1553,13 @@ impl GuestBus for M1GuestBus<'_> {
             if address & (size as u64 - 1) != 0 {
                 return Err(ExceptionKind::AlignmentFault);
             }
+            let width_bits = (size * 8) as u32;
+            if let Some(bridged) = c_bridge_mmio_write(logical, width_bits, value) {
+                return bridged.map_err(mmio_fault_exception);
+            }
             let result = self
                 .graph
-                .mmio_write(logical, (size * 8) as u32, value)
+                .mmio_write(logical, width_bits, value)
                 .map_err(mmio_fault_exception);
             if result.is_ok()
                 && (logical == M1_LOGICAL_TIMER_BASE + 0x08
@@ -1697,6 +1801,50 @@ mod tests {
         assert_eq!(graph.mmio_read(M1_LOGICAL_AIC_BASE, 64), Ok(1));
         assert_eq!(graph.mmio_write(M1_LOGICAL_AIC_BASE + 0x10, 32, TIMER_SOURCE as u64), Ok(()));
         assert_eq!(graph.mmio_read(M1_LOGICAL_AIC_BASE, 64), Ok(0));
+    }
+
+    /// Graph AIC window is 4 KiB: offset 0x10 is acknowledge (not Apple GLB_CFG);
+    /// WHOAMI/EVENT/TARGET/MASK banks at 0x2000+ fall outside the window.
+    #[test]
+    fn aic_glb_cfg_whoami_4kib_window_overlap_contract() {
+        let mut graph = M1MachineGraph::new(0x20_000);
+        assert!(graph.activate_runtime());
+
+        // Raise timer IRQ, then prove 0x10 is acknowledge — not GLB_CFG store.
+        assert_eq!(graph.mmio_write(M1_LOGICAL_TIMER_BASE + 0x08, 64, 1), Ok(()));
+        assert_eq!(graph.mmio_write(M1_LOGICAL_TIMER_BASE + 0x10, 32, 1), Ok(()));
+        graph.tick(1);
+        assert_eq!(graph.mmio_read(M1_LOGICAL_AIC_BASE, 64), Ok(1));
+        let _ = graph.mmio_read(M1_LOGICAL_AIC_BASE + 0x10, 32); // route target for source 0
+        assert_eq!(
+            graph.mmio_write(M1_LOGICAL_AIC_BASE + 0x10, 32, TIMER_SOURCE as u64),
+            Ok(())
+        );
+        assert_eq!(graph.mmio_read(M1_LOGICAL_AIC_BASE, 64), Ok(0));
+        // Apple GLB_CFG sample 0x29 is not a valid graph source index.
+        assert_eq!(
+            graph.mmio_write(M1_LOGICAL_AIC_BASE + 0x10, 32, 0x29),
+            Err(M1MmioFault::InvalidRegister)
+        );
+
+        // Last aligned offset inside the AIC window is still graph-owned and
+        // fail-closed (not an aic_v1 upper-bank alias).
+        assert_eq!(
+            graph.mmio_read(M1_LOGICAL_AIC_BASE + 0xffc, 32),
+            Err(M1MmioFault::InvalidRegister)
+        );
+        // Controller-relative WHOAMI (0x2000) is outside 4 KiB; absolute alias
+        // is the next logical window (DART), not AIC WHOAMI.
+        assert_eq!(M1_LOGICAL_WINDOW_BYTES, 0x1000);
+        assert_eq!(
+            M1_LOGICAL_AIC_BASE + M1_LOGICAL_WINDOW_BYTES,
+            M1_LOGICAL_TIMER_BASE
+        );
+        assert_eq!(M1_LOGICAL_AIC_BASE + 0x2000, M1_LOGICAL_DART_BASE);
+        assert_eq!(
+            graph.mmio_read(M1_LOGICAL_AIC_BASE + 0x2000, 32),
+            graph.mmio_read(M1_LOGICAL_DART_BASE, 32)
+        );
     }
 
     #[test]

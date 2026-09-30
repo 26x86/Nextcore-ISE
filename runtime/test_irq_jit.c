@@ -92,6 +92,31 @@ int main(void) {
     vf_cpu_reset(&cpu,VF_EL1);
     CHECK(vf_run(&cpu,(uint8_t*)&rd,4,ram,sizeof(ram),&code,1,perms,0)==VF_SYSTEM_REGISTER_TRAP);
     CHECK(cpu.retired==0 && cpu.pc==0);
+    /* Authored CPU-override consumer: MRS x9; clear bits 20..23; MSR x9.
+     * This tests the bounded provider, not the selected image's reset value. */
+    const uint32_t override_program[]={platform_word(1,9),0x9268ed29u,platform_word(0,9)};
+    const uint64_t initial_override=UINT64_C(0xa00000);
+    const uint64_t sentinel=UINT64_C(0x123456789abcdef0);
+    vf_cpu_reset(&cpu,VF_EL1);cpu.x[18]=sentinel;
+    CHECK(vf_cpu_configure_platform(&cpu,VF_PLATFORM_IRQ_COMPAT_V1,initial_override)==VF_SYSREG_OK);
+    CHECK(vf_run(&cpu,(uint8_t*)override_program,sizeof(override_program),ram,sizeof(ram),&code,1,perms,0)==VF_BUDGET);
+    CHECK(cpu.x[9]==initial_override && cpu.platform_override==initial_override && cpu.pc==4 && cpu.retired==1);
+    CHECK(vf_run(&cpu,(uint8_t*)override_program,sizeof(override_program),ram,sizeof(ram),&code,1,perms,0)==VF_BUDGET);
+    CHECK(cpu.x[9]==0 && cpu.platform_override==initial_override && cpu.pc==8 && cpu.retired==2);
+    CHECK(vf_run(&cpu,(uint8_t*)override_program,sizeof(override_program),ram,sizeof(ram),&code,1,perms,0)==VF_BUDGET);
+    CHECK(cpu.x[9]==0 && cpu.platform_override==0 && cpu.pc==12 && cpu.retired==3 && cpu.x[18]==sentinel);
+    for(unsigned rejected=0;rejected<5;rejected++) {
+        vf_cpu_reset(&cpu,VF_EL1);cpu.x[9]=sentinel;cpu.x[18]=sentinel;
+        CHECK(vf_cpu_configure_platform(&cpu,VF_PLATFORM_IRQ_COMPAT_V1,initial_override)==VF_SYSREG_OK);
+        if(rejected==0) CHECK(vf_cpu_configure_platform(&cpu,VF_PLATFORM_NONE,0)==VF_SYSREG_OK);
+        else if(rejected==1) cpu.platform_profile=2; /* Invalid profile cannot be configured. */
+        else if(rejected==2) CHECK(vf_cpu_set_current_el(&cpu,VF_EL0)==0);
+        else if(rejected==3) cpu.hcr_el2=1;
+        else cpu.scr_el3=1;
+        uint64_t before=cpu.platform_override;
+        CHECK(vf_run(&cpu,(uint8_t*)override_program,sizeof(override_program),ram,sizeof(ram),&code,3,perms,0)==VF_SYSTEM_REGISTER_TRAP);
+        CHECK(cpu.retired==0 && cpu.pc==0 && cpu.x[9]==sentinel && cpu.x[18]==sentinel && cpu.platform_override==before);
+    }
     /* Enabled guest translation cannot fall through to physical execution. */
     vf_cpu_reset(&cpu,VF_EL1);cpu.sctlr=1;
     CHECK(vf_run(&cpu,(uint8_t*)&halt,4,ram,sizeof(ram),&code,1,perms,0)==VF_SYSTEM_REGISTER_TRAP);

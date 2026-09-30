@@ -8,6 +8,10 @@
 #include "memory_boot_v2.h"
 /* Private dispatcher signal, never an exported terminal execution status. */
 #define VF_MEMORY_DISPATCH UINT32_C(0x7ffffffe)
+#ifdef NEXTCORE_FP_EXECUTION
+#include "fp_execution.h"
+#define VF_FP_DISPATCH UINT32_C(0x7ffffffd)
+#endif
 static void b(vf_code *c, unsigned x) { if (c->used < c->capacity) c->bytes[c->used] = (uint8_t)x; ++c->used; }
 static void u32(vf_code *c, uint32_t x) { for (int i=0;i<4;i++) b(c,x>>(8*i)); }
 static void u64(vf_code *c, uint64_t x) { for (int i=0;i<8;i++) b(c,(unsigned)(x>>(8*i))); }
@@ -134,7 +138,12 @@ static int sysreg_el0_visible(uint32_t key) {
 
 static int sysreg_el1_only(uint32_t key) {
     switch (key) {
+    case VF_SYSREG_KEY_ID_AA64PFR0_EL1:
+    case VF_SYSREG_KEY_ID_AA64PFR1_EL1:
+    case VF_SYSREG_KEY_ID_AA64PFR2_EL1:
     case VF_SYSREG_KEY_ID_AA64MMFR0_EL1:
+    case VF_SYSREG_KEY_ID_AA64MMFR1_EL1:
+    case VF_SYSREG_KEY_ID_AA64MMFR2_EL1:
     case VF_SYSREG_KEY_ID_AA64ISAR1_EL1:
     case VF_SYSREG_KEY_SCTLR_EL1:
     case VF_SYSREG_KEY_TTBR0_EL1:
@@ -250,7 +259,25 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
         if(!provider && ((pc&3) || size<4 || pc<base || pc-base>size-4 || pc>UINT64_MAX-3)) { finish(c,pc,n,VF_INSTRUCTION_ABORT);break; }
         uint32_t w=word(guest+(provider?0:pc-base)); unsigned rd=w&31,rn=(w>>5)&31,wide=w>>31;
         unsigned thread = is_mrs_msr(w) ? thread_offset(sysreg_key(w)) : 0;
-        if(provider && memory_family(w)) {
+        if(is_mrs_msr(w) && sysreg_key(w)==VF_SYSREG_KEY_CPACR_EL1 && current_el==VF_EL0) {
+            field32(c,offsetof(vf_cpu,instruction),w);
+            finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+#ifdef NEXTCORE_FP_EXECUTION
+        } else if(vf_fp_instruction_class(w)) {
+            /* Live access checks precede integer memory dispatch for V=1. */
+            field32(c,offsetof(vf_cpu,instruction),w);
+            finish(c,pc,n,VF_FP_DISPATCH);break;
+        } else if(is_mrs_msr(w) && sysreg_key(w)==VF_SYSREG_KEY_ID_AA64PFR0_EL1) {
+            field32(c,offsetof(vf_cpu,instruction),w);
+            finish(c,pc,n,VF_SYSTEM_REGISTER_TRAP);break;
+#endif
+        } else if(is_mrs_msr(w) && (sysreg_key(w)==VF_SYSREG_KEY_FPCR ||
+                            sysreg_key(w)==VF_SYSREG_KEY_FPSR)) {
+            /* FP is absent in this CPU profile. Its control/status register
+             * encodings are undefined before any access-control checks. */
+            field32(c,offsetof(vf_cpu,instruction),w);
+            finish(c,pc,n,VF_UNDEFINED_INSTRUCTION);break;
+        } else if(provider && memory_family(w)) {
             field32(c,offsetof(vf_cpu,instruction),w);
             finish(c,pc,n,VF_MEMORY_DISPATCH);break;
         } else if((w&0x3fe00800)==0x1a800000) {
@@ -346,10 +373,16 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             b(c,wide?0x4c:0x44);b(c,op==1?0x09:op==2?0x31:0x21);b(c,0xc8);
             save(c,rd,op!=3);
             if(op==3)save_arithmetic_flags(c,0); /* Logical host C/V are zero. */
-        } else if((w&~UINT32_C(31))==UINT32_C(0xd5380480) ||
+        } else if((w&~UINT32_C(31))==UINT32_C(0xd5380400) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380420) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380440) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380480) ||
                   (w&~UINT32_C(31))==UINT32_C(0xd5380600) ||
                   (w&~UINT32_C(31))==UINT32_C(0xd5380640) ||
-                  (w&~UINT32_C(31))==UINT32_C(0xd5380700)) {
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380660) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380700) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380720) ||
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380740)) {
             /* Exact scalar-profile ID read. Controls are live on cache hits. */
             b(c,0x83);b(c,0xb9);u32(c,offsetof(vf_cpu,current_el));b(c,VF_EL1);
             size_t bad_el=jcc(c,0x85);
@@ -360,7 +393,8 @@ static int translate_impl(vf_code *c,const vf_cpu *cpu,const uint8_t *guest,
             field32(c,offsetof(vf_cpu,instruction),w);
             finish(c,pc,n,VF_SYSTEM_REGISTER_TRAP);
             fix(c,allowed);
-            imm(c,(w&~UINT32_C(31))==UINT32_C(0xd5380700)?UINT64_C(0x0f100005):0);save(c,rd,0);
+            imm(c,(w&~UINT32_C(31))==UINT32_C(0xd5380700)?UINT64_C(0x0f100005):
+                  (w&~UINT32_C(31))==UINT32_C(0xd5380400)?VF_PFR0_SCALAR_PROFILE:0);save(c,rd,0);
         } else if(thread) {
             int read = (w & 0x00200000) != 0;
             if(current_el==VF_EL0 && (sysreg_key(w)==VF_SYSREG_KEY_TPIDR_EL1 ||
@@ -657,6 +691,18 @@ int vf_host_supported(void) {
     __asm__ volatile("cpuid":"+a"(a),"=b"(bv),"=c"(c),"=d"(d));
     return (c & ((1u<<19)|(1u<<20)))==((1u<<19)|(1u<<20));
 }
+int vf_cpu_enable_fp_research(vf_cpu *cpu) {
+#ifdef NEXTCORE_FP_EXECUTION
+    uint64_t ignored[2];
+    if(!cpu || !vf_cpu_state_valid(cpu) || cpu->current_el>VF_EL1 ||
+       cpu->hcr_el2 || cpu->scr_el3 || cpu->exception_pending ||
+       cpu->fp_execution_profile!=VF_FP_EXECUTION_ABSENT ||
+       nc_fp_bank_get_q(&cpu->fp,0,ignored)!=NC_FP_OK)return -1;
+    cpu->fp_execution_profile=VF_FP_EXECUTION_PARTIAL;return 0;
+#else
+    (void)cpu;return -1;
+#endif
+}
 
 static int pauth_slow_step(vf_cpu *cpu) {
     if(!cpu->pauth_step || cpu->current_el>VF_EL1 || (cpu->sctlr&1) ||
@@ -675,16 +721,43 @@ static int pauth_slow_step(vf_cpu *cpu) {
     cpu->retired++;vf_cpu_advance_counter(cpu,1);
     return 1;
 }
-static int platform_slow_step(vf_cpu *cpu) {
+static int system_register_slow_step(vf_cpu *cpu) {
     uint32_t w=cpu->instruction;
-    if(!is_mrs_msr(w) || sysreg_key(w)!=VF_PLATFORM_OVERRIDE_KEY)return 0;
+    if(!is_mrs_msr(w))return 0;
+    uint32_t key=sysreg_key(w);
     unsigned rt=w&31;
     if(w&0x00200000) {
         uint64_t value;
-        if(vf_cpu_read_sysreg(cpu,VF_PLATFORM_OVERRIDE_KEY,&value))return 0;
+        if(vf_cpu_read_sysreg(cpu,key,&value))return 0;
         if(rt!=31)cpu->x[rt]=value;
-    } else if(vf_cpu_write_sysreg(cpu,VF_PLATFORM_OVERRIDE_KEY,rt==31?0:cpu->x[rt]))return 0;
+    } else if(vf_cpu_write_sysreg(cpu,key,rt==31?0:cpu->x[rt]))return 0;
     cpu->pc+=4;cpu->retired++;vf_cpu_advance_counter(cpu,1);return 1;
+}
+static int system_register_read_slow_step(vf_cpu *cpu) {
+    if(!is_mrs_msr(cpu->instruction) || !(cpu->instruction&0x00200000))return 0;
+    return system_register_slow_step(cpu);
+}
+static int platform_override_write_slow_step(vf_cpu *cpu) {
+    /* Platform IRQ state is independent of the immutable memory controls.
+     * Admit only its explicit key; arch.c checks profile, EL and value. */
+    if(!is_mrs_msr(cpu->instruction) || (cpu->instruction&0x00200000) ||
+       sysreg_key(cpu->instruction)!=VF_PLATFORM_OVERRIDE_KEY)return 0;
+    return system_register_slow_step(cpu);
+}
+static int fp_access_control_write_slow_step(vf_cpu *cpu) {
+    if(!is_mrs_msr(cpu->instruction) || (cpu->instruction&0x00200000) ||
+       sysreg_key(cpu->instruction)!=VF_SYSREG_KEY_CPACR_EL1)return 0;
+    return system_register_slow_step(cpu);
+}
+static int research_system_register_failure(vf_cpu *cpu,int status) {
+    /* The bounded CPACR model accepts only FPEN. An unsupported field is a
+     * host coverage boundary, not an architectural system-register trap. */
+    if(status==VF_SYSTEM_REGISTER_TRAP &&
+       cpu->fp_execution_profile==VF_FP_EXECUTION_PARTIAL &&
+       cpu->current_el==VF_EL1 && is_mrs_msr(cpu->instruction) &&
+       sysreg_key(cpu->instruction)==VF_SYSREG_KEY_CPACR_EL1)
+        return VF_IMPLEMENTATION_GAP;
+    return status;
 }
 static int pstate_slow_step(vf_cpu *cpu) {
     uint32_t w=cpu->instruction;
@@ -730,8 +803,16 @@ int vf_run(vf_cpu *cpu,const uint8_t *guest,size_t size,uint8_t *ram,size_t ram_
         if(protect(code->bytes,code->capacity,1,opaque))return cpu->status=VF_PROTECTION;
         /* CPUID serializes stores before execution on x86; no I-cache invalidate needed. */
         status=execute_native_block(cpu,code,ram,ram_size);
+#ifdef NEXTCORE_FP_EXECUTION
+        if((uint32_t)status==VF_FP_DISPATCH) {
+            status=vf_fp_step(cpu);
+            if(status==VF_NEXT)continue;
+            (void)vf_cpu_commit_status(cpu,status);return cpu->status=status;
+        }
+#endif
         if((status==VF_UNDEFINED_INSTRUCTION || status==VF_SYSTEM_REGISTER_TRAP)
-            && (platform_slow_step(cpu) || pstate_slow_step(cpu) || pauth_slow_step(cpu)))continue;
+            && (system_register_slow_step(cpu) || pstate_slow_step(cpu) || pauth_slow_step(cpu)))continue;
+        status=research_system_register_failure(cpu,status);
         if(status!=VF_NEXT) {
             if(vf_cpu_commit_status(cpu,status)) return cpu->status=status;
             return cpu->status=status;
@@ -923,13 +1004,21 @@ int vf_run_memory_provider(vf_cpu *cpu,vf_code *code,uint64_t budget,
         code->used=entry.used;
         /* No guest RAM host pointer is supplied to the generated entry. */
         status=execute_native_block(cpu,&entry,0,0);
+#ifdef NEXTCORE_FP_EXECUTION
+        if((uint32_t)status==VF_FP_DISPATCH) {
+            status=vf_fp_step(cpu);
+            if(status==VF_NEXT)continue;
+            (void)vf_cpu_commit_status(cpu,status);return cpu->status=status;
+        }
+#endif
         if((uint32_t)status==VF_MEMORY_DISPATCH) {
             status=memory_data_step(cpu,callback,owner,result);
             if(status!=VF_NEXT)return cpu->status=status;
             continue;
         }
         if((status==VF_UNDEFINED_INSTRUCTION || status==VF_SYSTEM_REGISTER_TRAP) &&
-           (platform_slow_step(cpu) || pstate_slow_step(cpu) || pauth_slow_step(cpu)))continue;
+           (system_register_slow_step(cpu) || pstate_slow_step(cpu) || pauth_slow_step(cpu)))continue;
+        status=research_system_register_failure(cpu,status);
         if(status!=VF_NEXT) {(void)vf_cpu_commit_status(cpu,status);return cpu->status=status;}
     }
     return cpu->status=VF_BUDGET;

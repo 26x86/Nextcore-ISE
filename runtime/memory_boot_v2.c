@@ -5,7 +5,8 @@ static int overlap(uintptr_t a,size_t an,uintptr_t b,size_t bn){return a<b+bn &&
 static int boot_run_memory_v2(uint64_t base,uint64_t size,uint64_t entry,uint64_t args,uint64_t stack,
     uint8_t *code,size_t code_bytes,uint64_t budget,vf_protect protect,void *protect_opaque,
     const uint64_t initial[4],const vf_boot_options_v2 *options,const vf_memory_controls_v2 *controls,
-    vf_memory_callback_v2 memory,void *owner,vf_memory_run_result_v2 *result,vf_pauth_step pauth,int allow_pauth) {
+    vf_memory_callback_v2 memory,void *owner,vf_memory_run_result_v2 *result,vf_pauth_step pauth,int allow_pauth,
+    int allow_fp,uint64_t initial_cpacr) {
     uintptr_t r=(uintptr_t)result,c=(uintptr_t)code,i=(uintptr_t)initial,o=(uintptr_t)options,s=(uintptr_t)controls;
     if(!span(r,sizeof(*result)) || r%_Alignof(vf_memory_run_result_v2))return VF_DATA_FAULT;
     if((span(c,code_bytes)&&overlap(r,sizeof(*result),c,code_bytes)) ||
@@ -16,6 +17,11 @@ static int boot_run_memory_v2(uint64_t base,uint64_t size,uint64_t entry,uint64_
     result->base.execution.base.pc=entry;result->base.execution.base.x0=args;
     result->base.execution.base.status=VF_DATA_FAULT;result->base.provider_status=VF_PROVIDER_INVALID_REQUEST;
     result->last_reply=(vf_memory_reply_v2){.abi_version=2,.struct_size=128,.level=UINT32_MAX};
+#ifndef NEXTCORE_FP_EXECUTION
+    /* An unavailable research entry never reaches fetch or code protection. */
+    if(allow_fp)return VF_DATA_FAULT;
+    (void)initial_cpacr;
+#endif
     if(!span(c,code_bytes) || code_bytes<64 || !span(i,32) || i%_Alignof(uint64_t) ||
        !span(s,sizeof(*controls)) || s%_Alignof(vf_memory_controls_v2) ||
        (options&&(!span(o,sizeof(*options)) || o%_Alignof(vf_boot_options_v2))) ||
@@ -40,6 +46,12 @@ static int boot_run_memory_v2(uint64_t base,uint64_t size,uint64_t entry,uint64_
     cpu.sctlr=control.sctlr;cpu.ttbr0=control.ttbr0;cpu.ttbr1=control.ttbr1;cpu.tcr=control.tcr;
     cpu.mair=control.mair;cpu.hcr_el2=control.hcr;cpu.scr_el3=control.scr;
     vf_cpu_set_interrupt_lines(&cpu,(unsigned)config.irq_level,(unsigned)config.fiq_level);
+#ifdef NEXTCORE_FP_EXECUTION
+    /* The profile resets CPACR_EL1 to zero. Only this explicit software
+     * handoff or subsequent checked guest writes may establish FP access. */
+    if(allow_fp && (vf_cpu_enable_fp_research(&cpu) ||
+       vf_cpu_write_sysreg(&cpu,VF_SYSREG_KEY_CPACR_EL1,initial_cpacr)))return VF_DATA_FAULT;
+#endif
     result->base.provider_status=VF_PROVIDER_OK;
     vf_code buffer={code,code_bytes,0};
     int status=(allow_pauth?vf_run_memory_provider_pauth_v2:vf_run_memory_provider_v2)(&cpu,&buffer,budget,protect,protect_opaque,&control,memory,owner,result);
@@ -52,12 +64,20 @@ int vf_boot_run_memory_v2(uint64_t base,uint64_t size,uint64_t entry,uint64_t ar
     const uint64_t initial[4],const vf_boot_options_v2 *options,const vf_memory_controls_v2 *controls,
     vf_memory_callback_v2 memory,void *owner,vf_memory_run_result_v2 *result) {
     return boot_run_memory_v2(base,size,entry,args,stack,code,code_bytes,budget,protect,protect_opaque,
-        initial,options,controls,memory,owner,result,0,0);
+        initial,options,controls,memory,owner,result,0,0,0,0);
 }
 int vf_boot_run_memory_pauth_v2(uint64_t base,uint64_t size,uint64_t entry,uint64_t args,uint64_t stack,
     uint8_t *code,size_t code_bytes,uint64_t budget,vf_protect protect,void *protect_opaque,
     const uint64_t initial[4],vf_pauth_step pauth,const vf_boot_options_v2 *options,const vf_memory_controls_v2 *controls,
     vf_memory_callback_v2 memory,void *owner,vf_memory_run_result_v2 *result) {
     return boot_run_memory_v2(base,size,entry,args,stack,code,code_bytes,budget,protect,protect_opaque,
-        initial,options,controls,memory,owner,result,pauth,1);
+        initial,options,controls,memory,owner,result,pauth,1,0,0);
+}
+int vf_boot_run_memory_fp_research_v2(uint64_t base,uint64_t size,uint64_t entry,uint64_t args,uint64_t stack,
+    uint8_t *code,size_t code_bytes,uint64_t budget,vf_protect protect,void *protect_opaque,
+    const uint64_t initial[4],vf_pauth_step pauth,uint64_t initial_cpacr,
+    const vf_boot_options_v2 *options,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 memory,void *owner,vf_memory_run_result_v2 *result) {
+    return boot_run_memory_v2(base,size,entry,args,stack,code,code_bytes,budget,protect,protect_opaque,
+        initial,options,controls,memory,owner,result,pauth,1,1,initial_cpacr);
 }

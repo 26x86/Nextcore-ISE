@@ -353,6 +353,12 @@ pub(crate) enum SystemRegister {
     IdAa64Zfr0El1 = 39,
     IdAa64Isar0El1 = 40,
     IdAa64Isar2El1 = 41,
+    IdAa64Isar3El1 = 42,
+    IdAa64Mmfr1El1 = 43,
+    IdAa64Mmfr2El1 = 44,
+    IdAa64Pfr0El1 = 45,
+    IdAa64Pfr1El1 = 46,
+    IdAa64Pfr2El1 = 47,
 }
 
 impl SystemRegister {
@@ -361,9 +367,15 @@ impl SystemRegister {
     /// the access direction is decided by the instruction decoder.
     fn from_instruction(word: u32) -> Option<Self> {
         match word & !31 {
+            0xd538_0400 => Some(Self::IdAa64Pfr0El1),
+            0xd538_0420 => Some(Self::IdAa64Pfr1El1),
+            0xd538_0440 => Some(Self::IdAa64Pfr2El1),
             0xd538_0480 => Some(Self::IdAa64Zfr0El1),
             0xd538_0600 => Some(Self::IdAa64Isar0El1),
             0xd538_0640 => Some(Self::IdAa64Isar2El1),
+            0xd538_0660 => Some(Self::IdAa64Isar3El1),
+            0xd538_0720 => Some(Self::IdAa64Mmfr1El1),
+            0xd538_0740 => Some(Self::IdAa64Mmfr2El1),
             0xd53d_f500 | 0xd51d_f500 => Some(Self::PlatformOverride),
             0xd53b_d040 | 0xd51b_d040 => Some(Self::TpidrEl0),
             0xd53b_d060 | 0xd51b_d060 => Some(Self::TpidrroEl0),
@@ -853,9 +865,9 @@ impl GuestCpuState {
     }
 
     pub(crate) fn read_sysreg(&mut self, reg: SystemRegister) -> Result<u64, SysRegFault> {
-        if matches!(reg, SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1 | SystemRegister::IdAa64Isar2El1 | SystemRegister::IdAa64Mmfr0El1) {
+        if matches!(reg, SystemRegister::IdAa64Pfr0El1 | SystemRegister::IdAa64Pfr1El1 | SystemRegister::IdAa64Pfr2El1 | SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1 | SystemRegister::IdAa64Isar2El1 | SystemRegister::IdAa64Isar3El1 | SystemRegister::IdAa64Mmfr0El1 | SystemRegister::IdAa64Mmfr1El1 | SystemRegister::IdAa64Mmfr2El1) {
             return if self.current_el==ExceptionLevel::El1 && self.sys.hcr_el2==0 && self.sys.scr_el3==0 {
-                Ok(if reg==SystemRegister::IdAa64Mmfr0El1 {0x0f10_0005} else {0})
+                Ok(if reg==SystemRegister::IdAa64Mmfr0El1 {0x0f10_0005} else if reg==SystemRegister::IdAa64Pfr0El1 {0x00ff_0011} else {0})
             } else { Err(SysRegFault::Unknown) };
         }
         if reg==SystemRegister::PlatformOverride {
@@ -870,7 +882,7 @@ impl GuestCpuState {
             return Err(SysRegFault::Privilege);
         }
         match reg {
-            SystemRegister::PlatformOverride | SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1 | SystemRegister::IdAa64Isar2El1 => unreachable!(),
+            SystemRegister::PlatformOverride | SystemRegister::IdAa64Pfr0El1 | SystemRegister::IdAa64Pfr1El1 | SystemRegister::IdAa64Pfr2El1 | SystemRegister::IdAa64Zfr0El1 | SystemRegister::IdAa64Isar0El1 | SystemRegister::IdAa64Isar2El1 | SystemRegister::IdAa64Isar3El1 | SystemRegister::IdAa64Mmfr1El1 | SystemRegister::IdAa64Mmfr2El1 => unreachable!(),
             SystemRegister::TpidrEl0 => Ok(self.sys.tpidr_el0),
             SystemRegister::TpidrroEl0 => Ok(self.sys.tpidrro_el0),
             SystemRegister::TpidrEl1 => Ok(self.sys.tpidr_el1),
@@ -997,6 +1009,12 @@ impl GuestCpuState {
             | SystemRegister::IdAa64Zfr0El1
             | SystemRegister::IdAa64Isar0El1
             | SystemRegister::IdAa64Isar2El1
+            | SystemRegister::IdAa64Isar3El1
+            | SystemRegister::IdAa64Mmfr1El1
+            | SystemRegister::IdAa64Mmfr2El1
+            | SystemRegister::IdAa64Pfr0El1
+            | SystemRegister::IdAa64Pfr1El1
+            | SystemRegister::IdAa64Pfr2El1
             | SystemRegister::CntvctEl0 => {
                 return Err(SysRegFault::ReadOnly)
             }
@@ -1641,6 +1659,14 @@ impl GuestCpuState {
         let mrs = word & 0xffe00000 == 0xd5200000;
         let msr = word & 0xffe00000 == 0xd5000000;
         if mrs || msr {
+            // FP is absent. These encodings are undefined before trap controls.
+            if matches!((word >> 5) & 0x7fff, 0x5a20 | 0x5a21) {
+                self.raise(GuestException {
+                    kind: ExceptionKind::UndefinedInstruction,
+                    instruction: word, syndrome: word as u64, far: pc, pc,
+                });
+                return StepResult::Exception(ExceptionKind::UndefinedInstruction);
+            }
             let Some(reg) = SystemRegister::from_instruction(word) else {
                 self.raise(GuestException {
                     kind: ExceptionKind::SystemRegisterTrap,
@@ -3253,6 +3279,34 @@ mod tests {
         assert_eq!(cpu.read_sysreg(SystemRegister::PlatformOverride),Err(SysRegFault::Unknown));
     }
 
+    #[test]
+    fn platform_override_masked_round_trip_rejects_incompatible_state() {
+        let initial = 0xa0_0000;
+        let mut cpu = GuestCpuState::reset(0);
+        assert!(cpu.platform.configure(crate::platform::PROFILE_IRQ_COMPAT_V1, initial));
+        assert_eq!(cpu.read_sysreg(SystemRegister::PlatformOverride), Ok(initial));
+        let masked = initial & 0xffff_ffff_ff0f_ffff;
+        assert_eq!(masked, 0);
+        assert_eq!(cpu.write_sysreg(SystemRegister::PlatformOverride, masked), Ok(()));
+        assert_eq!(cpu.platform.override_value, 0);
+
+        for rejected in 0..5 {
+            let mut cpu = GuestCpuState::reset(0);
+            assert!(cpu.platform.configure(crate::platform::PROFILE_IRQ_COMPAT_V1, initial));
+            match rejected {
+                0 => assert!(cpu.platform.configure(crate::platform::PROFILE_NONE, 0)),
+                1 => cpu.platform.profile = 2,
+                2 => assert!(cpu.set_exception_level(0)),
+                3 => cpu.sys.hcr_el2 = 1,
+                _ => cpu.sys.scr_el3 = 1,
+            }
+            let before = cpu.platform.override_value;
+            assert_eq!(cpu.read_sysreg(SystemRegister::PlatformOverride), Err(SysRegFault::Unknown));
+            assert_eq!(cpu.write_sysreg(SystemRegister::PlatformOverride, 0), Err(SysRegFault::Unknown));
+            assert_eq!(cpu.platform.override_value, before);
+        }
+    }
+
     fn thread_instruction(read: bool, op1: u32, op2: u32, rt: u32) -> u32 {
         (if read { 0xd5200000 } else { 0xd5000000 })
             | (3 << 19) | (op1 << 16) | (13 << 12) | (op2 << 5) | rt
@@ -3351,6 +3405,119 @@ mod tests {
             _ => 0xd53b_e000,
         };
         base | rd
+    }
+
+    #[test]
+    fn isar3_read_exposes_no_optional_features_under_scalar_gate() {
+        assert_eq!(SystemRegister::from_instruction(0xd538_0673), Some(SystemRegister::IdAa64Isar3El1));
+        let mut cpu = GuestCpuState::reset(0);
+        assert_eq!(cpu.read_sysreg(SystemRegister::IdAa64Isar3El1), Ok(0));
+        assert_eq!(cpu.write_sysreg(SystemRegister::IdAa64Isar3El1, 1), Err(SysRegFault::ReadOnly));
+        cpu.x[19] = 0xfeed;
+        let mut code = 0xd538_0673u32.to_le_bytes();
+        assert_eq!(cpu.execute_one(&mut RamBus::new(&mut code)), StepResult::Continue);
+        assert_eq!(cpu.x[19], 0);
+        assert_eq!(cpu.pc, 4);
+        cpu.sys.hcr_el2 = 1;
+        assert_eq!(cpu.read_sysreg(SystemRegister::IdAa64Isar3El1), Err(SysRegFault::Unknown));
+        cpu.sys.hcr_el2 = 0;
+        cpu.sys.scr_el3 = 1;
+        assert_eq!(cpu.read_sysreg(SystemRegister::IdAa64Isar3El1), Err(SysRegFault::Unknown));
+    }
+
+    #[test]
+    fn mmfr1_read_exposes_no_afp_under_scalar_gate() {
+        assert_eq!(SystemRegister::from_instruction(0xd538_0728), Some(SystemRegister::IdAa64Mmfr1El1));
+        let mut cpu = GuestCpuState::reset(0);
+        assert_eq!(cpu.read_sysreg(SystemRegister::IdAa64Mmfr1El1), Ok(0));
+        assert_eq!(cpu.write_sysreg(SystemRegister::IdAa64Mmfr1El1, 1), Err(SysRegFault::ReadOnly));
+        cpu.x[8] = 0xfeed;
+        let mut code = 0xd538_0728u32.to_le_bytes();
+        assert_eq!(cpu.execute_one(&mut RamBus::new(&mut code)), StepResult::Continue);
+        assert_eq!(cpu.x[8], 0);
+        assert_eq!(cpu.pc, 4);
+        cpu.sys.hcr_el2 = 1;
+        assert_eq!(cpu.read_sysreg(SystemRegister::IdAa64Mmfr1El1), Err(SysRegFault::Unknown));
+        cpu.sys.hcr_el2 = 0;
+        cpu.sys.scr_el3 = 1;
+        assert_eq!(cpu.read_sysreg(SystemRegister::IdAa64Mmfr1El1), Err(SysRegFault::Unknown));
+    }
+
+    #[test]
+    fn mmfr2_read_exposes_no_at_or_large_va_under_scalar_gate() {
+        assert_eq!(SystemRegister::from_instruction(0xd538_0753), Some(SystemRegister::IdAa64Mmfr2El1));
+        let mut cpu = GuestCpuState::reset(0);
+        assert_eq!(cpu.read_sysreg(SystemRegister::IdAa64Mmfr2El1), Ok(0));
+        assert_eq!(cpu.write_sysreg(SystemRegister::IdAa64Mmfr2El1, 1), Err(SysRegFault::ReadOnly));
+        cpu.x[19] = 0xfeed;
+        let mut code = 0xd538_0753u32.to_le_bytes();
+        assert_eq!(cpu.execute_one(&mut RamBus::new(&mut code)), StepResult::Continue);
+        assert_eq!(cpu.x[19], 0);
+        assert_eq!(cpu.pc, 4);
+        cpu.sys.hcr_el2 = 1;
+        assert_eq!(cpu.read_sysreg(SystemRegister::IdAa64Mmfr2El1), Err(SysRegFault::Unknown));
+        cpu.sys.hcr_el2 = 0;
+        cpu.sys.scr_el3 = 1;
+        assert_eq!(cpu.read_sysreg(SystemRegister::IdAa64Mmfr2El1), Err(SysRegFault::Unknown));
+    }
+
+    #[test]
+    fn pfr_reads_report_absent_fp_and_optional_features_under_scalar_gate() {
+        const PFR0: u64 = 0x00ff_0011;
+        assert_eq!(SystemRegister::from_instruction(0xd538_0473), None);
+        assert_eq!(SystemRegister::from_instruction(0xd53b_4408), None);
+        assert_eq!((PFR0 >> 16) & 15, 15);
+        assert_eq!((PFR0 >> 20) & 15, 15);
+        assert_eq!(PFR0 & 255, 0x11);
+        for (word, reg, expected) in [
+            (0xd538_0413u32, SystemRegister::IdAa64Pfr0El1, PFR0),
+            (0xd538_0434u32, SystemRegister::IdAa64Pfr1El1, 0),
+            (0xd538_0453u32, SystemRegister::IdAa64Pfr2El1, 0),
+        ] {
+            assert_eq!(SystemRegister::from_instruction(word), Some(reg));
+            let mut cpu = GuestCpuState::reset(0);
+            assert_eq!(cpu.read_sysreg(reg), Ok(expected));
+            assert_eq!(cpu.write_sysreg(reg, 1), Err(SysRegFault::ReadOnly));
+            cpu.x[(word & 31) as usize] = 0xfeed;
+            let mut code = word.to_le_bytes();
+            assert_eq!(cpu.execute_one(&mut RamBus::new(&mut code)), StepResult::Continue);
+            assert_eq!(cpu.x[(word & 31) as usize], expected);
+            assert_eq!(cpu.pc, 4);
+            cpu.sys.hcr_el2 = 1;
+            assert_eq!(cpu.read_sysreg(reg), Err(SysRegFault::Unknown));
+            cpu.sys.hcr_el2 = 0;
+            cpu.sys.scr_el3 = 1;
+            assert_eq!(cpu.read_sysreg(reg), Err(SysRegFault::Unknown));
+        }
+    }
+
+    #[test]
+    fn absent_fp_control_status_access_is_undefined_without_mutation() {
+        for level in [ExceptionLevel::El0, ExceptionLevel::El1,
+                      ExceptionLevel::El2, ExceptionLevel::El3] {
+            for word in [0xd53b_4408u32, 0xd51b_4408, 0xd53b_4428, 0xd51b_4428,
+                         0xd53b_441f, 0xd51b_441f, 0xd53b_443f, 0xd51b_443f] {
+                let mut cpu = GuestCpuState::reset(0);
+                cpu.current_el = level;
+                cpu.pstate = match level { ExceptionLevel::El0=>0,
+                    ExceptionLevel::El1=>5, ExceptionLevel::El2=>9,
+                    ExceptionLevel::El3=>13 } | 0xf000_03c0;
+                cpu.sys.hcr_el2 = u64::MAX;
+                cpu.sys.scr_el3 = u64::MAX;
+                cpu.x[8] = 0xfeed;
+                cpu.sp = 0x800;
+                let before = (cpu.x, cpu.sp, cpu.pstate);
+                let mut bytes = word.to_le_bytes();
+                assert_eq!(cpu.execute_one(&mut RamBus::new(&mut bytes)),
+                    StepResult::Exception(ExceptionKind::UndefinedInstruction));
+                assert_eq!((cpu.x, cpu.sp, cpu.pstate), before);
+                assert_eq!(cpu.pc, 0);
+                assert_eq!(bytes, word.to_le_bytes());
+                let exception = cpu.pending_exception.unwrap();
+                assert_eq!(exception.instruction, word);
+                assert_eq!(exception.syndrome >> 26, 0);
+            }
+        }
     }
 
     #[test]

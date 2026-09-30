@@ -5,6 +5,9 @@
 #define _GNU_SOURCE
 #include "preos_bridge.h"
 
+#include "../devices/aic_v1.h"
+#include "../devices/dart_v1.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,6 +56,34 @@ static int protect_pages(void *pointer, size_t bytes, int executable, void *opaq
     return mprotect(pointer, bytes, PROT_READ | (executable ? PROT_EXEC : PROT_WRITE));
 }
 
+typedef struct {
+    vf_cpu *cpu;
+    unsigned initialized;
+    unsigned sp_check;
+    unsigned fiq;
+    unsigned fiq_masked;
+} diagnostic_inputs;
+
+/* Seed authored inputs after the wrapper reset. The existing permission
+ * callback supplies a host interrupt level; the real JIT and interrupt poll
+ * still determine the terminal status and architectural state. */
+static int protect_with_diagnostic_inputs(void *pointer, size_t bytes,
+                                         int executable, void *opaque) {
+    diagnostic_inputs *inputs = opaque;
+    int status = protect_pages(pointer, bytes, executable, 0);
+    if (!status && !executable && !inputs->initialized) {
+        inputs->initialized = 1;
+        if (inputs->sp_check) inputs->cpu->sctlr |= UINT64_C(16);
+        if (inputs->fiq) {
+            CHECK(vf_cpu_set_interrupt_lines(inputs->cpu, 0, 1) == 0);
+            if (inputs->fiq_masked) inputs->cpu->pstate |= UINT64_C(1) << 6;
+            inputs->cpu->esr_el[VF_EL1] = UINT64_C(0xabcdef);
+            inputs->cpu->far_el[VF_EL1] = UINT64_C(0x6789);
+        }
+    }
+    return status;
+}
+
 static void trace(const char *message, void *opaque) {
     (void)opaque;
     if (!strcmp(message, "VF: RUST_ENTER\r\n")) trace_mask |= 1u << 0;
@@ -72,6 +103,7 @@ static void trace(const char *message, void *opaque) {
     if (!strcmp(message, "VF: GUEST_STOP reason=DATA_ABORT\r\n")) trace_mask |= 1u << 14;
     if (!strcmp(message, "VF: GUEST_STOP reason=ALIGNMENT_FAULT\r\n")) trace_mask |= 1u << 15;
     if (!strcmp(message, "VF: M1_RUNTIME_ACTIVE\r\n")) trace_mask |= 1u << 16;
+    if (!strcmp(message, "VF: GUEST_STOP reason=FIQ_INTERRUPT\r\n")) trace_mask |= 1u << 17;
 }
 
 static void zero_result(VF_PREOS_RESULT *result) {
@@ -173,7 +205,15 @@ int main(void) {
     CHECK(result.fault_instruction == privileged[0]);
     CHECK((trace_mask & (1u << 11)) != 0);
 
-    const uint32_t system_register[] = {0xd53be000};
+    const uint32_t counter_frequency[] = {0xd53be000, 0xd4400000};
+    context = make_context(&execution, counter_frequency, 2, 16, 0);
+    zero_result(&result);
+    CHECK(vf_preos_run(&context, &result) == VF_PREOS_OK);
+    CHECK(result.termination_reason == VF_TERMINATION_HALT);
+    CHECK(result.result_x0 == UINT64_C(24000000));
+    CHECK(result.retired_instruction_count == 2 && result.guest_pc == 8);
+
+    const uint32_t system_register[] = {0xd53fffc0};
     context = make_context(&execution, system_register, 1, 16, 0);
     zero_result(&result);
     CHECK(vf_preos_run(&context, &result) == VF_PREOS_E_UNSUPPORTED);
@@ -202,6 +242,71 @@ int main(void) {
     CHECK(result.retired_instruction_count == 1 && result.guest_pc == 4);
     CHECK(result.fault_instruction == alignment_abort[1]);
     CHECK((trace_mask & (1u << 15)) != 0);
+
+    /* The SP remains naturally aligned for the 8-byte store, but violates
+     * the separate 16-byte SP check. Preserve that stop across C and Rust. */
+    const uint32_t sp_alignment_abort[] = {0x910023ff, 0xf90003e0, 0xd4400000};
+    uint8_t saved_ram[sizeof(ram)];
+    memcpy(saved_ram, ram, sizeof(ram));
+    diagnostic_inputs inputs = {.cpu = &cpu, .sp_check = 1};
+    execution.protect = protect_with_diagnostic_inputs;
+    execution.protection_opaque = &inputs;
+    context = make_context(&execution, sp_alignment_abort, 3, 16, 0);
+    zero_result(&result);
+    CHECK(vf_preos_run(&context, &result) == VF_PREOS_E_UNSUPPORTED);
+    CHECK(result.code == VF_PREOS_E_UNSUPPORTED);
+    CHECK(result.termination_reason == VF_TERMINATION_ALIGNMENT_FAULT);
+    CHECK(cpu.status == VF_SP_ALIGNMENT_FAULT);
+    CHECK(cpu.exception_pending == VF_EXCEPTION_SP_ALIGNMENT_FAULT);
+    CHECK(cpu.sp == 8 && cpu.far == 8);
+    CHECK(result.retired_instruction_count == 1 && result.guest_pc == 4);
+    CHECK(result.fault_instruction == sp_alignment_abort[1]);
+    CHECK(memcmp(ram, saved_ram, sizeof(ram)) == 0);
+
+    /* Disabling the SP check admits the same naturally aligned store. */
+    inputs = (diagnostic_inputs){.cpu = &cpu};
+    memset(ram + 8, 0xa5, 8);
+    zero_result(&result);
+    CHECK(vf_preos_run(&context, &result) == VF_PREOS_OK);
+    CHECK(result.termination_reason == VF_TERMINATION_HALT);
+    CHECK(result.retired_instruction_count == 3 && result.guest_pc == 12);
+    CHECK(*(uint64_t *)(void *)(ram + 8) == 0);
+
+    /* A real FIQ input becomes eligible on the next dispatch after an
+     * authored branch. No terminal status is injected by the fixture. */
+    const uint32_t fiq_loop[] = {0xd2802460, 0x14000000};
+    inputs = (diagnostic_inputs){.cpu = &cpu, .fiq = 1};
+    memcpy(saved_ram, ram, sizeof(ram));
+    context = make_context(&execution, fiq_loop, 2, 16, 0);
+    zero_result(&result);
+    CHECK(vf_preos_run(&context, &result) == VF_PREOS_E_UNSUPPORTED);
+    CHECK(result.code == VF_PREOS_E_UNSUPPORTED);
+    CHECK(result.termination_reason == VF_TERMINATION_FIQ_INTERRUPT);
+    CHECK(cpu.status == VF_FIQ_INTERRUPT && cpu.fiq_level == 1);
+    CHECK(cpu.exception_pending == VF_EXCEPTION_NONE);
+    CHECK(cpu.current_el == VF_EL1 && cpu.pstate == UINT64_C(0x3c5));
+    CHECK(cpu.spsr_el[VF_EL1] == 0);
+    CHECK(result.retired_instruction_count == 2 && result.guest_pc == 0x500);
+    CHECK(cpu.elr_el[VF_EL1] == 4 && cpu.exception_vector == 0x500);
+    CHECK(cpu.esr_el[VF_EL1] == 0xabcdef && cpu.far_el[VF_EL1] == 0x6789);
+    CHECK(result.result_x0 == 0x123 && result.result_x1 == 0 && result.result_x3 == 0);
+    CHECK(result.fault_instruction == 0);
+    CHECK(memcmp(ram, saved_ram, sizeof(ram)) == 0);
+    CHECK((trace_mask & (1u << 17)) != 0);
+
+    /* PSTATE.F must keep the same pending line from producing a FIQ stop. */
+    inputs = (diagnostic_inputs){.cpu = &cpu, .fiq = 1, .fiq_masked = 1};
+    context.execution_budget = 3;
+    trace_mask = 0;
+    zero_result(&result);
+    CHECK(vf_preos_run(&context, &result) == VF_PREOS_E_BUDGET);
+    CHECK(result.termination_reason == VF_TERMINATION_BUDGET_EXHAUSTED);
+    CHECK(cpu.status == VF_BUDGET && cpu.fiq_level == 1);
+    CHECK(cpu.exception_pending == VF_EXCEPTION_NONE);
+    CHECK(result.retired_instruction_count == 3 && result.guest_pc == 4);
+    CHECK((trace_mask & (1u << 17)) == 0);
+    execution.protect = protect_pages;
+    execution.protection_opaque = 0;
 
     const uint32_t data_abort[] = {0xd2a00201, 0xf9000020};
     context = make_context(&execution, data_abort, 2, 16, 0);
@@ -299,6 +404,43 @@ int main(void) {
     CHECK(result.termination_reason == VF_TERMINATION_HALT);
     CHECK(result.result_x0 == 0x8103);
     CHECK(result.retired_instruction_count == 3 && result.guest_pc == 12);
+
+    /* Golden Gate rank-1 DART stub: guest read of graph-local DART PARAMS1 via
+     * M1_GUEST_MMIO_BASE + M1_LOGICAL_DART_BASE. */
+    const uint32_t architectural_dart_params1[] = {
+        0xd2a20001, /* movz x1, #0x1000, lsl #16 => 0x10000000 */
+        0x91400c21, /* add x1, x1, #0x3000 */
+        0xb9400020, /* ldr w0, [x1] */
+        0xd4400000,
+    };
+    context = make_context(&execution, architectural_dart_params1,
+                           sizeof(architectural_dart_params1) / sizeof(architectural_dart_params1[0]), 100,
+                           VF_PREOS_REQUEST_MMU);
+    zero_result(&result);
+    CHECK(vf_preos_run(&context, &result) == VF_PREOS_OK);
+    CHECK(result.code == VF_PREOS_OK);
+    CHECK(result.termination_reason == VF_TERMINATION_HALT);
+    CHECK(result.result_x0 == VF_DART_PARAMS1_PAGE_SHIFT_VAL(VF_DART_DEFAULT_PAGE_SHIFT));
+    CHECK(result.retired_instruction_count == 4 && result.guest_pc == 16);
+
+    /* Golden Gate rank-4 AIC stub: guest read of graph-local AIC INFO via
+     * M1_GUEST_MMIO_BASE + M1_LOGICAL_AIC_BASE + VF_AIC_REG_INFO. */
+    const uint32_t architectural_aic_info[] = {
+        0xd2a20001, /* movz x1, #0x1000, lsl #16 => 0x10000000 */
+        0x91400421, /* add x1, x1, #0x1000 => AIC logical window */
+        0x91001021, /* add x1, x1, #0x4 => INFO */
+        0xb9400020, /* ldr w0, [x1] */
+        0xd4400000,
+    };
+    context = make_context(&execution, architectural_aic_info,
+                           sizeof(architectural_aic_info) / sizeof(architectural_aic_info[0]), 100,
+                           VF_PREOS_REQUEST_MMU);
+    zero_result(&result);
+    CHECK(vf_preos_run(&context, &result) == VF_PREOS_OK);
+    CHECK(result.code == VF_PREOS_OK);
+    CHECK(result.termination_reason == VF_TERMINATION_HALT);
+    CHECK(result.result_x0 == (((VF_M1_AIC_CPU_COUNT - 1u) << 16) | VF_M1_AIC_IRQ_COUNT));
+    CHECK(result.retired_instruction_count == 5 && result.guest_pc == 20);
 
     /* The opaque execution capability is part of the C-owned boundary.  A
      * malformed capability must be rejected before vf_run() is entered. */

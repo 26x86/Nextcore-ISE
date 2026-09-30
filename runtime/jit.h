@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "platform_abi.h"
+#include "fp_guest.h"
 #define VF_ABI __attribute__((ms_abi))
 enum vf_status { VF_NEXT, VF_HALT, VF_BAD_INSTRUCTION, VF_FETCH_FAULT, VF_DATA_FAULT,
                  VF_BUDGET, VF_CODE_FULL, VF_PROTECTION,
@@ -11,7 +12,7 @@ enum vf_status { VF_NEXT, VF_HALT, VF_BAD_INSTRUCTION, VF_FETCH_FAULT, VF_DATA_F
                  VF_TRANSLATION_FAULT, VF_PERMISSION_FAULT, VF_ALIGNMENT_FAULT,
                  VF_SYSTEM_REGISTER_TRAP, VF_TIMER_INTERRUPT, VF_EXTERNAL_INTERRUPT,
                  VF_INSTRUCTION_ABORT, VF_DATA_ABORT, VF_FIQ_INTERRUPT,
-                 VF_SP_ALIGNMENT_FAULT };
+                 VF_SP_ALIGNMENT_FAULT, VF_IMPLEMENTATION_GAP, VF_FP_ACCESS_TRAP };
 
 /* These are guest architectural exceptions.  They are deliberately separate
  * from vf_status: a terminal JIT result is an execution-layer status, while a
@@ -30,6 +31,7 @@ enum vf_exception_kind {
     VF_EXCEPTION_EXTERNAL_INTERRUPT = 10,
     VF_EXCEPTION_FIQ_INTERRUPT = 13,
     VF_EXCEPTION_SP_ALIGNMENT_FAULT = 14,
+    VF_EXCEPTION_FP_ACCESS = 15,
 };
 
 enum vf_exception_level { VF_EL0 = 0, VF_EL1 = 1, VF_EL2 = 2, VF_EL3 = 3 };
@@ -40,6 +42,7 @@ enum vf_exception_level { VF_EL0 = 0, VF_EL1 = 1, VF_EL2 = 2, VF_EL3 = 3 };
 #define VF_ESR_EC_UNKNOWN UINT32_C(0x00)
 #define VF_ESR_EC_WFX_TRAP UINT32_C(0x01)
 #define VF_ESR_EC_SYSREG UINT32_C(0x18)
+#define VF_ESR_EC_FP_ACCESS UINT32_C(0x07)
 #define VF_ESR_EC_IABT_LOWER UINT32_C(0x20)
 #define VF_ESR_EC_IABT_SAME UINT32_C(0x21)
 #define VF_ESR_EC_DABT_LOWER UINT32_C(0x24)
@@ -70,7 +73,20 @@ enum vf_exception_level { VF_EL0 = 0, VF_EL1 = 1, VF_EL2 = 2, VF_EL3 = 3 };
 #define VF_SYSREG_KEY_TPIDRRO_EL0 UINT32_C(0x5e83)
 #define VF_SYSREG_KEY_TPIDR_EL1 UINT32_C(0x4684)
 #define VF_SYSREG_KEY_ID_AA64ISAR1_EL1 UINT32_C(0x4031)
+#define VF_SYSREG_KEY_ID_AA64ISAR3_EL1 UINT32_C(0x4033)
+#define VF_SYSREG_KEY_ID_AA64PFR0_EL1 UINT32_C(0x4020)
+#define VF_SYSREG_KEY_ID_AA64PFR1_EL1 UINT32_C(0x4021)
+#define VF_SYSREG_KEY_ID_AA64PFR2_EL1 UINT32_C(0x4022)
+#define VF_SYSREG_KEY_FPCR UINT32_C(0x5a20)
+#define VF_SYSREG_KEY_CPACR_EL1 UINT32_C(0x4082)
+#define VF_FP_EXECUTION_ABSENT 0u
+#define VF_FP_EXECUTION_PARTIAL 1u
+#define VF_PFR0_FP_RESEARCH UINT64_C(0x00000011)
+#define VF_SYSREG_KEY_FPSR UINT32_C(0x5a21)
+#define VF_PFR0_SCALAR_PROFILE UINT64_C(0x00ff0011)
 #define VF_SYSREG_KEY_ID_AA64MMFR0_EL1 UINT32_C(0x4038)
+#define VF_SYSREG_KEY_ID_AA64MMFR1_EL1 UINT32_C(0x4039)
+#define VF_SYSREG_KEY_ID_AA64MMFR2_EL1 UINT32_C(0x403a)
 #define VF_SYSREG_KEY_SCTLR_EL1 UINT32_C(0x4080)
 #define VF_SYSREG_KEY_TTBR0_EL1 UINT32_C(0x4100)
 #define VF_SYSREG_KEY_TTBR1_EL1 UINT32_C(0x4101)
@@ -135,6 +151,14 @@ typedef struct {
     uint64_t tpidr_el0, tpidrro_el0, tpidr_el1;
     uint64_t platform_override;
     uint32_t platform_profile,irq_level,fiq_level;
+    /* The scalar profile has no FP/SIMD. Explicit incomplete research
+     * execution uses this bank through the checked dispatcher. Appended so
+     * earlier private C field offsets and transport structures stay fixed. */
+    nc_fp_bank fp;
+    /* Incomplete research execution only. Normal scalar reset remains absent.
+     * CPACR is guest-owned state, never an implied enabled startup value. */
+    uint64_t cpacr_el1;
+    uint32_t fp_execution_profile, fp_execution_reserved;
 } vf_cpu;
 typedef struct { uint8_t *bytes; size_t capacity, used; } vf_code;
 typedef int (VF_ABI *vf_entry)(vf_cpu *, uint8_t *, uint64_t);
@@ -160,6 +184,9 @@ int vf_run_boot_v2(vf_cpu *, uint8_t *, size_t, uint64_t ram_base,
                 const uint64_t initial_x0_x3[4], vf_pauth_step,
                 const vf_boot_options_v2 *);
 int vf_host_supported(void);
+/* Available only in an explicitly compiled incomplete research runtime.
+ * Returns failure without mutation otherwise. Never grants normal admission. */
+int vf_cpu_enable_fp_research(vf_cpu *);
 /* Shared boot-state preparation, with no RAM dereference or execution. */
 int vf_cpu_prepare_boot(vf_cpu *,uint64_t ram_size,uint64_t ram_base,
     uint64_t entry,uint64_t args,uint64_t stack,const uint64_t initial[4],

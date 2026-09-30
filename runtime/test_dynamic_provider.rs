@@ -1,8 +1,10 @@
 //! Authored generated-x86 / canonical Rust control-and-memory execution proof.
 use core::ffi::c_void;
+use core::sync::atomic::{AtomicUsize,Ordering};
 use nextcore_memory_service::{abi::{LOAD,STORE},abi_v2 as m,dynamic_abi as c,
     dynamic::{MemoryServiceDynamic,vf_memory_dynamic_control_v1,vf_memory_dynamic_step_v1}};
 #[path="preos/src/platform.rs"]mod platform;
+#[path="preos/src/pauth.rs"]mod canonical_pauth;
 #[path="memory_boot.rs"]mod memory_boot;
 #[path="memory_boot_v2.rs"]mod memory_boot_v2;
 #[path="memory_dynamic.rs"]mod memory_dynamic;
@@ -20,8 +22,19 @@ unsafe extern "C" {
         code:*mut u8,code_bytes:usize,budget:u64,protect:Option<Protect>,opaque:*mut c_void,
         initial:*const u64,options:*const platform::BootOptionsV2,controls:*const m::Controls,
         memory:Option<m::Callback>,control:Option<c::Callback>,owner:*mut c_void,result:*mut Run)->i32;
+    fn vf_boot_run_memory_dynamic_pauth(base:u64,size:u64,entry:u64,args:u64,stack:u64,
+        code:*mut u8,code_bytes:usize,budget:u64,protect:Option<Protect>,opaque:*mut c_void,
+        initial:*const u64,pauth:Option<unsafe extern "C" fn(*mut c_void,u32)->i32>,
+        options:*const platform::BootOptionsV2,controls:*const m::Controls,
+        memory:Option<m::Callback>,control:Option<c::Callback>,owner:*mut c_void,result:*mut Run)->i32;
+    fn vf_preos_pauth_step(context:*mut c_void,instruction:u32)->i32;
 }
 unsafe extern "C" fn protect(p:*mut c_void,n:usize,x:i32,_:*mut c_void)->i32 {unsafe{mprotect(p,n,if x!=0 {5}else{3})}}
+static PAC_CALLS:AtomicUsize=AtomicUsize::new(0);
+unsafe extern "C" fn counted_pauth(context:*mut c_void,instruction:u32)->i32 {
+    PAC_CALLS.fetch_add(1,Ordering::Relaxed);
+    unsafe{vf_preos_pauth_step(context,instruction)}
+}
 struct Code(*mut u8);
 impl Code {fn new()->Self {let p=unsafe{mmap(core::ptr::null_mut(),4096,3,0x22,-1,0)};assert_ne!(p as isize,-1);Self(p.cast())}}
 impl Drop for Code {fn drop(&mut self){assert_eq!(unsafe{munmap(self.0.cast(),4096)},0);}}
@@ -80,6 +93,16 @@ fn run(c:m::Controls,tables:&[u8],ram:&mut[u8],entry:u64,initial:[u64;4],budget:
     assert_eq!(status as u32,out.memory.base.execution.base.status);let state=o.service.final_state();let reads=o.service.table_reads();
     Evidence{out,data:o.data,controls:o.controls,service_state:state,reads}
 }
+fn run_pauth(c:m::Controls,tables:&[u8],ram:&mut[u8],entry:u64,initial:[u64;4],
+    pauth:Option<unsafe extern "C" fn(*mut c_void,u32)->i32>)->Evidence {
+    let size=ram.len()as u64;let code=Code::new();
+    let mut o=Owner{service:MemoryServiceDynamic::new(ram,RAM,tables,TABLE,c).unwrap(),data:vec![],controls:vec![],corrupt:0};
+    let mut out=Run::default();let status=unsafe{vf_boot_run_memory_dynamic_pauth(RAM,size,entry,initial[0],RAM+0x400,
+        code.0,4096,8,Some(protect),core::ptr::null_mut(),initial.as_ptr(),pauth,core::ptr::null(),&c,
+        Some(memory),Some(control),(&mut o as *mut Owner<'_>).cast(),&mut out)};
+    assert_eq!(status as u32,out.memory.base.execution.base.status);let state=o.service.final_state();let reads=o.service.table_reads();
+    Evidence{out,data:o.data,controls:o.controls,service_state:state,reads}
+}
 #[test]fn generated_x86_crosses_guarded_isb_and_uses_nonidentity_scalar_pair_memory() {
     for sixteen in [false,true] {
         let(c,tables,mut ram,step,_)=fixture(sixteen,&[
@@ -102,6 +125,74 @@ fn run(c:m::Controls,tables:&[u8],ram:&mut[u8],entry:u64,initial:[u64;4],budget:
         let after=e.data.iter().find(|q|q.pc==RAM+step as u64).unwrap();assert_eq!((after.controls.sctlr&1,after.controls.epoch),(1,2));
         assert!(e.data.iter().any(|q|q.operation==STORE && q.count==2));assert!(e.data.iter().any(|q|q.operation==LOAD && q.count==2));
     }
+}
+#[test]fn post_isb_pac_stops_without_provider_while_control_reaches_halt() {
+    const XPACI_X0:u32=0xdac143e0;
+    const NOP:u32=0xd503201f;
+    for (instruction,halts) in [(XPACI_X0,false),(NOP,true)] {
+        let(c,tables,mut ram,step,_)=fixture(false,&[instruction,HLT]);
+        let before=ram.clone();
+        let initial=[c.sctlr|1,0,8,0];
+        let e=run(c,&tables,&mut ram,RAM+step as u64-12,initial,8,0);
+        let b=e.out.memory.base.execution.base;
+        assert_eq!((e.out.final_control.effective.sctlr&1,e.out.final_control.epoch),(1,2));
+        assert_eq!(e.out.memory.base.provider_status,0);
+        assert_eq!(b.x0,initial[0]);
+        assert_eq!(ram,before);
+        if halts {
+            assert_eq!((b.status,b.retired,b.pc),(1,5,RAM+step as u64+8));
+        } else {
+            assert_eq!((b.status,b.retired,b.pc),(8,3,RAM+step as u64));
+            assert_eq!(b.fault_instruction,XPACI_X0);
+        }
+    }
+}
+#[test]fn post_isb_pac_callback_preserves_dynamic_controls_and_null_rejects() {
+    const XPACI_X1:u32=0xdac143e1;
+    let(c,tables,mut ram,step,_)=fixture(false,&[XPACI_X1,HLT]);
+    let before=ram.clone();let entry=RAM+step as u64-12;
+    let initial=[c.sctlr|1,0xbf36000000000130,8,0];
+    let accepted=run_pauth(c,&tables,&mut ram,entry,initial,Some(vf_preos_pauth_step));
+    let b=accepted.out.memory.base.execution.base;
+    assert_eq!((b.status,b.retired,b.pc,b.x1),(1,5,RAM+step as u64+8,0x130));
+    assert_eq!((accepted.out.final_control.effective.sctlr,accepted.out.final_control.epoch),(c.sctlr|1,2));
+    assert_eq!(accepted.out.final_control,accepted.service_state);
+    assert_eq!(accepted.out.memory.base.provider_status,0);
+    assert_eq!(ram,before);
+    let rejected=run_pauth(c,&tables,&mut ram,entry,initial,None);
+    let r=rejected.out.memory.base.execution.base;
+    assert_eq!((r.status,r.retired,rejected.out.memory.base.provider_status),(4,0,2));
+    assert!(rejected.data.is_empty()&&rejected.controls.is_empty());
+    let old=run(c,&tables,&mut ram,entry,initial,8,0);
+    let b=old.out.memory.base.execution.base;
+    assert_eq!((b.status,b.retired,b.pc,b.x1),(8,3,RAM+step as u64,initial[1]));
+    assert_eq!(ram,before);
+}
+#[test]fn post_isb_pacia_callback_runs_but_enable_bit_is_not_admitted() {
+    const PACIA_X1_X2:u32=0xdac10041;
+    let(c,tables,mut ram,step,_)=fixture(false,&[PACIA_X1_X2,HLT]);
+    let before=ram.clone();let entry=RAM+step as u64-12;
+    let initial=[c.sctlr|1,0x130,0x9875,0];
+    PAC_CALLS.store(0,Ordering::Relaxed);
+    let e=run_pauth(c,&tables,&mut ram,entry,initial,Some(counted_pauth));
+    let b=e.out.memory.base.execution.base;
+    assert_eq!((b.status,b.retired,b.x1,b.x2),(1,5,0x130,0x9876));
+    assert_eq!(PAC_CALLS.load(Ordering::Relaxed),1);
+    assert_eq!(e.out.final_control.effective.sctlr&1,1);
+    assert_eq!(e.out.memory.base.provider_status,0);
+    assert_eq!(ram,before);
+
+    let mut denied=c;denied.sctlr|=1<<31;
+    let code=Code::new();let size=ram.len()as u64;
+    let mut owner=Owner{service:MemoryServiceDynamic::new(&mut ram,RAM,&tables,TABLE,c).unwrap(),data:vec![],controls:vec![],corrupt:0};
+    let mut out=Run::default();PAC_CALLS.store(0,Ordering::Relaxed);
+    let status=unsafe{vf_boot_run_memory_dynamic_pauth(RAM,size,entry,initial[0],RAM+0x400,
+        code.0,4096,8,Some(protect),core::ptr::null_mut(),initial.as_ptr(),Some(counted_pauth),
+        core::ptr::null(),&denied,Some(memory),Some(control),(&mut owner as *mut Owner<'_>).cast(),&mut out)};
+    assert_eq!((status,out.memory.base.execution.base.retired,out.memory.base.provider_status),(4,0,2));
+    assert_eq!(PAC_CALLS.load(Ordering::Relaxed),0);
+    assert!(owner.data.is_empty()&&owner.controls.is_empty());
+    assert_eq!(ram,before);
 }
 #[test]fn actual_native_post_isb_fetch_and_data_faults_are_precise() {
     for sixteen in [false,true] {for fetch in [true,false] {
@@ -172,9 +263,10 @@ fn run(c:m::Controls,tables:&[u8],ram:&mut[u8],entry:u64,initial:[u64;4],budget:
     assert_eq!(e.out.memory.base.execution.pstate&0xc0,0xc0);assert_eq!(e.out.final_control.epoch,1);
 }
 
-#[test]fn actual_c_rust_dynamic_layout_matches_without_changing_cpu_or_v2() {
+#[test]fn actual_c_rust_dynamic_layout_matches_with_private_fp_bank_and_unchanged_v2() {
     use core::mem::{size_of,align_of,offset_of};
-    let expected=[888,size_of::<m::Controls>(),size_of::<m::Request>(),size_of::<m::Reply>(),
+    // Only the opaque C CPU grew; the transported C/Rust records stay fixed.
+    let expected=[1424,size_of::<m::Controls>(),size_of::<m::Request>(),size_of::<m::Reply>(),
         size_of::<c::Snapshot>(),size_of::<c::Request>(),size_of::<c::Reply>(),size_of::<Run>(),
         align_of::<c::Request>(),align_of::<c::Reply>(),align_of::<Run>(),
         offset_of!(c::Request,pc),offset_of!(c::Request,before),offset_of!(c::Request,candidate),

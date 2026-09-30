@@ -144,7 +144,8 @@ fn run_with_stack(c:Controls,tables:&[u8],ram:&mut[u8],entry:u64,stack:u64,initi
     let mut expected=layout!(Controls;abi_version,struct_size,profile,reserved,sctlr,ttbr0,ttbr1,tcr,mair,hcr,scr,epoch).to_vec();
     expected.extend(layout!(Request;abi_version,struct_size,operation,flags,width,count,current_el,reserved0,pc,address,value0,value1,pstate,controls,reserved1));
     expected.extend(layout!(Reply;abi_version,struct_size,result,fault,level,context,fsc,metadata_flags,value0,value1,address,esr,epoch,descriptor_pa,output_pa,reserved));
-    expected.extend(layout!(Run;base,last_reply));expected.push(888);
+    // Only the opaque C CPU grew for the private FP/vector bank.
+    expected.extend(layout!(Run;base,last_reply));expected.push(1424);
     let mut actual=vec![u64::MAX;expected.len()];assert_eq!(unsafe{vf_stage1_layout(actual.as_mut_ptr(),actual.len())},expected.len());assert_eq!(actual,expected);
     for sixteen in [false,true] {let(c,_,_,_,_)=fixture(sixteen,&[HLT]);
         for field in 0..8 {for bit in 0..64 {
@@ -164,6 +165,43 @@ fn run_with_stack(c:Controls,tables:&[u8],ram:&mut[u8],entry:u64,stack:u64,initi
         let(r,requests)=run(c,&tables,&mut ram,VA,[c.sctlr,1,2,3],0);let b=r.base.execution.base;
         assert_eq!((b.status,b.retired,b.pc,b.x0,r.base.provider_status),(13,0,VA,c.sctlr,0));
         assert_eq!(requests.len(),1);assert_eq!(requests[0].controls,c);assert_eq!(ram,before);
+    }
+}
+#[test]fn stage1_msr_ttbr0_is_rejected_before_mutating_architectural_state() {
+    let(c,tables,mut ram,_,_)=fixture(false,&[0xd5182000,HLT]);
+    let before=ram.clone();let proposed_ttbr0=TABLES+0x4000;
+    let(r,requests)=run(c,&tables,&mut ram,VA,[proposed_ttbr0,1,2,3],0);let b=r.base.execution.base;
+    assert_eq!((b.status,b.retired,b.pc,b.x0,r.base.provider_status),(13,0,VA,proposed_ttbr0,0));
+    assert_eq!(requests.len(),1);assert_eq!(requests[0].controls,c);assert_eq!(ram,before);
+}
+#[test]fn stage1_platform_override_writes_do_not_change_immutable_memory_controls() {
+    for sixteen in [false,true] {
+        for value in [0,0x00200000,0x00800000,0x00a00000] {
+            let(c,tables,mut ram,_,_)=fixture(sixteen,&[0xd51df500,0xd53df501,HLT]);
+            let before=ram.clone();
+            let options=platform::BootOptionsV2{abi_version:2,struct_size:64,
+                platform_profile:platform::PROFILE_IRQ_COMPAT_V1,initial_override:0x00a00000,
+                initial_pstate:0x3c5,..Default::default()};
+            let(r,requests)=run_with_options(c,&tables,&mut ram,VA,[value,1,2,3],0,Some(&options));
+            let b=r.base.execution.base;
+            assert_eq!((b.status,b.retired,b.pc,b.x0,b.x1,b.x2,b.x3),(1,3,VA+12,value,value,2,3));
+            assert_eq!((r.base.execution.platform_override,r.base.provider_status,r.base.data_requests),(value,0,0));
+            assert_eq!(requests.len(),3);
+            assert!(requests.iter().all(|q|q.operation==FETCH && q.controls==c));
+            assert_eq!(ram,before);
+        }
+        for value in [1,0x00100000,0x00400000] {
+            let(c,tables,mut ram,_,_)=fixture(sixteen,&[0xd51df500,HLT]);
+            let before=ram.clone();
+            let options=platform::BootOptionsV2{abi_version:2,struct_size:64,
+                platform_profile:platform::PROFILE_IRQ_COMPAT_V1,initial_override:0x00a00000,
+                initial_pstate:0x3c5,..Default::default()};
+            let(r,requests)=run_with_options(c,&tables,&mut ram,VA,[value,1,2,3],0,Some(&options));
+            let b=r.base.execution.base;
+            assert_eq!((b.status,b.retired,b.pc,b.x0),(13,0,VA,value));
+            assert_eq!((r.base.execution.platform_override,r.base.provider_status,r.base.data_requests),(0x00a00000,0,0));
+            assert_eq!(requests.len(),1);assert_eq!(requests[0].controls,c);assert_eq!(ram,before);
+        }
     }
 }
 #[test]fn alignment_priority_lower_el_and_irq_vector_boundaries_are_precise() {
