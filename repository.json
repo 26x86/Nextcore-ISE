@@ -26,7 +26,7 @@
   },
   "publication": {
     "snapshot": "engineering-preview-20260930",
-    "source_revision": "65909c23d2c62001c293a6c8a2f4ff024004100c",
+    "source_revision": "11089704131eeb1a4d60c860b07eedbdb03b962b",
     "source_path": "nextcore/crates/nextcore-ise",
     "previous_public_revision": "d32ec936213aeac1a6657c6016da2573c1cefceb",
     "method": "Immutable reviewed Git blobs applied to existing public history",

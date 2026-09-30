@@ -14,7 +14,7 @@
   snapshots.extend_from_slice(unsafe{core::slice::from_raw_parts((&r as *const Run).cast::<u8>(),core::mem::size_of::<Run>())});
   for request in q {snapshots.extend_from_slice(unsafe{core::slice::from_raw_parts((&request as *const Request).cast::<u8>(),core::mem::size_of::<Request>())});}
  }
- for word in [0xd5380640u32,0xd5180640,0xd5380660,0xd5381640,0xd5390640]{
+ for word in [0xd5380640u32,0xd5180640,0xd53806e0,0xd5381640,0xd5390640]{
   for el0 in [false,true]{if word==0xd5380640&&!el0{continue;}let(c,t,mut ram,_,_)=fixture(true,&[word]);let before=ram.clone();let options=platform::BootOptionsV2{abi_version:2,struct_size:64,initial_pstate:if el0{0xf00003c0}else{0xf00003c5},..Default::default()};let(r,q)=run_with_options(c,&t,&mut ram,VA,[11,22,33,44],0,Some(&options));let b=r.base.execution.base;assert_eq!((b.status,b.retired,b.pc,b.x0,b.x1,b.x2,b.x3,q.len(),r.base.data_requests),(13,0,VA,11,22,33,44,1,0));assert_eq!(ram,before);}
  }
  std::fs::write(output,snapshots).unwrap();
