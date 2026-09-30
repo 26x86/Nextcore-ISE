@@ -32,11 +32,11 @@ def main():
         lib=w/'libservice.rlib';run([a.rustc,'--edition=2021','--crate-type=rlib','--crate-name=nextcore_memory_service','-Copt-level=2',r/'memory-service/src/lib.rs','-o',lib])
         objects=[]
         for name in ('jit','arch','boot_jit','memory_boot','memory_boot_v2','memory_dynamic','memory_dynamic_layout'):
-            obj=w/(name+'.o');run([a.clang,'-std=c11','-D_GNU_SOURCE','-O2','-Wall','-Wextra','-Werror','-c',r/(name+'.c'),'-o',obj]);objects.append(obj)
+            obj=w/(name+'.o');run([a.clang,'-std=c11','-D_GNU_SOURCE','-fPIC','-O2','-Wall','-Wextra','-Werror','-c',r/(name+'.c'),'-o',obj]);objects.append(obj)
         exe=compile_test('dynamic_tests',r/'test_dynamic_provider.rs',lib,objects);run([exe,'--nocapture','--test-threads=1'])
         service=w/'service_tests';run([a.rustc,'--edition=2021','--test','-Copt-level=2',r/'memory-service/src/lib.rs','-o',service]);run([service,'--nocapture'])
         # The unchanged v2 tests execute against the same rebuilt JIT/service.
-        obj=w/'memory_layout_v2.o';run([a.clang,'-std=c11','-O2','-Wall','-Wextra','-Werror','-c',r/'memory_layout_v2.c','-o',obj])
+        obj=w/'memory_layout_v2.o';run([a.clang,'-std=c11','-fPIC','-O2','-Wall','-Wextra','-Werror','-c',r/'memory_layout_v2.c','-o',obj])
         v2=compile_test('legacy_v2_tests',r/'test_stage1_provider.rs',lib,[*objects,obj]);run([v2,'--nocapture','--test-threads=1'])
         # Each mutant is an external copy. Production sources remain unchanged.
         mutations={
@@ -53,7 +53,7 @@ def main():
             if file!='jit.c':
                 source=(r/'jit.c').read_text().replace('#include "memory_dynamic.inc"','#include '+json.dumps(str(target)))
                 target=d/'jit.c';target.write_text(source)
-            obj=d/'jit.o';run([a.clang,'-std=c11','-D_GNU_SOURCE','-O2','-Wall','-Wextra','-Werror','-I',r,'-c',target,'-o',obj])
+            obj=d/'jit.o';run([a.clang,'-std=c11','-D_GNU_SOURCE','-fPIC','-O2','-Wall','-Wextra','-Werror','-I',r,'-c',target,'-o',obj])
             exe=compile_test(name+'_tests',r/'test_dynamic_provider.rs',lib,[obj,*objects[1:]])
             run([exe,'--exact',test,'--nocapture'],negative_test=test);negatives[name]=True
         service_mutations={

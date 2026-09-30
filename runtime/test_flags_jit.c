@@ -115,7 +115,8 @@ int main(void) {
     /* Explicit-register diagnostics do not dereference arbitrary x2/x3 or
      * silently replace x0 with the legacy boot_args pointer. */
     const uint64_t base=UINT64_C(0x800000000),entry=base+0x100,args=base+0x1000;
-    const uint32_t prefix[]={0xf1001c1f,0x54000041,0xd4400000,0xd53be005};
+    /* S3_7_C15_C15_7 is outside the represented register bank. */
+    const uint32_t prefix[]={0xf1001c1f,0x54000041,0xd4400000,0xd53fffe5};
     memcpy(ram+0x100,prefix,sizeof(prefix));
     const uint64_t initial[4]={0,args,UINT64_C(0xf123456789abcdef),37};
     vf_boot_result result;

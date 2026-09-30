@@ -19,6 +19,8 @@ static uint32_t decoded_fault_instruction(const vf_cpu *cpu,int status) {
     case VF_ALIGNMENT_FAULT:
     case VF_SP_ALIGNMENT_FAULT:
     case VF_SYSTEM_REGISTER_TRAP:
+    case VF_FP_ACCESS_TRAP:
+    case VF_IMPLEMENTATION_GAP:
     case VF_DATA_ABORT:
         return cpu->instruction;
     default:

@@ -28,6 +28,21 @@ int main(void) {
     assert(vf_aic_write(&a,0,0x3000,4,4)==-1);
     assert(vf_aic_set_line(&a,896,1)==-1);
     assert(vf_aic_init(&a,896,33)==-1);
-    puts("PASS AIC v1 wired IRQ: auto-mask, level reassert, affinity, priority, software IRQ, bounds");
+    /* qemu-t8030 parity: capability, mask readback, HW state, per-CPU alias. */
+    assert(!vf_aic_init(&a,896,2));
+    assert(!vf_aic_read(&a,0,VF_AIC_REG_REV,4,&value)&&value==2);
+    assert(!vf_aic_read(&a,0,VF_AIC_REG_INFO,4,&value)&&value==((1u<<16)|896u));
+    assert(!vf_aic_write(&a,0,VF_AIC_REG_GLB_CFG,4,0x29u));
+    assert(!vf_aic_read(&a,0,VF_AIC_REG_GLB_CFG,4,&value)&&value==0x29u);
+    assert(!vf_aic_set_line(&a,5,1));
+    assert(!vf_aic_write(&a,0,0x4180,4,1u<<5)); /* unmask irq 5 */
+    assert(!vf_aic_read(&a,0,0x4100,4,&value)&&(value&(1u<<5))==0);
+    assert(!vf_aic_write(&a,0,0x4100,4,1u<<5)); /* mask irq 5 again */
+    assert(!vf_aic_read(&a,0,0x4180,4,&value)&&(value&(1u<<5))!=0);
+    assert(!vf_aic_read(&a,0,0x4200,4,&value)&&value==(1u<<5));
+    assert(!vf_aic_read(&a,0,VF_AIC_REG_CPU_BASE+0x80,4,&value)&&value==1); /* CPU1 WHOAMI alias */
+    assert(!vf_aic_write(&a,0,VF_AIC_REG_RST,4,1));
+    assert(!vf_aic_read(&a,0,0x4200,4,&value)&&value==0);
+    puts("PASS AIC v1 wired IRQ: auto-mask, level reassert, affinity, priority, software IRQ, bounds, qemu bank parity");
     return 0;
 }

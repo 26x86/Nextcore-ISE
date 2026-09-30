@@ -2,10 +2,11 @@
 #include "memory_dynamic.h"
 static int span(uintptr_t p,size_t n){return p && n<=UINTPTR_MAX-p;}
 static int overlap(uintptr_t a,size_t an,uintptr_t b,size_t bn){return a<b+bn && b<a+an;}
-int vf_boot_run_memory_dynamic(uint64_t base,uint64_t size,uint64_t entry,uint64_t args,uint64_t stack,
+static int boot_run_memory_dynamic(uint64_t base,uint64_t size,uint64_t entry,uint64_t args,uint64_t stack,
     uint8_t *code,size_t code_bytes,uint64_t budget,vf_protect protect,void *protect_opaque,
-    const uint64_t initial[4],const vf_boot_options_v2 *options,const vf_memory_controls_v2 *controls,
-    vf_memory_callback_v2 memory,vf_dynamic_callback control_callback,void *owner,vf_memory_run_result_dynamic *result) {
+    const uint64_t initial[4],vf_pauth_step pauth,const vf_boot_options_v2 *options,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 memory,vf_dynamic_callback control_callback,void *owner,vf_memory_run_result_dynamic *result,
+    int allow_pauth) {
     uintptr_t r=(uintptr_t)result,c=(uintptr_t)code,i=(uintptr_t)initial,o=(uintptr_t)options,s=(uintptr_t)controls;
     if(!span(r,sizeof(*result)) || r%_Alignof(vf_memory_run_result_dynamic))return VF_DATA_FAULT;
     if((span(c,code_bytes)&&overlap(r,sizeof(*result),c,code_bytes)) ||
@@ -19,7 +20,7 @@ int vf_boot_run_memory_dynamic(uint64_t base,uint64_t size,uint64_t entry,uint64
     if(!span(c,code_bytes) || code_bytes<64 || !span(i,32) || i%_Alignof(uint64_t) ||
        !span(s,sizeof(*controls)) || s%_Alignof(vf_memory_controls_v2) ||
        (options&&(!span(o,sizeof(*options)) || o%_Alignof(vf_boot_options_v2))) ||
-       !protect || !memory || !control_callback || !owner || ((uintptr_t)owner&7) || !budget || size<8 || base>UINT64_MAX-size || base>=(UINT64_C(1)<<48) || size>(UINT64_C(1)<<48)-base ||
+       (allow_pauth && !pauth) || !protect || !memory || !control_callback || !owner || ((uintptr_t)owner&7) || !budget || size<8 || base>UINT64_MAX-size || base>=(UINT64_C(1)<<48) || size>(UINT64_C(1)<<48)-base ||
        overlap(c,code_bytes,i,32) || overlap(c,code_bytes,s,sizeof(*controls)) ||
        (options&&overlap(c,code_bytes,o,sizeof(*options))))return VF_DATA_FAULT;
     const vf_memory_controls_v2 control=*controls;
@@ -34,7 +35,7 @@ int vf_boot_run_memory_dynamic(uint64_t base,uint64_t size,uint64_t entry,uint64
      * M=0 fetch uses physical addresses; later fetch uses the acknowledged E. */
     vf_cpu cpu;vf_cpu_reset(&cpu,mode==0?VF_EL0:VF_EL1);
     if(vf_cpu_configure_platform(&cpu,config.platform_profile,config.initial_override))return VF_DATA_FAULT;
-    cpu.pc=entry;for(unsigned n=0;n<4;n++)cpu.x[n]=initial[n];
+    cpu.pauth_step=pauth;cpu.pc=entry;for(unsigned n=0;n<4;n++)cpu.x[n]=initial[n];
     cpu.sp=stack;cpu.sp_el[VF_EL0]=stack;cpu.sp_el[VF_EL1]=stack;cpu.pstate=config.initial_pstate;
     cpu.vbar_el[VF_EL1]=config.vbar;cpu.guest_ram_base=base;
     cpu.sctlr=control.sctlr;cpu.ttbr0=control.ttbr0;cpu.ttbr1=control.ttbr1;cpu.tcr=control.tcr;
@@ -46,4 +47,18 @@ int vf_boot_run_memory_dynamic(uint64_t base,uint64_t size,uint64_t entry,uint64
     vf_boot_snapshot(&cpu,status,&result->memory.base.execution);result->memory.base.guest_far=cpu.far_el[VF_EL1];
     if(result->memory.base.provider_status)result->memory.base.execution.base.fault_instruction=0;
     return status;
+}
+int vf_boot_run_memory_dynamic(uint64_t base,uint64_t size,uint64_t entry,uint64_t args,uint64_t stack,
+    uint8_t *code,size_t code_bytes,uint64_t budget,vf_protect protect,void *protect_opaque,
+    const uint64_t initial[4],const vf_boot_options_v2 *options,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 memory,vf_dynamic_callback control_callback,void *owner,vf_memory_run_result_dynamic *result) {
+    return boot_run_memory_dynamic(base,size,entry,args,stack,code,code_bytes,budget,protect,protect_opaque,
+        initial,0,options,controls,memory,control_callback,owner,result,0);
+}
+int vf_boot_run_memory_dynamic_pauth(uint64_t base,uint64_t size,uint64_t entry,uint64_t args,uint64_t stack,
+    uint8_t *code,size_t code_bytes,uint64_t budget,vf_protect protect,void *protect_opaque,
+    const uint64_t initial[4],vf_pauth_step pauth,const vf_boot_options_v2 *options,const vf_memory_controls_v2 *controls,
+    vf_memory_callback_v2 memory,vf_dynamic_callback control_callback,void *owner,vf_memory_run_result_dynamic *result) {
+    return boot_run_memory_dynamic(base,size,entry,args,stack,code,code_bytes,budget,protect,protect_opaque,
+        initial,pauth,options,controls,memory,control_callback,owner,result,1);
 }

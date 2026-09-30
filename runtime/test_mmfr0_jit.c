@@ -13,7 +13,7 @@ int main(void){
   vf_cpu cpu;unsigned el=failure==0?0:failure==9?2:failure==10?3:1;vf_cpu_reset(&cpu,el);cpu.sp=0x12345678;cpu.pstate=0xf00003c0|(el?el*4+1:0);
   for(unsigned j=0;j<32;j++)cpu.x[j]=0x100+j;uint64_t regs[32];memcpy(regs,cpu.x,sizeof(regs));uint32_t state=cpu.pstate;
   if(failure==1)cpu.hcr_el2=1;if(failure==2)cpu.scr_el3=1;if(failure==7)cpu.hcr_el2=1ULL<<63;if(failure==8)cpu.scr_el3=1ULL<<63;
-  uint32_t word=0xd5380700|rd;if(failure==3)word^=1u<<21;if(failure==4)word^=1u<<5;if(failure==5)word^=1u<<12;if(failure==6)word^=1u<<16;
+  uint32_t word=0xd5380700|rd;if(failure==3)word^=1u<<21;if(failure==4)word=(word&~(7u<<5))|(7u<<5);if(failure==5)word^=1u<<12;if(failure==6)word^=1u<<16;
   uint8_t ram[8]={1,2,3},before[8];memcpy(before,ram,8);
   CHECK(vf_run(&cpu,(uint8_t*)&word,4,ram,8,&code,1,perms,0)==VF_SYSTEM_REGISTER_TRAP);
   CHECK(!memcmp(cpu.x,regs,sizeof(regs))&&!memcmp(ram,before,8)&&cpu.sp==0x12345678&&cpu.pstate==state&&cpu.pc==0&&cpu.retired==0);

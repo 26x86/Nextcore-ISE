@@ -41,6 +41,13 @@ int vf_run_memory_provider_v2(vf_cpu *,vf_code *,uint64_t,vf_protect,void *,
 int vf_boot_run_memory_pauth_v2(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
     uint8_t *,size_t,uint64_t,vf_protect,void *,const uint64_t [4],vf_pauth_step,
     const vf_boot_options_v2 *,const vf_memory_controls_v2 *,vf_memory_callback_v2,void *,vf_memory_run_result_v2 *);
+/* Explicit partial FP/Advanced SIMD research with an EL1-only, caller-supplied
+ * software CPACR_EL1 handoff. Only FPEN bits [21:20] are accepted; no target
+ * startup or normal admission claim is made.
+ * Without NEXTCORE_FP_EXECUTION this rejects before any provider fetch. */
+int vf_boot_run_memory_fp_research_v2(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
+    uint8_t *,size_t,uint64_t,vf_protect,void *,const uint64_t [4],vf_pauth_step,uint64_t initial_cpacr,
+    const vf_boot_options_v2 *,const vf_memory_controls_v2 *,vf_memory_callback_v2,void *,vf_memory_run_result_v2 *);
 int vf_run_memory_provider_pauth_v2(vf_cpu *,vf_code *,uint64_t,vf_protect,void *,
     const vf_memory_controls_v2 *,vf_memory_callback_v2,void *,vf_memory_run_result_v2 *);
 #endif

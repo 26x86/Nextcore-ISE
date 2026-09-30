@@ -136,6 +136,13 @@ int vf_run_memory_provider_dynamic(vf_cpu *cpu,vf_code *code,uint64_t budget,
         if(status!=VF_NEXT)return cpu->status=status;
         if(protect(code->bytes,code->capacity,1,opaque))return cpu->status=VF_PROTECTION;
         status=execute_native_block(cpu,code,0,0);
+#ifdef NEXTCORE_FP_EXECUTION
+        if((uint32_t)status==VF_FP_DISPATCH) {
+            status=vf_fp_step(cpu);
+            if(status==VF_NEXT)continue;
+            (void)vf_cpu_commit_status(cpu,status);return cpu->status=status;
+        }
+#endif
         if((uint32_t)status==VF_MEMORY_DISPATCH) {
             status=memory_data_step_version(cpu,&effective,memory,owner,&out->memory,3);
             if(status!=VF_NEXT)return cpu->status=status;continue;
@@ -150,8 +157,9 @@ int vf_run_memory_provider_dynamic(vf_cpu *cpu,vf_code *code,uint64_t budget,
                 if(op==VF_DYNAMIC_ISB)enabling=0;
                 continue;
             }
-            if(platform_slow_step(cpu) || memory_control_read_v2(cpu))continue;
+            if(system_register_slow_step(cpu) || memory_control_read_v2(cpu) || pauth_immutable_step(cpu))continue;
         }
+        status=research_system_register_failure(cpu,status);
         if(status!=VF_NEXT){(void)vf_cpu_commit_status(cpu,status);return cpu->status=status;}
     }
     return cpu->status=VF_BUDGET;

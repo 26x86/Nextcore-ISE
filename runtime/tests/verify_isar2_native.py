@@ -2,6 +2,10 @@
 """Authored isar2 scalar actual native, Arm oracle and canonical memory proof."""
 import argparse,hashlib,json,pathlib,re,shutil,socket,struct,subprocess,time,os,signal
 
+def replace_fixture(source, old, new):
+ assert source.count(old)==1, (old, "fixture schema changed")
+ return source.replace(old,new,1)
+
 def main():
  p=argparse.ArgumentParser();p.add_argument('--output',type=pathlib.Path,required=True);p.add_argument('--qemu',default='qemu-system-aarch64');a=p.parse_args()
  r=pathlib.Path(__file__).resolve().parents[1];out=a.output.resolve();out.mkdir(parents=True,exist_ok=False)
@@ -59,9 +63,14 @@ def main():
  run(['llvm-objcopy-18','-O','binary','--only-section=.text',out/'extensions.o',out/'extensions.bin'],'extensions-extract.log')
  extension_words=struct.unpack('<'+'I'*len(extensions),(out/'extensions.bin').read_bytes())
  with (out/'oracle.h').open('a') as f:f.write('static const unsigned extension_words[]={'+','.join(hex(w) for w in extension_words)+'};\n')
+ # The adjacent ISAR3 read is now supported. Keep it as a positive software
+ # control; reserve Op2=7 for the profile-unsupported encoding negative case.
+ neighbor_words=[0xd5380660|rd for rd in range(32)]
+ with (out/'oracle.h').open('a') as f:f.write('static const struct {unsigned word;unsigned long long a,b,value,nzcv;} neighbor_control[]={'+','.join(f'{{{word}u,0x55ULL,0x66ULL,0ULL,0xf0000000ULL}}' for word in neighbor_words)+'};\n')
+ neighbor_rust='const NEIGHBOR_CONTROL:&[(u32,u64,u64,u64,u64)]=&['+','.join(f'({word},0x55,0x66,0,0xf0000000)' for word in neighbor_words)+'];\n'
  objects=[]
  for name in ['jit','arch','boot_jit','memory_boot','memory_boot_v2','memory_layout','memory_layout_v2']:
-  obj=out/(name+'.o');run(['clang','-std=c11','-D_GNU_SOURCE','-O2','-Wall','-Wextra','-Werror','-c',r/(name+'.c'),'-o',obj],name+'.log');objects.append(obj)
+  obj=out/(name+'.o');run(['clang','-std=c11','-D_GNU_SOURCE','-O2','-Wall','-Wextra','-Werror','-fPIC','-c',r/(name+'.c'),'-o',obj],name+'.log');objects.append(obj)
  c=(r/'test_isar2_jit.c').read_text()
  proof="""for(unsigned i=0;i<sizeof(oracle)/sizeof(oracle[0]);i++) {
  CHECK(oracle[i].value==0 && oracle[i].nzcv==0xf0000000);
@@ -70,22 +79,26 @@ def main():
  CHECK(vf_run(&cpu,(uint8_t*)&w,4,ram,8,&code,1,perms,0)==VF_BUDGET);
  CHECK(!memcmp(cpu.x,expected_regs,sizeof(expected_regs)) && cpu.pstate==0xf00003c5 && cpu.sp==0x12345678 && cpu.pc==4 && cpu.retired==1);
  }"""
- (out/'native.c').write_text('#include "oracle.h"\n'+c.replace('/* ORACLE_INSERT */',proof))
+ neighbor_proof=proof.replace('oracle','neighbor_control')
+ (out/'native.c').write_text('#include "oracle.h"\n'+c.replace('/* ORACLE_INSERT */',proof+'\n'+neighbor_proof))
  run(['clang','-std=c11','-D_GNU_SOURCE','-O2','-I',r,out/'native.c',*objects,'-o',out/'native'],'native-build.log');run([out/'native'],'native.log')
  oracle_rust='const EXTENSION_WORDS:&[u32]=&['+','.join(str(w) for w in extension_words)+'];\n'+'const ISAR2_ORACLE:&[(u32,u64,u64,u64,u64)]=&['+','.join(f'({word},{a0},{b0},{0},{values[i*2+1]})' for i,(word,a0,b0) in enumerate(vectors))+'];\n'
  service=out/'libservice.rlib';run(['rustc','--edition=2021','--crate-name=nextcore_memory_service','--crate-type=rlib','-Copt-level=2',r/'memory-service/src/lib.rs','-o',service],'service.log')
  base=(r/'test_stage1_provider.rs').read_text();base=re.sub(r'#\[path="([^"]+)"\]',lambda m:'#[path='+json.dumps(str(r/m[1]))+']',base)
  extra=(r/'test_isar2_provider.rs').read_text()
- (out/'provider.rs').write_text(base+'\n'+oracle_rust+extra)
+ extra=replace_fixture(extra,'in ISAR2_ORACLE {','in ISAR2_ORACLE.iter().chain(NEIGHBOR_CONTROL) {')
+ (out/'provider.rs').write_text(base+'\n'+oracle_rust+neighbor_rust+extra)
  run(['rustc','--edition=2021','--test','-Copt-level=2',out/'provider.rs','--extern','nextcore_memory_service='+str(service),'-o',out/'provider',*['-Clink-arg='+str(x) for x in objects]],'provider-build.log');os.environ['NEXTCORE_ISAR2_SNAPSHOT']=str(out/'cached.snapshot');run([out/'provider','--test-threads=1'],'provider.log')
- (out/'arch-reference.rs').write_text((r/'preos/src/arch.rs').read_text().split('#[cfg(test)]',1)[0]+'\n'+oracle_rust+(r/'test_isar2_reference.rs').read_text())
+ reference=(r/'test_isar2_reference.rs').read_text()
+ reference=replace_fixture(reference,'in ISAR2_ORACLE {','in ISAR2_ORACLE.iter().chain(NEIGHBOR_CONTROL) {')
+ (out/'arch-reference.rs').write_text((r/'preos/src/arch.rs').read_text().split('#[cfg(test)]',1)[0]+'\n'+oracle_rust+neighbor_rust+reference)
  wrapper='\n'.join('#[path='+json.dumps(str(r/'preos/src'/(n+'.rs')))+']mod '+n+';' for n in ['mmu','pauth','exception_level','platform'])+'\n#[path="arch-reference.rs"]mod arch;\n'
  (out/'reference.rs').write_text(wrapper)
  run(['rustc','--edition=2021','--test','-Copt-level=2',out/'reference.rs','-o',out/'reference'],'reference-build.log');run([out/'reference','--test-threads=1'],'reference.log')
  for mode,flags in [('uncached',['-DNEXTCORE_DISABLE_PROVIDER_CACHE']),('small-slot',['-DNEXTCORE_PROVIDER_CACHE_SLOT_BYTES=64'])]:
-  obj=out/(mode+'.o');run(['clang','-std=c11','-D_GNU_SOURCE','-O2',*flags,'-c',r/'jit.c','-o',obj],mode+'-build.log')
+  obj=out/(mode+'.o');run(['clang','-std=c11','-D_GNU_SOURCE','-O2','-fPIC',*flags,'-c',r/'jit.c','-o',obj],mode+'-build.log')
   run(['rustc','--edition=2021','--test','-Copt-level=2',out/'provider.rs','--extern','nextcore_memory_service='+str(service),'-o',out/mode,'-Clink-arg='+str(obj),*['-Clink-arg='+str(x) for x in objects[1:]]],mode+'-link.log');os.environ['NEXTCORE_ISAR2_SNAPSHOT']=str(out/(mode+'.snapshot'));run([out/mode,'--test-threads=1'],mode+'.log');assert (out/(mode+'.snapshot')).read_bytes()==(out/'cached.snapshot').read_bytes()
  assert before=={str(x.relative_to(r)):sha(x) for x in files}
- receipt=dict(passed=True,extension_scope="Representative WFET/WFIT, HBC, MOPS and RPRFM rejection; no distinct QARMA3 opcode and no PAC algorithm conformance claim",extension_words=dict(zip(extensions,[hex(w) for w in extension_words])),register="ID_AA64ISAR2_EL1",destination_registers=32,arm_cpu="cortex-a72",hardware_isar2="0x0",software_policy_isar2=0,hardware_value_equals_software_policy=True,oracle_scope="Cortex-A72 observed ISAR2 zero equals bounded policy; no FP/PAC conformance claim",exposed_result_requests_ram_equal=True,native_modes=['cached','uncached','small-slot'],reference_oracle_vectors=len(vectors),process_reaped=True,oracle_vectors=len(vectors),qemu_sha256=sha(pathlib.Path(qemu)),qemu_version=subprocess.check_output([qemu,'--version'],text=True).splitlines()[0],source_sha256=before,sources_preserved=True,commands=commands,original_images_used=False,physical_boot_verified=False)
+ receipt=dict(passed=True,unsupported_encoding="0xd53806e0",software_neighbor_register="ID_AA64ISAR3_EL1",software_neighbor_positive_vectors=len(neighbor_words),software_neighbor_has_hardware_oracle=False,extension_scope="Representative WFET/WFIT, HBC, MOPS and RPRFM rejection; no distinct QARMA3 opcode and no PAC algorithm conformance claim",extension_words=dict(zip(extensions,[hex(w) for w in extension_words])),register="ID_AA64ISAR2_EL1",destination_registers=32,arm_cpu="cortex-a72",hardware_isar2="0x0",software_policy_isar2=0,hardware_value_equals_software_policy=True,oracle_scope="Cortex-A72 observed ISAR2 zero equals bounded policy; no FP/PAC conformance claim",exposed_result_requests_ram_equal=True,native_modes=['cached','uncached','small-slot'],reference_oracle_vectors=len(vectors),process_reaped=True,oracle_vectors=len(vectors),qemu_sha256=sha(pathlib.Path(qemu)),qemu_version=subprocess.check_output([qemu,'--version'],text=True).splitlines()[0],source_sha256=before,sources_preserved=True,commands=commands,original_images_used=False,physical_boot_verified=False)
  (out/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps({'passed':True,'receipt':str(out/'receipt.json')}))
 if __name__=='__main__':main()

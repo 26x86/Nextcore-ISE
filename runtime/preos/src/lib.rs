@@ -88,6 +88,7 @@ const TERMINATION_TIMER_INTERRUPT: u32 = 17;
 const TERMINATION_EXTERNAL_INTERRUPT: u32 = 18;
 const TERMINATION_INSTRUCTION_ABORT: u32 = 19;
 const TERMINATION_DATA_ABORT: u32 = 20;
+const TERMINATION_FIQ_INTERRUPT: u32 = 21;
 
 type TraceFn = unsafe extern "C" fn(*const u8, *mut c_void);
 
@@ -342,11 +343,12 @@ fn jit_status_valid(status: i32) -> bool {
     // VF_NEXT is an internal continuation value.  It must never cross the
     // wrapper boundary as a terminal result; vf_run() is expected to consume
     // it and either continue within the budget or return a terminal status.
-    matches!(status, 1..=17)
+    matches!(status, 1..=17 | 18 | 19)
 }
 
 fn termination_valid(reason: u32) -> bool {
     (TERMINATION_HALT..=TERMINATION_DATA_ABORT).contains(&reason)
+        || reason == TERMINATION_FIQ_INTERRUPT
 }
 
 fn jit_result_valid(result: &VfJitResult) -> bool {
@@ -376,7 +378,9 @@ fn jit_result_pair_valid(result: &VfJitResult) -> bool {
         | (14, TERMINATION_TIMER_INTERRUPT)
         | (15, TERMINATION_EXTERNAL_INTERRUPT)
         | (16, TERMINATION_INSTRUCTION_ABORT)
-        | (17, TERMINATION_DATA_ABORT) => true,
+        | (17, TERMINATION_DATA_ABORT)
+        | (18, TERMINATION_FIQ_INTERRUPT)
+        | (19, TERMINATION_ALIGNMENT_FAULT) => true,
         _ => false,
     }
 }
@@ -442,6 +446,7 @@ unsafe fn trace_guest_stop(context: &VfPreosContext, reason: u32) {
         TERMINATION_EXTERNAL_INTERRUPT => {
             b"VF: GUEST_STOP reason=EXTERNAL_INTERRUPT\r\n\0".as_ptr()
         }
+        TERMINATION_FIQ_INTERRUPT => b"VF: GUEST_STOP reason=FIQ_INTERRUPT\r\n\0".as_ptr(),
         TERMINATION_INSTRUCTION_ABORT => b"VF: GUEST_STOP reason=INSTRUCTION_ABORT\r\n\0".as_ptr(),
         TERMINATION_DATA_ABORT => b"VF: GUEST_STOP reason=DATA_ABORT\r\n\0".as_ptr(),
         _ => b"VF: GUEST_STOP reason=INTERNAL\r\n\0".as_ptr(),
@@ -467,7 +472,8 @@ fn code_for_termination(reason: u32) -> i32 {
         | TERMINATION_ALIGNMENT_FAULT
         | TERMINATION_SYSTEM_REGISTER_TRAP
         | TERMINATION_TIMER_INTERRUPT
-        | TERMINATION_EXTERNAL_INTERRUPT => E_UNSUPPORTED,
+        | TERMINATION_EXTERNAL_INTERRUPT
+        | TERMINATION_FIQ_INTERRUPT => E_UNSUPPORTED,
         _ => E_INTERNAL,
     }
 }
@@ -484,8 +490,7 @@ fn termination_for_arch_exception(kind: arch::ExceptionKind) -> u32 {
         arch::ExceptionKind::SystemRegisterTrap => TERMINATION_SYSTEM_REGISTER_TRAP,
         arch::ExceptionKind::TimerInterrupt => TERMINATION_TIMER_INTERRUPT,
         arch::ExceptionKind::ExternalInterrupt => TERMINATION_EXTERNAL_INTERRUPT,
-        // The legacy preOS result has no FIQ discriminator; v2 boot ABI does.
-        arch::ExceptionKind::FiqInterrupt => TERMINATION_UNSUPPORTED,
+        arch::ExceptionKind::FiqInterrupt => TERMINATION_FIQ_INTERRUPT,
         arch::ExceptionKind::GuestHalt => TERMINATION_HALT,
         arch::ExceptionKind::SupervisorCall => TERMINATION_UNSUPPORTED,
     }
@@ -499,6 +504,9 @@ unsafe fn run_architecture_guest(
     let guest = core::slice::from_raw_parts(context.guest_bytes, context.guest_size as usize);
     let ram = core::slice::from_raw_parts_mut(context.guest_ram, context.guest_ram_size as usize);
     trace(context, b"VF: ARCH_EXEC_ENTER\r\n\0".as_ptr());
+    // Initialize C-side AIC/DART/UART stubs so architectural MMIO matches the
+    // Golden Gate device models linked into the same EFI/host image.
+    crate::m1::reset_c_guest_mmio_bridge();
     let run = {
         let (arch, m1) = (&mut machine.arch, &mut machine.m1);
         let mut bus = crate::m1::M1GuestBus::new(m1, ram);
@@ -875,5 +883,97 @@ mod tests {
         assert!(!jit_result_pair_valid(&result));
         result.termination_reason = TERMINATION_NONE;
         assert!(!jit_result_valid(&result));
+    }
+
+    #[test]
+    fn every_terminal_status_requires_its_exact_reason() {
+        // These numeric pairs are the stable transport contract, independent
+        // of C-private enum declarations. SP faults retain alignment reason 15;
+        // FIQ has its own additive reason rather than aliasing IRQ or success.
+        let admitted = [
+            (1, 1),
+            (2, 2),
+            (3, 3),
+            (4, 4),
+            (5, 5),
+            (6, 7),
+            (7, 6),
+            (8, 11),
+            (9, 12),
+            (10, 13),
+            (11, 14),
+            (12, 15),
+            (13, 16),
+            (14, 17),
+            (15, 18),
+            (16, 19),
+            (17, 20),
+            (18, 21),
+            (19, 15),
+        ];
+        for status in 0..=21 {
+            for reason in 0..=23 {
+                let mut result = empty_jit_result();
+                result.jit_status = status;
+                result.termination_reason = reason;
+                let expected = admitted.contains(&(status, reason));
+                assert_eq!(
+                    jit_result_valid(&result) && jit_result_pair_valid(&result),
+                    expected,
+                    "status {status}, reason {reason}"
+                );
+                assert_eq!(
+                    jit_result_pair_valid(&result),
+                    expected,
+                    "pair status {status}, reason {reason}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn terminal_result_unknown_boundaries_fail_closed() {
+        for status in [i32::MIN, -1, 0, 20, 21, i32::MAX] {
+            let mut result = empty_jit_result();
+            result.jit_status = status;
+            result.termination_reason = TERMINATION_HALT;
+            assert!(!jit_result_valid(&result), "status {status}");
+            assert!(!jit_result_pair_valid(&result), "status {status}");
+        }
+        for reason in [TERMINATION_NONE, 22, u32::MAX] {
+            let mut result = empty_jit_result();
+            result.jit_status = 18;
+            result.termination_reason = reason;
+            assert!(!jit_result_valid(&result), "reason {reason}");
+            assert!(!jit_result_pair_valid(&result), "reason {reason}");
+        }
+        let mut result = empty_jit_result();
+        result.jit_status = 18;
+        result.termination_reason = TERMINATION_FIQ_INTERRUPT;
+        assert!(jit_result_valid(&result));
+        result.reserved0 = 1;
+        assert!(!jit_result_valid(&result));
+        result.reserved0 = 0;
+        result.reserved[2] = 1;
+        assert!(!jit_result_valid(&result));
+    }
+
+    #[test]
+    fn fiq_and_sp_alignment_preserve_failure_class() {
+        assert_eq!(TERMINATION_FIQ_INTERRUPT, 21);
+        assert_eq!(TERMINATION_ALIGNMENT_FAULT, 15);
+        assert_eq!(
+            termination_for_arch_exception(arch::ExceptionKind::FiqInterrupt),
+            TERMINATION_FIQ_INTERRUPT
+        );
+        assert_eq!(
+            termination_for_arch_exception(arch::ExceptionKind::SpAlignmentFault),
+            TERMINATION_ALIGNMENT_FAULT
+        );
+        assert_eq!(code_for_termination(TERMINATION_FIQ_INTERRUPT), E_UNSUPPORTED);
+        assert_eq!(
+            code_for_termination(TERMINATION_ALIGNMENT_FAULT),
+            E_UNSUPPORTED
+        );
     }
 }

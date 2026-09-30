@@ -276,13 +276,23 @@ static int run_memory_provider_v2(vf_cpu *cpu,vf_code *code,uint64_t budget,
         code->used=entry.used;
         /* No guest RAM host pointer is supplied to the generated entry. */
         status=execute_native_block(cpu,&entry,0,0);
+#ifdef NEXTCORE_FP_EXECUTION
+        if((uint32_t)status==VF_FP_DISPATCH) {
+            status=vf_fp_step(cpu);
+            if(status==VF_NEXT)continue;
+            (void)vf_cpu_commit_status(cpu,status);return cpu->status=status;
+        }
+#endif
         if((uint32_t)status==VF_MEMORY_DISPATCH) {
             status=memory_data_step_v2(cpu,controls,callback,owner,result);
             if(status!=VF_NEXT)return cpu->status=status;continue;
         }
         if((status==VF_UNDEFINED_INSTRUCTION || status==VF_SYSTEM_REGISTER_TRAP) &&
-           (platform_slow_step(cpu) || memory_control_read_v2(cpu) || stack_select_immutable_step(cpu) ||
+           (system_register_read_slow_step(cpu) || platform_override_write_slow_step(cpu) ||
+            fp_access_control_write_slow_step(cpu) ||
+            memory_control_read_v2(cpu) || stack_select_immutable_step(cpu) ||
             (allow_pauth && pauth_immutable_step(cpu))))continue;
+        status=research_system_register_failure(cpu,status);
         if(status!=VF_NEXT){(void)vf_cpu_commit_status(cpu,status);return cpu->status=status;}
     }
     return cpu->status=VF_BUDGET;

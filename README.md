@@ -71,3 +71,11 @@ which differs from the software policy: 32 Arm observations verify access and
 encoding, not equal feature identities. ASID tests pass 35 provider tests per
 cache mode and 102 reference tests, rejecting three compiled tag-selection
 mutants. These proofs do not establish complete Arm conformance or physical boot.
+
+## September 30 engineering snapshot
+
+Current Status: This module is synchronized from one reviewed immutable integration snapshot. Its source revision and exact dependency pins are recorded in `repository.json`; file sizes and SHA-256 digests are recorded in `repository-files.json`. Existing repository history and license notices are preserved.
+
+Target State: Independently reproducible source and module validation. Module tests establish the stated component behavior. macOS 27 boot and usable installed operation, guest Metal, physical installation and device qualification remain unverified.
+
+Run the checked native/UBSan FP, SIMD and terminal tests with `python3 tools/verify_fp_simd_runtime.py --output /tmp/nextcore-fp-simd`.

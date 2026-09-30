@@ -48,7 +48,7 @@ def main() -> None:
         objects=[]
         for name in ("jit","arch","boot_jit","memory_boot","memory_boot_v2","memory_layout_v2"):
             obj=work/(name+".o");objects.append(obj)
-            run([args.clang,"-std=c11","-D_GNU_SOURCE","-O2","-Wall","-Wextra","-Werror","-c",str(runtime/(name+".c")),"-o",str(obj)])
+            run([args.clang,"-std=c11","-D_GNU_SOURCE","-O2","-fPIC","-Wall","-Wextra","-Werror","-c",str(runtime/(name+".c")),"-o",str(obj)])
         executable=work/"memory_provider_tests"
         command=[args.rustc,"--edition=2021","--test","-Copt-level=2",str(runtime/"test_stage1_provider.rs"),"--extern",f"nextcore_memory_service={library}","-o",str(executable)]
         command.extend(f"-Clink-arg={obj}" for obj in objects)
@@ -64,7 +64,7 @@ def main() -> None:
         assert text.count(needle)==1
         mutation.write_text(text.replace(needle,"if(0 && memory_family(w))"))
         mutant_obj=work/"jit_provider_bypass.o"
-        run([args.clang,"-std=c11","-D_GNU_SOURCE","-O2","-Wall","-Wextra","-Werror","-I",str(runtime),"-c",str(mutation),"-o",str(mutant_obj)])
+        run([args.clang,"-std=c11","-D_GNU_SOURCE","-O2","-fPIC","-Wall","-Wextra","-Werror","-I",str(runtime),"-c",str(mutation),"-o",str(mutant_obj)])
         mutant_executable=work/"memory_provider_bypass_tests"
         command=[args.rustc,"--edition=2021","--test","-Copt-level=2",str(runtime/"test_stage1_provider.rs"),"--extern",f"nextcore_memory_service={library}","-o",str(mutant_executable)]
         command.extend(f"-Clink-arg={obj}" for obj in [mutant_obj,*objects[1:]])
