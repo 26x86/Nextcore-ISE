@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "module": "nextcore-ise",
+  "public_repository": "https://github.com/26x86/Nextcore-ISE",
+  "authoritative_main_base": "1ed6776cf715922b07dfff84576ccca4436fd137",
+  "source_baseline_revision": "0d722886753268ec366f068823c37ea10132fb43",
+  "source_baseline_reachable_from_main_base": true,
+  "source_baseline_ancestry_status": "verified",
+  "capture_date_utc": "2026-10-01",
+  "variant_count": 6,
+  "archive_kind": "historical unfinished public UTF-8 variants",
+  "active_api_modified": false,
+  "original_relative_paths_retained": true,
+  "current_module_license_sha256": "77c458ccb6116400cf960f8951630bc3b8b34731b56ffbd736b95c2b78449104",
+  "frozen_license_path": "LICENSE.txt",
+  "frozen_license_sha256": "1c31492338d47ae600de8147203fa991a0a308853ffb3598ac7d48f3a3b819e9",
+  "verification_boundary": "Exact byte/hash preservation only. No compiler, test, EFI, guest, OS boot, Metal or physical-device acceptance result is claimed.",
+  "files": [
+    {
+      "original_relative_path": "LICENSE.txt",
+      "archive_relative_path": "LICENSE.txt",
+      "source_baseline_revision": "0d722886753268ec366f068823c37ea10132fb43",
+      "bytes": 1860,
+      "sha256": "1c31492338d47ae600de8147203fa991a0a308853ffb3598ac7d48f3a3b819e9",
+      "git_blob_sha1": "a565bc320ed72af8b179b2b0f418915e2fb5bd4f",
+      "original_filesystem_mode": "0o640",
+      "git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "devices/aic_v1.c",
+      "archive_relative_path": "devices/aic_v1.c",
+      "source_baseline_revision": "0d722886753268ec366f068823c37ea10132fb43",
+      "bytes": 2954,
+      "sha256": "2beab91b415b4c5b05873ef2184905d5935f7fd64ef80c4dd0be47bf4233ccf2",
+      "git_blob_sha1": "01725ffabd25ba54c8201eba7652075f4ff06b2e",
+      "original_filesystem_mode": "0o640",
+      "git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "devices/aic_v1.h",
+      "archive_relative_path": "devices/aic_v1.h",
+      "source_baseline_revision": "0d722886753268ec366f068823c37ea10132fb43",
+      "bytes": 871,
+      "sha256": "99d6d652afb01075ea4ee2a0485fd8e42cf340e54ae3337f106099c02ffa71a5",
+      "git_blob_sha1": "ab63e99a123537eb65cfc3f812860fb133488ebe",
+      "original_filesystem_mode": "0o640",
+      "git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "repository-files.json",
+      "archive_relative_path": "repository-files.json",
+      "source_baseline_revision": "0d722886753268ec366f068823c37ea10132fb43",
+      "bytes": 20573,
+      "sha256": "c5b70aacf6d06df2adff553a6850c3d1da4a9fc1030af81a154781a2f7d75e99",
+      "git_blob_sha1": "6d34a077ba7a58e9d60cd213f3d2fdc88f6f6868",
+      "original_filesystem_mode": "0o640",
+      "git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "repository.json",
+      "archive_relative_path": "repository.json",
+      "source_baseline_revision": "0d722886753268ec366f068823c37ea10132fb43",
+      "bytes": 1321,
+      "sha256": "005b25ae9ecf409c355ff3382eda1d22f12e557d3eb00b0328f44d79270e208f",
+      "git_blob_sha1": "ef56a9b204cf2e579da5dea068e78fe5b6b8fa10",
+      "original_filesystem_mode": "0o640",
+      "git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/main.c",
+      "archive_relative_path": "runtime/main.c",
+      "source_baseline_revision": "0d722886753268ec366f068823c37ea10132fb43",
+      "bytes": 11832,
+      "sha256": "b010173f0cafc99c758b51e563153efeb6c6de1175304bcc6c4ac4f8cd41702e",
+      "git_blob_sha1": "90ed00f8791d203dd20fdde2670baca20a6a50fd",
+      "original_filesystem_mode": "0o640",
+      "git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    }
+  ]
+}

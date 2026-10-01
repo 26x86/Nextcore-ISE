@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "module": "nextcore-ise",
+  "public_repository": "https://github.com/26x86/Nextcore-ISE.git",
+  "authoritative_main_base": "1ed6776cf715922b07dfff84576ccca4436fd137",
+  "legacy_main_revision": "251fbd53b9158eceac09579a9cd1f8a9b5497cec",
+  "frozen_source_HEAD": "0d722886753268ec366f068823c37ea10132fb43",
+  "archive_kind": "Historical source variants from diverged public commit identities",
+  "purpose": "Preserve exact older conflicting source and license variants while the current module APIs and dependency pins remain active.",
+  "verification_boundary": "Git object ancestry and source bytes only; no compiler, runtime, guest boot or device acceptance has been executed for this handoff.",
+  "missing_commit_count": 8,
+  "missing_commits": [
+    {
+      "sha": "21cb2949792bd48f16477f3b21be4e4c422ed322",
+      "parents": [
+        "e4c318ff707ff57eaf128ffd66cc962a210ab8e1",
+        "a6f1c46c4f0e965dbc3d9426a737e7558bac33d7"
+      ],
+      "subject": "Merge pull request #1 from 26x86/codex/arm64e-boot-metal",
+      "commit_stats": ".github/workflows/ci.yml          |   13 +\n .gitignore                        |    7 +\n README.md                         |   36 +-\n devices/aic_v1.c                  |   72 +\n devices/aic_v1.h                  |   19 +\n devices/test_aic.c                |   33 +\n docs/AARCH64_LOGICAL_IMMEDIATE.md |   36 +\n docs/EFI_PLATFORM_IRQ_V2.md       |   75 +\n docs/EFI_THREAD_REGISTERS.md      |   55 +\n docs/MMU_OUTPUT_WIDTH.md          |   42 +\n repository-files.json             |  271 +++-\n repository.json                   |   36 +-\n runtime/abi_layout.c              |   37 +\n runtime/arch.c                    |  511 +++++++\n runtime/boot_jit.c                |   90 ++\n runtime/boot_jit.h                |   44 +\n runtime/gop_scanout.c             |   62 +\n runtime/gop_scanout.h             |   43 +\n runtime/handoff.h                 |   19 +\n runtime/jit.c                     |  489 +++++++\n runtime/jit.h                     |  178 +++\n runtime/jit_protection.c          |   64 +\n runtime/main.c                    |  207 +++\n runtime/platform_abi.h            |   13 +\n runtime/platform_layout.c         |   12 +\n runtime/preos/Cargo.lock          |    7 +\n runtime/preos/Cargo.toml          |   21 +\n runtime/preos/src/arch.rs         | 2748 +++++++++++++++++++++++++++++++++++++\n runtime/preos/src/lib.rs          |  878 ++++++++++++\n runtime/preos/src/m1.rs           | 1715 +++++++++++++++++++++++\n runtime/preos/src/machine.rs      |  617 +++++++++\n runtime/preos/src/mmu.rs          |  943 +++++++++++++\n runtime/preos/src/pauth.rs        |  366 +++++\n runtime/preos/src/platform.rs     |   61 +\n runtime/preos/src/vmapple.rs      |  415 ++++++\n runtime/preos_abi.h               |  190 +++\n runtime/preos_bridge.c            |  192 +++\n runtime/preos_bridge.h            |   27 +\n runtime/preos_host_test.c         |  319 +++++\n runtime/test_boot_jit.c           |  111 ++\n runtime/test_flags_jit.c          |  136 ++\n runtime/test_gop_scanout.c        |  152 ++\n runtime/test_irq_jit.c            |  123 ++\n runtime/test_jit.c                |  117 ++\n runtime/test_logical_jit.c        |   56 +\n runtime/test_pauth_jit.c          |   63 +\n runtime/test_shift_jit.c          |   43 +\n runtime/test_thread_jit.c         |  100 ++\n runtime/test_wx.c                 |   18 +\n runtime/uefi.h                    |   75 +\n src/lib.rs                        |    4 +\n tools/mmu_granule_probe.S         |  129 ++\n tools/mmu_physical_probe.S        |  339 +++++\n tools/probe_efi_native_pauth.py   |  156 +++\n tools/probe_mmu_granules.py       |   58 +\n tools/probe_mmu_physical.py       |   40 +\n 56 files changed, 12660 insertions(+), 23 deletions(-)"
+    },
+    {
+      "sha": "1b36e3f90ea4006d7221add78385811621771205",
+      "parents": [
+        "21cb2949792bd48f16477f3b21be4e4c422ed322",
+        "07cd3e19f397556fa6d233c562fb245bfe528363"
+      ],
+      "subject": "Merge pull request #2 from 26x86/codex/arm64e-pair-memory",
+      "commit_stats": ".github/workflows/ci.yml        |   2 +\n docs/AARCH64_PAIR_MEMORY.md     |  63 ++++++++++++\n repository-files.json           |  64 +++++++-----\n repository.json                 |   4 +-\n runtime/arch.c                  |  16 ++-\n runtime/boot_jit.c              |   1 +\n runtime/jit.c                   |  68 +++++++++++++\n runtime/jit.h                   |   4 +-\n runtime/preos/src/arch.rs       | 210 ++++++++++++++++++++++++++++++++++++++++\n runtime/preos/src/lib.rs        |   2 +-\n runtime/preos_bridge.c          |   2 +\n runtime/test_pair_jit.c         | 117 ++++++++++++++++++++++\n runtime/test_pauth_jit.c        |  10 ++\n tools/pair_memory_probe.S       | 119 +++++++++++++++++++++++\n tools/probe_efi_native_pauth.py |   2 +\n tools/probe_pair_memory.py      |  54 +++++++++++\n 16 files changed, 710 insertions(+), 28 deletions(-)"
+    },
+    {
+      "sha": "abdbd1a7e6354c6434388897b698cae43435fe24",
+      "parents": [
+        "1b36e3f90ea4006d7221add78385811621771205",
+        "33fea9fdea844bc7c2d3228b8888600270210562"
+      ],
+      "subject": "Merge pull request #3 from 26x86/codex/arm64e-scalar-memory",
+      "commit_stats": ".gitattributes                                     |    3 +\n .github/workflows/ci.yml                           |   10 +\n docs/AARCH64_SCALAR_MEMORY.md                      |   83 +\n docs/MMU_FAULT_METADATA.md                         |   73 +\n repository-files.json                              |  136 +-\n repository.json                                    |    4 +-\n runtime/arch.c                                     |    7 +\n runtime/jit.c                                      |   68 +-\n runtime/preos/src/arch.rs                          |  326 +-\n runtime/preos/src/mmu.rs                           |  349 +-\n runtime/test_jit.c                                 |    2 +-\n runtime/test_scalar_jit.c                          |  106 +\n tools/mmu_fault_levels/README.md                   |  135 +\n tools/mmu_fault_levels/abort_oracle.c              |   63 +\n tools/mmu_fault_levels/abort_start.S               |   90 +\n tools/mmu_fault_levels/captured-abort/report.json  | 1819 ++++++++\n tools/mmu_fault_levels/captured-at/report.json     | 3875 ++++++++++++++++\n tools/mmu_fault_levels/compare_walker.py           |   89 +\n tools/mmu_fault_levels/contract.md                 |   45 +\n .../differential-final/report.json                 | 4818 ++++++++++++++++++++\n tools/mmu_fault_levels/differential-r1/report.json | 4425 ++++++++++++++++++\n tools/mmu_fault_levels/oracle.c                    |   73 +\n tools/mmu_fault_levels/oracle.ld                   |    8 +\n tools/mmu_fault_levels/oracle_start.S              |   25 +\n tools/mmu_fault_levels/probe_abort_levels.py       |   57 +\n tools/mmu_fault_levels/probe_fault_levels.py       |   82 +\n tools/mmu_fault_levels/results.json                |   34 +\n tools/probe_efi_native_pauth.py                    |    2 +\n tools/probe_scalar_memory.py                       |   68 +\n tools/scalar_memory_probe.S                        |  129 +\n 30 files changed, 16859 insertions(+), 145 deletions(-)"
+    },
+    {
+      "sha": "f7b8509295fbd10f524653e8690af0d3520e50d2",
+      "parents": [
+        "abdbd1a7e6354c6434388897b698cae43435fe24",
+        "41e8997c4b8d6f029ed3a3fbec0669374046ab6f"
+      ],
+      "subject": "Merge pull request #4 from 26x86/codex/native-memory-provider",
+      "commit_stats": ".github/workflows/ci.yml           |   7 ++\n .gitignore                         |   3 +\n docs/NATIVE_MEMORY_PROVIDER_V1.md  | 221 +++++++++++++++++++++++++++++++++++++\n repository-files.json              |  97 +++++++++++++---\n repository.json                    |   4 +-\n runtime/boot_jit.c                 |   6 +-\n runtime/boot_jit.h                 |   2 +\n runtime/jit.c                      | 216 ++++++++++++++++++++++++++++++++----\n runtime/jit.h                      |   4 +\n runtime/memory-service/Cargo.toml  |  12 ++\n runtime/memory-service/src/abi.rs  |  24 ++++\n runtime/memory-service/src/lib.rs  | 138 +++++++++++++++++++++++\n runtime/memory_abi.h               |  22 ++++\n runtime/memory_boot.c              |  37 +++++++\n runtime/memory_boot.h              |  21 ++++\n runtime/memory_boot.rs             |  12 ++\n runtime/memory_layout.c            |  45 ++++++++\n runtime/test_memory_provider.rs    | 206 ++++++++++++++++++++++++++++++++++\n tools/pc_alignment_probe.S         |  53 +++++++++\n tools/probe_efi_memory_provider.py |  87 +++++++++++++++\n tools/probe_efi_native_pauth.py    |   1 +\n tools/probe_pc_alignment.py        |  33 ++++++\n 22 files changed, 1210 insertions(+), 41 deletions(-)"
+    },
+    {
+      "sha": "8fbdb16ddf5c5b7e601bf59c235f58e5256e90d9",
+      "parents": [
+        "f7b8509295fbd10f524653e8690af0d3520e50d2",
+        "0aabf085fa5d9bec38c83076f766274d3006358d"
+      ],
+      "subject": "Merge pull request #5 from 26x86/codex/arm64e-conditional-compare",
+      "commit_stats": ".github/workflows/ci.yml           |   2 +\n docs/CONDITIONAL_COMPARE.md        | 100 +++++++++++++++++++++++++++++++++++++\n repository-files.json              |  39 ++++++++++-----\n repository.json                    |   4 +-\n runtime/jit.c                      |  56 ++++++++++++++-------\n runtime/preos/src/arch.rs          |  63 +++++++++++++++++++++++\n runtime/test_conditional_jit.c     |  73 +++++++++++++++++++++++++++\n runtime/test_memory_provider.rs    |  11 ++++\n tools/probe_conditional_compare.py |  95 +++++++++++++++++++++++++++++++++++\n tools/probe_efi_native_pauth.py    |   2 +\n 10 files changed, 412 insertions(+), 33 deletions(-)"
+    },
+    {
+      "sha": "91721d0884eba228afcd8e78ed8d353c8859ec6d",
+      "parents": [
+        "8fbdb16ddf5c5b7e601bf59c235f58e5256e90d9",
+        "720d7c61140e39da0f457192bd88138a52017e22"
+      ],
+      "subject": "Merge pull request #6 from 26x86/codex/native-stage1-memory",
+      "commit_stats": ".github/workflows/ci.yml                         |   6 +-\n docs/NATIVE_MMU_PROVIDER_V2.md                   | 409 +++++++++++++++++++++++\n repository-files.json                            | 108 ++++--\n repository.json                                  |   4 +-\n runtime/jit.c                                    |   3 +\n runtime/jit.h                                    |   2 +-\n runtime/memory-service/src/abi_v2.rs             |  60 ++++\n runtime/memory-service/src/lib.rs                |   5 +\n runtime/memory-service/src/stage1.rs             | 155 +++++++++\n runtime/memory-service/src/stage1_tests.rs       |  93 ++++++\n runtime/memory_abi_v2.h                          |  46 +++\n runtime/memory_boot_v2.c                         |  49 +++\n runtime/memory_boot_v2.h                         |  36 ++\n runtime/memory_boot_v2.rs                        |   8 +\n runtime/memory_layout_v2.c                       |  26 ++\n runtime/memory_stage1.inc                        | 200 +++++++++++\n runtime/preos/src/arch.rs                        |  40 ++-\n runtime/preos/src/exception_level.rs             |  21 ++\n runtime/preos/src/lib.rs                         |   1 +\n runtime/preos/src/mmu.rs                         | 151 ++++++++-\n runtime/test_stage1_provider.rs                  | 236 +++++++++++++\n tools/mmu_fault_levels/compare_current_walker.py |  89 +++++\n tools/probe_efi_memory_provider.py               |   4 +-\n tools/probe_efi_native_pauth.py                  |   4 +-\n tools/probe_efi_stage1_provider.py               | 129 +++++++\n 25 files changed, 1822 insertions(+), 63 deletions(-)"
+    },
+    {
+      "sha": "bcf1ca9e2330cc3f746843b252438e5567cbe8e4",
+      "parents": [
+        "91721d0884eba228afcd8e78ed8d353c8859ec6d",
+        "0d722886753268ec366f068823c37ea10132fb43"
+      ],
+      "subject": "Merge pull request #7 from 26x86/codex/dynamic-stage1-enable",
+      "commit_stats": ".github/workflows/ci.yml                    |   2 +\n docs/DYNAMIC_MEMORY_CONTROL_V1.md           |  74 +++++++++\n repository-files.json                       |  91 ++++++++---\n repository.json                             |   4 +-\n runtime/jit.c                               |   1 +\n runtime/memory-service/src/dynamic.rs       | 177 +++++++++++++++++++++\n runtime/memory-service/src/dynamic_abi.rs   |  49 ++++++\n runtime/memory-service/src/dynamic_tests.rs |  98 ++++++++++++\n runtime/memory-service/src/lib.rs           |   7 +-\n runtime/memory-service/src/stage1.rs        |  13 +-\n runtime/memory_dynamic.c                    |  49 ++++++\n runtime/memory_dynamic.h                    |  70 +++++++++\n runtime/memory_dynamic.inc                  | 158 +++++++++++++++++++\n runtime/memory_dynamic.rs                   |   9 ++\n runtime/memory_dynamic_layout.c             |  25 +++\n runtime/memory_stage1.inc                   |  32 +++-\n runtime/test_dynamic_provider.rs            | 231 ++++++++++++++++++++++++++++\n tools/probe_dynamic_memory.py               |  91 +++++++++++\n tools/probe_efi_memory_provider.py          |   4 +-\n tools/probe_efi_native_pauth.py             |   2 +-\n tools/probe_efi_stage1_provider.py          |   8 +-\n 21 files changed, 1156 insertions(+), 39 deletions(-)"
+    },
+    {
+      "sha": "251fbd53b9158eceac09579a9cd1f8a9b5497cec",
+      "parents": [
+        "bcf1ca9e2330cc3f746843b252438e5567cbe8e4",
+        "9b48f903b200e64372eeffb6d3b5653049cf03f4"
+      ],
+      "subject": "Merge pull request #8 from 26x86/codex/arm64e-ubfm",
+      "commit_stats": ".github/workflows/ci.yml         |  2 +\n docs/UNDEFINED_A64_SYNDROME.md   | 17 ++++++++\n docs/UNSIGNED_BITFIELD_MOVE.md   | 35 ++++++++++++++++\n repository-files.json            | 69 ++++++++++++++++++++----------\n repository.json                  |  4 +-\n runtime/arch.c                   |  3 +-\n runtime/jit.c                    | 20 +++++++++\n runtime/preos/src/arch.rs        | 69 +++++++++++++++++++++++++++---\n runtime/test_conditional_jit.c   |  2 +-\n runtime/test_dynamic_provider.rs | 31 ++++++++++++++\n runtime/test_memory_provider.rs  | 22 +++++++++-\n runtime/test_pair_jit.c          |  2 +-\n runtime/test_scalar_jit.c        |  2 +-\n runtime/test_stage1_provider.rs  | 22 ++++++++++\n runtime/test_ubfm_jit.c          | 62 +++++++++++++++++++++++++++\n runtime/ubfm_provider_cases.rs   | 21 ++++++++++\n tools/probe_ubfm_native.py       | 90 ++++++++++++++++++++++++++++++++++++++++\n 17 files changed, 439 insertions(+), 34 deletions(-)"
+    }
+  ],
+  "conflict_paths": [],
+  "files": [
+    {
+      "original_path": "LICENSE.txt",
+      "archive_path": "251fbd53b915/LICENSE.txt",
+      "source_revisions": [
+        "251fbd53b9158eceac09579a9cd1f8a9b5497cec",
+        "0d722886753268ec366f068823c37ea10132fb43"
+      ],
+      "bytes": 1851,
+      "sha256": "77c458ccb6116400cf960f8951630bc3b8b34731b56ffbd736b95c2b78449104",
+      "git_blob_sha1": "f7389913f3fd1cb41276bb098a352b0e27e7e879",
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "retained_active_path": "LICENSE.txt"
+    }
+  ],
+  "absent_paths": []
+}
