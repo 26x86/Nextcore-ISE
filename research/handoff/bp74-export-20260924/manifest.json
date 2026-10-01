@@ -1,0 +1,4827 @@
+{
+  "schema": 1,
+  "module": "nextcore-ise",
+  "public_repository": "https://github.com/26x86/Nextcore-ISE.git",
+  "current_published_prior_handoff_revision": "7b1193b6d21c608466e9e17197bcf1382e8b9ee4",
+  "export_commit": "3afdeb929df46877f049d8f8ef90c5383025565e",
+  "export_commit_parents": [],
+  "export_tree": "96d9243826505efee3fc934587a5ccae4dfd3158",
+  "original_public_parent_source_commit": "93e4a9ebc1a05e2cbec78125a0186ca1b71d98d6",
+  "original_public_source_tree_URL": "https://github.com/26x86/26x86/tree/93e4a9ebc1a05e2cbec78125a0186ca1b71d98d6/nextcore/crates/nextcore-ise",
+  "archive_kind": "Historical unfinished public module export variants; original unrelated Git commit identity retained by ordinary merge",
+  "current_active_source_modified": false,
+  "preservation_scope": "Exact older public variants differing from current module source, plus the original source license. Export paths already equal to active public source remain preserved by both Git histories.",
+  "attribute_boundary": "Historical .gitattributes and .gitignore are stored as inert metadata filenames. Original paths remain in the original export commit and in each file record. Archive-only attributes disable text normalization and whitespace diagnostics on preserved variants.",
+  "verification_boundary": "Source byte and Git ancestry verification only. No compiler, test, EFI, guest boot, macOS, Metal or device acceptance was executed by this archival task.",
+  "source_tree_inventory": [
+    {
+      "path": ".gitattributes",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "5dabb2b27b17fb46a94713256fba0372eaa68784",
+      "bytes": 28,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f7579ec46a9f3d8f6efbaeff1805d0341a863f6a",
+      "bytes": 270,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": ".gitignore",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ca98cd96efdc228b0c0d0e264bfc0ce9ddadfdd7",
+      "bytes": 20,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "Cargo.toml",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3a3da977ead04cc0f1947506ead3b281bb8aa2df",
+      "bytes": 182,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "LICENSE.txt",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f7389913f3fd1cb41276bb098a352b0e27e7e879",
+      "bytes": 1851,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "README.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9556f09394f19b4dda4ffd4cee291eda0145b343",
+      "bytes": 312,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ADP.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b5ed88b08f8221c4f65e28b604aaa1169a76c1f6",
+      "bytes": 3101,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/AIC.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "1ca8a48f2db29165bd4fbf2a4714c354fd4804d4",
+      "bytes": 4400,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ANS.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "28ccde0362f6cb8747b2a1288a710c1f2ee92625",
+      "bytes": 24204,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ANS_AUTOBOOT.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6fbf09362578d164257ad452faad859713cd76b9",
+      "bytes": 4498,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ANS_MBOX.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c39d6362820ad5d7c1267a0a1132e0c6f6188b80",
+      "bytes": 6674,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ANS_PCI.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6902255e54147498b2aefdf65de7a7092c55755d",
+      "bytes": 12024,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/APPLE_UART.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ea6f662eba118278ad73b83366d94895a1af39f9",
+      "bytes": 2437,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ASCWRAP.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2280d2386379a16a0c96c08200ca8415374ce35f",
+      "bytes": 4072,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/DART.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "8d4f12c928305ae832712aa82accd025fc8fed65",
+      "bytes": 4263,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/GPIO.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b69542bc59f4c6e403e5518fed421333d3cdd499",
+      "bytes": 3835,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/GXF.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "7574b1af5c085537dade313b0b7428559df73b8b",
+      "bytes": 11036,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/NVRAM.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "13dd386cac6987f0a37e7175bb32d31332636028",
+      "bytes": 6496,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/RECOVERY.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e883690e919992eb9885aa5d5bcdece46fadac61",
+      "bytes": 2449,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/SART.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "88165aed94f077a21a2725c6505387a2f8f659d7",
+      "bytes": 3467,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/SEP.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9e580259ee05ed22fb9b10a02451377776a2ea3e",
+      "bytes": 2654,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/SMC.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "275488d3bc4a09b23dcd18e5a2599d281b505421",
+      "bytes": 4697,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/STORAGE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f61b3400da082216e1de5c39df7f73c69c14ed75",
+      "bytes": 2636,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/TIMER.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "660aa6b26c8060156facd3ec60c6bb777db9ebe4",
+      "bytes": 2375,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/adp_display_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "1e6cc5d6a80b863d5a440e002fee37866c03794e",
+      "bytes": 4073,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/adp_display_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6a49662d79690331d6caca7b42bfca1d33e877c8",
+      "bytes": 2391,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/aic_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "bd6400d31a823ddf6384743b220b54b4fab50010",
+      "bytes": 6039,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/aic_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "97530e9311cdc1c35647cb79e938d960ee6e06da",
+      "bytes": 1354,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ans_autoboot_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3c8e57afaed5912fc6a9add741da5e664e75fbf3",
+      "bytes": 3827,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ans_autoboot_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3f6fbf31b92e97116995f26a16e644c85525a7ba",
+      "bytes": 3218,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ans_mbox_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "4bb162c0428401175667c0bd542a3f6c3a45612a",
+      "bytes": 7248,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ans_mbox_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9926a365eb67773b34a9ff75b1751fcf87529df2",
+      "bytes": 5376,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ans_pci_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f2cd600ad2ac1c30048064d368678aa3011eca41",
+      "bytes": 14018,
+      "blob_already_in_published_prior_history": false
+    },
+    {
+      "path": "devices/ans_pci_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "de4c28a6aeb18828511501704dd97acd7fc7d50b",
+      "bytes": 12156,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ans_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "15d0dc722a448366db6972ef15a63676807723db",
+      "bytes": 28944,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ans_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "5fa81997994941063bf0d62719838976d0a29c34",
+      "bytes": 21759,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/apple_gpio_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "63531f5270eba8a7fef7934c537f765632c1ea3e",
+      "bytes": 8054,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/apple_gpio_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "75bf79bc647a9d8b7b2cf45815ac624c3cd78a43",
+      "bytes": 3348,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/apple_gxf_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "890e5bef10c013bbb4d145b916bd11a413f5bdbb",
+      "bytes": 18700,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/apple_gxf_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "bf54c3b74f0fb00919b1b5356351dc45274b16bc",
+      "bytes": 12048,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/apple_smc_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "969a548f719aa72ed5a9abe9f511ac1b0c8f0a2e",
+      "bytes": 5857,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/apple_smc_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3f4edc88c77f447c550e7ad473e6a02561449c07",
+      "bytes": 2103,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/apple_uart_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "7253086907c95026b0066c1be530846126e186ca",
+      "bytes": 3540,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/apple_uart_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "a9988d000bb1eba12607ff1835267016a320cc65",
+      "bytes": 1613,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ascwrap_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "96ea8746c3d40c1e25dd7bd817d64db4e2fd856a",
+      "bytes": 3326,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/ascwrap_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ca24c12179d64ca76d78d8165d74d569245c5304",
+      "bytes": 3075,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/dart_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b8ae7f85c97c4ce9a41706845ec343345a837bfe",
+      "bytes": 5462,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/dart_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "a7078754ecbb82464d3286d6cf9a06dc347d6b52",
+      "bytes": 2790,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/nvram_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "038fd667f49da05178ba5180c6c1bd9fd7282169",
+      "bytes": 20072,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/nvram_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "32a4c89652c3bc7d7c8d7a642266e5fb3403e358",
+      "bytes": 5447,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/recovery_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "1a2af1db3373c2f80b64022f31a70d50b3b3038f",
+      "bytes": 5916,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/recovery_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9a07ab083ced9f3458c48fdd4cb9b27ade512aeb",
+      "bytes": 2241,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/sart_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "60f5bc2ff4d5536ddaa15c7361344009487d7a00",
+      "bytes": 3934,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/sart_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9fc34ad2beb21d06da768da0580154051a7f0950",
+      "bytes": 2228,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/sep_mailbox_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "376ba774b6cb00a7c1eec64ce00db0cfb63f289b",
+      "bytes": 4048,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/sep_mailbox_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "7910fd523bab58c4a27256d25c83ae4594d13f18",
+      "bytes": 2277,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/storage_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "45a1fcd3bc745990d3b3ab98c2ddc792338fe2ae",
+      "bytes": 2379,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/storage_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "45e43d54a54cb092b30192648ea9cb840b05624d",
+      "bytes": 1249,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_adp_display.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d03b5d80e38ce5d8b98a4cf481654172e977bdac",
+      "bytes": 2069,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_aic.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "191afef3b8cd53b00f94cb2631123a250358e252",
+      "bytes": 2705,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_ans.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2ef8dd44635941a1aaedfe09f4200ff1c0fc8094",
+      "bytes": 71227,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_ans_autoboot.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9b111ad4f45818c58dbdd242841c373a84e32cc0",
+      "bytes": 5323,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_ans_mbox.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9da77d137d06a2bc2c4b385583b06eefc26a98ce",
+      "bytes": 8457,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_ans_pci.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f7e2b30623fe5577db7659ee84940430816995eb",
+      "bytes": 20185,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_apple_gpio.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "a67a7d4f4c12c7a2460ee5bb28b8a93b9069d46c",
+      "bytes": 2320,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_apple_gxf.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "830dad04fbe7a702b7b911279657a25601ee1bf9",
+      "bytes": 26344,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_apple_smc.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "1aefd7b44e97cad12cb8e7cca2c4a62b1dcc17ab",
+      "bytes": 2624,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_apple_uart.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "497de87504131940cc0005ff994186a270851335",
+      "bytes": 1569,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_ascwrap.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "0e7c2efe9aea4e62b7fc35ae6d2e2afd4d0e5cbe",
+      "bytes": 3858,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_dart.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3688398bb4b3cf190320cf943d49a5264cfce5a7",
+      "bytes": 3159,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_nvram.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "1571fad616ca30ddba0114e13fec8b4faa8f883f",
+      "bytes": 6897,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_recovery.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "4a9c0e8141697f1017760802754aa283af6884f6",
+      "bytes": 2958,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_sart.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2ea7bcecae097f95327a8d66470a0e32bad1fc61",
+      "bytes": 3115,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_sep_mailbox.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "5b5c6ad2c265655eda9dfa8f610f85a60562abb7",
+      "bytes": 2625,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_storage.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "babbce20f073ecd9623d3d801b99a27a22f125e8",
+      "bytes": 1820,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/test_timer.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c5cc2cf4e5585966dae760fddf61a73010fa10fc",
+      "bytes": 1615,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/timer_v1.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2fa99af5de655f12f6f219b1b5e5c0709183e94d",
+      "bytes": 2448,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "devices/timer_v1.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d59070d045614b46bd80d2812a1b82a83a6e1b6e",
+      "bytes": 1346,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_BITFIELD_MOVE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "603c49ebcf195da170115ad3e73e7830dcc389bc",
+      "bytes": 3832,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_CONDITIONAL_SELECT.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "70af936424f18fc33044af5038e9f9f9f4351eb4",
+      "bytes": 3977,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_EXTENDED_ARITHMETIC.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "33775c579db7dd3354fe12afcb58a823d61b8138",
+      "bytes": 3618,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_LOGICAL_IMMEDIATE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3fb049324c1825c6919829643db3d3b917892494",
+      "bytes": 2258,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_MULTIPLY_ADD.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "cb035afddc829be6a4d39b6c9b75d8d48341aa20",
+      "bytes": 3440,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_PAIR_MEMORY.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "7be3d5aeb224ddaa12906fe764a878f6fc568cc4",
+      "bytes": 4199,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_REFERENCE_BRANCH_PROFILE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b01eaab6bf2154f91859389baf1be7436297f559",
+      "bytes": 1957,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_REGISTER_OFFSET_MEMORY.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "35855aaadacbde2fcf8c3a38a0b8d95700fd6b73",
+      "bytes": 5338,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_SCALAR_MEMORY.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "320107514d9081929c3d123dc7fc1a6464e5af95",
+      "bytes": 5307,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/AARCH64_TEST_BIT_BRANCH.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ef3f5ab275ec0263024e300d5dba8c01555efd36",
+      "bytes": 3835,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/CONDITIONAL_COMPARE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "5061fb9ae049b36cca6fb1680a666f51d7613910",
+      "bytes": 5874,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/DYNAMIC_MEMORY_CONTROL_V1.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f83f5b7ac778024f2a63a3a8dbfa62a5d7e79e23",
+      "bytes": 12636,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/EFI_PLATFORM_IRQ_V2.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3778fd2a315fb9439843d48fcd845a8a2bfb2ced",
+      "bytes": 4754,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/EFI_THREAD_REGISTERS.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9948f8d192750bd94e33272437a3e678deaa66e0",
+      "bytes": 3528,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/ISAR0_SCALAR_PROFILE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "0831b89d05df082a58305d78b3def263b25fd3fd",
+      "bytes": 4483,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/ISAR2_SCALAR_PROFILE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "4b768cd9c7a84bd3dc5df4a38d5165018a5b601a",
+      "bytes": 3528,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/LOGICAL_SHIFTED_REGISTER.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b724c53fedcec63ea173c1c34ff2b5ca92d0935e",
+      "bytes": 3998,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/MAPPED_PAUTH_V2.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "8c8a0b22aacc941676cfa60e4c71f2c277fbf5bf",
+      "bytes": 4648,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/MMFR0_ASID8_PROFILE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "32f1cf072e3104b776bb465b8ffecb1b9955d33e",
+      "bytes": 2597,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/MMU_FAULT_METADATA.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ef5f1bd9ff5bd7dff0cb6bec7b53dcb92693a41d",
+      "bytes": 4668,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/MMU_OUTPUT_WIDTH.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "1c96fde15a4275571e2d75ada1e5ab7b284daf4e",
+      "bytes": 2970,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/NATIVE_MEMORY_PROVIDER_V1.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "593d761a59e0facdbf70c82867c20d1dd7435a5b",
+      "bytes": 12691,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/NATIVE_MMU_PROVIDER_V2.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c42b082d65bfb28de5bd4fd3dcde15fe797d950e",
+      "bytes": 31072,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/PROVIDER_NATIVE_CACHE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f237a634dd7497d817353287b266bfc5a26a3561",
+      "bytes": 4877,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/SCALAR_IMMEDIATE_WRITEBACK.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "4fcbf0f38c2c862aaee516f3630e94c14a4f529e",
+      "bytes": 4909,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/UNDEFINED_A64_SYNDROME.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "37f056cca3e9e18db29990738f546e62665056e5",
+      "bytes": 3176,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/UNSCALED_SCALAR_MEMORY.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "1656b64dbf2379cab4ea2614f832574ddd872893",
+      "bytes": 4130,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/UNSIGNED_BITFIELD_MOVE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6ed5279ee944690acb577990afeffcfbbc147cc9",
+      "bytes": 5663,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/VARIABLE_REGISTER_SHIFTS.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "0ba5b8357af920e9a34aed5c1480659c483853aa",
+      "bytes": 3928,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "docs/ZFR0_SCALAR_PROFILE.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6f36dd4411818ed979c9bdcc9b8d424c37d2cf30",
+      "bytes": 3579,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "repository-files.json",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "95b011c8a3eeb97d122a83c1c1099fe9f13aeeba",
+      "bytes": 46938,
+      "blob_already_in_published_prior_history": false
+    },
+    {
+      "path": "repository.json",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d893fc8bdaaf6eced7be7b654ffc64c00af75db9",
+      "bytes": 461,
+      "blob_already_in_published_prior_history": false
+    },
+    {
+      "path": "runtime/abi_layout.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "49e0a0bcb5ccc5b7656175251b3dd086c1b3a473",
+      "bytes": 1665,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/arch.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e8ad1b332852252cdbd05054cf5716ff99adc706",
+      "bytes": 22443,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/bfm_cases.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d70f36c20d3c1e98e1914770cdb78de3a06db72c",
+      "bytes": 1265,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/boot_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c6be730a988731c3ca86a78a58134bf3e01757b1",
+      "bytes": 4485,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/boot_jit.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9747a72b5cdeabf93983eb2fa8611eb2a2f1ad20",
+      "bytes": 2391,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/gop_scanout.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f9735a1271fe59d8c242a4fa291de2050fd9ae80",
+      "bytes": 3264,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/gop_scanout.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d02613be49aec3e6ebb6635817092f3a312bc8f5",
+      "bytes": 1895,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/handoff.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b0ca794992f5793e80b5b481a9d1c4f6fd73d139",
+      "bytes": 750,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c5421ae905466cdae1dc4cf9229013b85c8c1664",
+      "bytes": 51630,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/jit.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "a1511f547a4f9d673ec5643686ccc0c40860acdd",
+      "bytes": 9050,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/jit_protection.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2e4547adb206e024024cb3dd7e61929307cd04ce",
+      "bytes": 3153,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/main.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "23d03a6882a0cbd3df11040c4989d464cd9c49c4",
+      "bytes": 12005,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory-service/Cargo.toml",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "da5b13bc72ae011b0b4ada342c6193f83f630cc1",
+      "bytes": 246,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory-service/src/abi.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "83fc3993ed49da929f975b9d7e887bda39f1bf55",
+      "bytes": 1207,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory-service/src/abi_v2.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "dfa44eee8fc8d03d4fed153d348c13e45c7693f2",
+      "bytes": 2609,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory-service/src/dynamic.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "afbec1712f8df420b3dad292d940f2e578070dc0",
+      "bytes": 12846,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory-service/src/dynamic_abi.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "0143c21d06367a2e9a499cfe8a2b535af695d999",
+      "bytes": 3150,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory-service/src/dynamic_tests.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3f3bdb1acca5a20833c8c74340e9d46d0b761b2c",
+      "bytes": 7586,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory-service/src/lib.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2f18b8139cf62eb11833a3c932ba0314b22c15ad",
+      "bytes": 7813,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory-service/src/stage1.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "167b50e391b7992b53008037ddffda9eddf96cb9",
+      "bytes": 10209,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory-service/src/stage1_tests.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "97ebcab6525a9b9c02f139faf8bbdb2b788b672c",
+      "bytes": 6683,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_abi.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f576a6536c41a62b5111e59118a65fbc1315d23b",
+      "bytes": 1097,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_abi_v2.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "bebe68aa7565af0d3342017f3160b6037726a92a",
+      "bytes": 1968,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_boot.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "bf88d8c4483f0bdbe5769a99e74d5d048fba6162",
+      "bytes": 2513,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_boot.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c403d572c006eac5816d8b11ab1b792865c0763a",
+      "bytes": 995,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_boot.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "14692a7975786b00c765379aaba57989ae96255d",
+      "bytes": 577,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_boot_v2.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "cca2db67a2d07d1b0df59f229ac80aa34a68da27",
+      "bytes": 5122,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_boot_v2.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f71a96f8fb515fe379b35e982a94b3f6e4a7d29f",
+      "bytes": 2721,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_boot_v2.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "5e8d46d5c50f72a9296b479fc36de7dbfb54c51c",
+      "bytes": 419,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_dynamic.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "83f9a8dd432bd551009c78ac54122dd41f5c1e65",
+      "bytes": 4183,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_dynamic.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "dffd40fffb520395eb544b31ce08fc57744445eb",
+      "bytes": 3403,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_dynamic.inc",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d45aaa7c4604a8c45c3cb042794f57b1529f1c92",
+      "bytes": 10473,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_dynamic.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6cd564015e44fdd491be75a3106e2827daf6d46b",
+      "bytes": 527,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_dynamic_layout.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "cab7bd548d1edfcec299c6ca927bf7c4f41d87c7",
+      "bytes": 1843,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_layout.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "bd48e0301cc68681a525dd78922cd48d70f12662",
+      "bytes": 3364,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_layout_v2.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "73fdf27a7dfc0bdee5825a9b6841d055623a04d6",
+      "bytes": 2379,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/memory_stage1.inc",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e5e3fae4e86cf365abb7886151d7c75b829ce7e7",
+      "bytes": 18142,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/multiply_add_cases.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6cdf04cb5aaea32729752e164f63e25a4f266b74",
+      "bytes": 1299,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/platform_abi.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "46c04adb32a861ffbfbe58b8b8fea2550ab41de3",
+      "bytes": 485,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/platform_layout.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ac70eb2bbb7ae778d3601b175fd9252fe51eeb70",
+      "bytes": 722,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos/Cargo.toml",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6ab673beab4b0e9f780d469af0f07de0401e9348",
+      "bytes": 342,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos/src/arch.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d046edbfc0009d95b4f5ea1aef75c2708c5450cc",
+      "bytes": 183600,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos/src/exception_level.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2a235fdc395e1bbbd5f1e5ac34b16bfe5bc5d27f",
+      "bytes": 462,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos/src/lib.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2da6f84f277904061a521b66bb7456b655aa4ff9",
+      "bytes": 33834,
+      "blob_already_in_published_prior_history": false
+    },
+    {
+      "path": "runtime/preos/src/m1.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c416e4ca8c5c17ca6234c3786ee752aaf2ecde40",
+      "bytes": 63834,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos/src/machine.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "82915f8fcf907f27389e93033b0344000757fc2f",
+      "bytes": 21282,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos/src/mmu.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3252ff0746a36566ff5465478db3b5082f3f5ab5",
+      "bytes": 61300,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos/src/pauth.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "0dd8f0468449c17d459802087b6bd4853a055e76",
+      "bytes": 21041,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos/src/platform.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "0c081e2fed8c569e12d7655a9693828a4aa89f74",
+      "bytes": 2966,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos/src/vmapple.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d2427e86cc564b980f2afda999c8d4c49064cdd0",
+      "bytes": 14756,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos_abi.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "755e7b2712b42a9f9b0a0e1945d86c787e9c1285",
+      "bytes": 7801,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos_bridge.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "171c6c80e39a90aa95da85c05117a15565b93ee4",
+      "bytes": 45171,
+      "blob_already_in_published_prior_history": false
+    },
+    {
+      "path": "runtime/preos_bridge.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ef38dfad3a909b93bab05d72d290a4e739aedc39",
+      "bytes": 13234,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/preos_host_test.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b9e6517679ba078206f547630f4398e91f551cb7",
+      "bytes": 16805,
+      "blob_already_in_published_prior_history": false
+    },
+    {
+      "path": "runtime/register_offset_provider_cases.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "35ada1b3553bcfe37fe0c21650daf7aafcd25527",
+      "bytes": 1918,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_asid8_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "8fae15f667676a27acf3432dec2a12fc6bc3a4c6",
+      "bytes": 5544,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_asid8_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "fdc550a267b82cd29cf7c66438b1eef36679db4b",
+      "bytes": 1194,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_asid8_validator.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "0dda7fb66f2ceda67c36938355693d05997c08a4",
+      "bytes": 1175,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_bfm_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ac3638f524e4d504dbe9e731d439d90a567785df",
+      "bytes": 4136,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_boot_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e5242ed62f57d24e4260c2185e9547ce8a822e06",
+      "bytes": 6016,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_conditional_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "fa885daecb78bd619c90766696a25c7c35366dc8",
+      "bytes": 5128,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_conditional_select_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2f49528a9edd9ec00320eb9fe420c1c6910c5d11",
+      "bytes": 3765,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_dynamic_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "16946d82b96167e8b3129eb57253e1cd2e64753f",
+      "bytes": 31075,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_extended_arithmetic_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b01fc0a933f7fd21e434129cbb5d3f890f6de0cd",
+      "bytes": 4239,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_flags_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e0997056c6e88fca41366e2e8fe55594fd7093e3",
+      "bytes": 7690,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_gop_scanout.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "70b672fe118b65ad5b0a3e6d95cf14f6414b0808",
+      "bytes": 6735,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_hierarchy_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3ddd3f83af17f7192e593118598b6a6936136a56",
+      "bytes": 11264,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_hierarchy_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "0b74fe19dccca02079775ea00b83e9f29bd91ec8",
+      "bytes": 4361,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_indexed_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d5f78270f26db4bad6dba005507ee8e27117cca3",
+      "bytes": 4863,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_indexed_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ea532bc4ccb7fde0c9c4c7f3a39d23b01ea76a26",
+      "bytes": 7208,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_indexed_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f40a80cd11c4e03da421b9d00222a388978d4bc1",
+      "bytes": 907,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_irq_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d1545ec70e052471b3ea58375ef34fcad6200b83",
+      "bytes": 7762,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_isar0_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "7be0739d6c4ae6a5245fd3584c17951ef1b14fc2",
+      "bytes": 3658,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_isar0_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "30ebb4bb18853053262ba11163ecd614599489b8",
+      "bytes": 2604,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_isar0_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "515436e5c0d97c5c56c6c57fb35593b2fcf6c5bd",
+      "bytes": 1954,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_isar2_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "eb278aa321d44a4b0c85303d86ed545ab289d0bd",
+      "bytes": 3658,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_isar2_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "de0c865bbd448e45b0ca0e5f2722a43ffdcae310",
+      "bytes": 2604,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_isar2_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c32fca0cd25358d626bf5ab89fd62412fdb1d418",
+      "bytes": 1954,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b8579dfadd4b1232a35198669e038b36f29130ac",
+      "bytes": 7894,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_logical_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b0dab5cc533914b774690c526e6bdec4771561fe",
+      "bytes": 3340,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_logical_shifted_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c795d2734afe69495d7974b04d9abd0a3c705d60",
+      "bytes": 3073,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_logical_shifted_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "86e0ed159e74e6bf1c92d70be23466fe706e3d70",
+      "bytes": 1770,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_logical_shifted_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e8662b546fc1bf84c6ff6db467802fcc5e6d59f3",
+      "bytes": 990,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_mapped_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "0089f4370b7fdecfee8d49b21372bd019ff7aafd",
+      "bytes": 9607,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_mapped_snapshot.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "a96652f01ed29272a912730253edc16ef7005664",
+      "bytes": 2540,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_memory_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "70ab31c29f0a87fd48126260890ca5ed6717bd22",
+      "bytes": 23659,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_mmfr0_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "cbfbed12b92c451f2f436c993d0cc6bb55a18445",
+      "bytes": 3106,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_mmfr0_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e870e99cedd3a6bcc15a2f326a428f06d9b9127d",
+      "bytes": 2200,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_mmfr0_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "cc931d889cc80b032e0158b360b8269c077ad880",
+      "bytes": 1458,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_multiply_add_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "abba0c8994f5ce99c42e8bf77d0927bc1f51f80a",
+      "bytes": 3371,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_optional_tcr.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "08f75d7f7e3a3b4fe8a7d8ef3b170f2aa1894c95",
+      "bytes": 1733,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_optional_tcr.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "8bac097aa535430dcd28d2bd8627cd3aeb0b1ecc",
+      "bytes": 5594,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_pac_address_selection.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b55c24c52dfcc967a6de9012dad1ae7f97556cd0",
+      "bytes": 1966,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_pair_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d27391d10f4a4183065f80d9eddada74bac8890f",
+      "bytes": 7417,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_pauth_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "5d5145fc036abe89441ef5cceb5da739a9f70238",
+      "bytes": 7562,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_provider_cache.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "18c7efa087e314bbbe2f064a14d3379dc17d62b2",
+      "bytes": 7826,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_register_offset_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "fa232693373135f1a09a2a656c4b08368d2a380b",
+      "bytes": 6380,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_scalar_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b0d3f45016dc07fea189fee57ea67b36beaea534",
+      "bytes": 6796,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_shift_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e262c32b45a99f97961e32bc498610a26751bf52",
+      "bytes": 2639,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_stage1_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "142d36df0ac8e722de66d3edbf6879e49746d494",
+      "bytes": 26721,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_test_bit_branch_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9955d500416be5f7246f3f075e0cd37165e82f26",
+      "bytes": 4373,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_thread_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "376229a2e00adce7d02d7b3bb5f73263915186e2",
+      "bytes": 5762,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_ubfm_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "343c016ca2f9144ca56acef9f9085ef33428ffaf",
+      "bytes": 4043,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_unaligned_profile.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "57ac71ccd0f33d93bb7261ec2286525b9ed7dcab",
+      "bytes": 7033,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_unscaled_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "8dbbe831c19ce9ff3d46a97782a79fe28e7ddd28",
+      "bytes": 4453,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_unscaled_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e31e089043fc9367b4a45dbd0a4add34cc51a436",
+      "bytes": 4908,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_unscaled_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f9e6b2a452ddc2dd0a3779f8990e114b446237b8",
+      "bytes": 873,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_variable_shift_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ecd2a9a74c66d0bd31daf86239757da9d12931ce",
+      "bytes": 2865,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_variable_shift_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "316963ff7bf4c8a194f8582064603deabe22b981",
+      "bytes": 2111,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_variable_shift_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2f2eacf51b63c43113da9ed5ac17bd9c9a638ed2",
+      "bytes": 1050,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_wx.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d8804e490301a119b7a38250977a81d70dbdb57d",
+      "bytes": 693,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_zfr0_jit.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "28953357b2b112bb1e26a953a3fbf00452c9ad38",
+      "bytes": 2998,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_zfr0_provider.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6e71a3bcd25d0f7c20f63cd4a7930beca8f1e6c3",
+      "bytes": 2136,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/test_zfr0_reference.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "44e4cfdfa39a17b5b677f9178f43b6e07b975b31",
+      "bytes": 1338,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/capture_pauth_width_oracle.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "d8fc19ce2054056ab6f8b596fef46db78bfd6b61",
+      "bytes": 6768,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/hierarchy_oracle/CONTRACT.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2d9d778f4d8af7cfb596866ff5db30726840dd2e",
+      "bytes": 4764,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/hierarchy_oracle/link.ld",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "8023a7479966fc2549b374966dbeaf0ca9d32feb",
+      "bytes": 211,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/hierarchy_oracle/oracle.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9d7ebc6d0bee92ef714214238e06a4ba9d1a420c",
+      "bytes": 6726,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/hierarchy_oracle/run.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e1e6709e8cd5c1ecfcce7db9167686f7ee016fc5",
+      "bytes": 11659,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/hierarchy_oracle/start.S",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "135d512c0970f2f2a2076fd9511f79eb9805c939",
+      "bytes": 1787,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/pauth_width_oracle.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "eae3704abf35ecfe8c90e4c1783d953dbc93e753",
+      "bytes": 7007,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/pauth_width_oracle.json",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "fec3c22c29cefa84d971717c0f57c336cafdb4f1",
+      "bytes": 10380,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_asid8_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ecf6f21df37e6d60057f01d04b02ddae41b5ee7f",
+      "bytes": 6075,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_hierarchy_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "39577e152e358175170e8cdc5966401fa0249dd5",
+      "bytes": 6975,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_indexed_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e556f049c69c81b23e1357229f835d5347f6b5e2",
+      "bytes": 8588,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_isar0_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c82e5b8813bdadc7a000b1c99c8552d6087cbe30",
+      "bytes": 9468,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_isar2_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "c988d011761077d8aa33b7fbe2aa2075b8beeaa9",
+      "bytes": 9352,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_logical_shifted_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "72204e7e4f776a60a298ae2805a785d812f93d7a",
+      "bytes": 8248,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_mapped_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "35362ac9bd41d701dbd4a6dc897d1f7ec1725fd0",
+      "bytes": 5611,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_mmfr0_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "ca2da2f66333517aceb77375944fc9215a81c175",
+      "bytes": 8686,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_optional_tcr.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "dac040db8865ca7e54ff11c35958942958acf8d3",
+      "bytes": 5183,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_pac_address_selection.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "613127b8de76ae19a0603b985a92062fd1f592ad",
+      "bytes": 9294,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_provider_cache.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "8f01df100d53b50f70c64fa6f7fd8214b68e372e",
+      "bytes": 5525,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_unscaled_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "4e7db687c199d40aafb99daa488792893afd6122",
+      "bytes": 8010,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_variable_shift_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9abcc04722ee7b20ce271f80521353822f53ecfb",
+      "bytes": 8662,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/tests/verify_zfr0_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "813d12b6e6f66d9739c71d6f5ffce41f7214db32",
+      "bytes": 8010,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/ubfm_provider_cases.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "47278c144b57de116b202ed0f8c8f1bebeb041a9",
+      "bytes": 1252,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "runtime/uefi.h",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "8f0a78da0b7ece9c6453f739ba2397b9c44a6414",
+      "bytes": 4184,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "src/cpu_features.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "5b7044678155c704c73534e4f8d5c936c37cfbc6",
+      "bytes": 5109,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "src/decoder.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "b126032cceb5e420ef32c09ca53503a7eaacb6b1",
+      "bytes": 22210,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "src/emulator.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6b11cb49c0f8a9a162b3bb98bc01db99f85dc8a5",
+      "bytes": 15219,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "src/lib.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f23083b9e6a3e19d5b4bbaf86c896214a954e006",
+      "bytes": 310,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "src/trap.rs",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "7125a30d49b7c8a78bc1e4d29f54de3f6eb0ab48",
+      "bytes": 2571,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/README.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9adb5163c44976265abf83ef48bd00cfc863c7d2",
+      "bytes": 7833,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/abort_oracle.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "a0eae96dc641f82dfd3f1ed2a9c7f39c44a07bda",
+      "bytes": 3278,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/abort_start.S",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f4f2bb56bde22c8c546540a2f781995f901b7849",
+      "bytes": 1520,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/captured-abort/report.json",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2a076fb82307567e66075e3b24d2f91bbf03b94e",
+      "bytes": 103021,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/captured-at/report.json",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "e7b90dee01695d4c13c67714da34abea384f8247",
+      "bytes": 243056,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/compare_current_walker.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "4bd2024834ce496d4054c78c7e7dec33e6915399",
+      "bytes": 6667,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/compare_walker.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "fac7554fb4074ddf81a18667c8cd7ff1f0611e55",
+      "bytes": 6333,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/contract.md",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "600c06669673b412595cbcf98b346851d0fe40b9",
+      "bytes": 2837,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/differential-final/report.json",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "660808b1b43b399a3f3fac1936a902bb42d1df30",
+      "bytes": 129021,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/differential-r1/report.json",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "886d7f3d4bff8e8e70f5e6b30d1e8f4b76339f02",
+      "bytes": 115704,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/oracle.c",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "bd97ddb5ae851220ea366ab03931e07ee30c8e03",
+      "bytes": 3621,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/oracle.ld",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "4981f4bee7e3f478fe9ceb433a48102ff1204c3d",
+      "bytes": 172,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/oracle_start.S",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "9c003f74ef1fad1128809078fed1c64940c542b5",
+      "bytes": 425,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/probe_abort_levels.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "bf27db21a7879a11cf709543ba8ecaf76c34452a",
+      "bytes": 4821,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/probe_fault_levels.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "74d715f394002cd3d0e6e40988be6d3db48e5bef",
+      "bytes": 6205,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_fault_levels/results.json",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "963baa842817e8f065cc4461374f4e77ae652eb3",
+      "bytes": 1936,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_granule_probe.S",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "19d0c9dd170b100f2d782f365a80e427f8cfacda",
+      "bytes": 2886,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/mmu_physical_probe.S",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "f197f6e9ba39defe418af6a081980501e2cf67b0",
+      "bytes": 7222,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/pair_memory_probe.S",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "5f8675776bc0c018a533fb617d69993ce5ee2349",
+      "bytes": 2399,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/pc_alignment_probe.S",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "80fb816dba8feb88b9adb6e7bedec2333193a80a",
+      "bytes": 974,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_bfm_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "00105c4b4e46b4774903bfd4e8dee2c42779aae3",
+      "bytes": 6080,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_conditional_compare.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "63f1be27ca97610aaac402f403252d479b40f1b9",
+      "bytes": 6435,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_conditional_select_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3fbd97fd80cc7eafee4f9849696ece0298ed4fd7",
+      "bytes": 5783,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_dynamic_memory.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "172d2d1e3368395ba6684de3f0db3d09301538f0",
+      "bytes": 7465,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_efi_memory_provider.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "5e11f632498e6767f5b15e2bea0830bf5388f7b2",
+      "bytes": 5832,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_efi_native_pauth.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "80d22d2990bbf75d5170f2ecd97d628312aaa811",
+      "bytes": 8736,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_efi_stage1_provider.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "8cc61554ead1c47a3670e61a6c1cb9534e9fa480",
+      "bytes": 9215,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_extended_arithmetic_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "758d66790cc50d387a24fb5eb5b72126b33fde9e",
+      "bytes": 5592,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_mmu_granules.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "05d8dd7c63ae14f4dedd7eb0b4324e5eacf9e482",
+      "bytes": 3221,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_mmu_physical.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6349c98e84fadb0ad59166b0537ebfca00f07bb8",
+      "bytes": 2620,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_multiply_add_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "2c5c3d5f3b7de483b9b3a16c087c4ec70750c674",
+      "bytes": 5825,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_pair_memory.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "4d2a7cb5b4c85f0aa5cc6c12ff1c017bb4af1723",
+      "bytes": 2694,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_pc_alignment.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "3ff22f262086c8b94b83975bceaf9c502e546736",
+      "bytes": 2138,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_register_offset_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "792ed3d62696291949a54288b4b3897f159a3a5c",
+      "bytes": 6913,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_scalar_memory.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "6049ac7b1084e6fefb205582a1efb504181c7e49",
+      "bytes": 3522,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_test_bit_branch_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "62ea8198e6368fb5ae61e7a96bf16b11ed59b724",
+      "bytes": 5751,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/probe_ubfm_native.py",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "373ef3c9aecffc1f04fd4bdaa20a09a13f7c9b9d",
+      "bytes": 5146,
+      "blob_already_in_published_prior_history": true
+    },
+    {
+      "path": "tools/scalar_memory_probe.S",
+      "mode": "100644",
+      "type": "blob",
+      "git_blob_sha1": "93bd47cf6895916b741508c254d4191e4528d732",
+      "bytes": 2582,
+      "blob_already_in_published_prior_history": true
+    }
+  ],
+  "original_public_source_comparisons": [
+    {
+      "export_path": ".gitattributes",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/.gitattributes",
+      "original_blob": "87bb67ecbe6cb4972fcd544ec8f5c384226f8103",
+      "export_blob": "5dabb2b27b17fb46a94713256fba0372eaa68784",
+      "exact_original_public_source_blob": false
+    },
+    {
+      "export_path": ".github/workflows/ci.yml",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/.github/workflows/ci.yml",
+      "original_blob": "d19e470743fe7276352e8174145122118662c4ec",
+      "export_blob": "f7579ec46a9f3d8f6efbaeff1805d0341a863f6a",
+      "exact_original_public_source_blob": false
+    },
+    {
+      "export_path": ".gitignore",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/.gitignore",
+      "original_blob": "0c6dd0ea1458b88d06ac9d9250452657bf010595",
+      "export_blob": "ca98cd96efdc228b0c0d0e264bfc0ce9ddadfdd7",
+      "exact_original_public_source_blob": false
+    },
+    {
+      "export_path": "Cargo.toml",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/Cargo.toml",
+      "original_blob": "3a3da977ead04cc0f1947506ead3b281bb8aa2df",
+      "export_blob": "3a3da977ead04cc0f1947506ead3b281bb8aa2df",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "LICENSE.txt",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/LICENSE.txt",
+      "original_blob": "f7389913f3fd1cb41276bb098a352b0e27e7e879",
+      "export_blob": "f7389913f3fd1cb41276bb098a352b0e27e7e879",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "README.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/README.md",
+      "original_blob": "27456619e26e94910cc5f40282f6659dc7572169",
+      "export_blob": "9556f09394f19b4dda4ffd4cee291eda0145b343",
+      "exact_original_public_source_blob": false
+    },
+    {
+      "export_path": "devices/ADP.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ADP.md",
+      "original_blob": "b5ed88b08f8221c4f65e28b604aaa1169a76c1f6",
+      "export_blob": "b5ed88b08f8221c4f65e28b604aaa1169a76c1f6",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/AIC.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/AIC.md",
+      "original_blob": "1ca8a48f2db29165bd4fbf2a4714c354fd4804d4",
+      "export_blob": "1ca8a48f2db29165bd4fbf2a4714c354fd4804d4",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ANS.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ANS.md",
+      "original_blob": "28ccde0362f6cb8747b2a1288a710c1f2ee92625",
+      "export_blob": "28ccde0362f6cb8747b2a1288a710c1f2ee92625",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ANS_AUTOBOOT.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ANS_AUTOBOOT.md",
+      "original_blob": "6fbf09362578d164257ad452faad859713cd76b9",
+      "export_blob": "6fbf09362578d164257ad452faad859713cd76b9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ANS_MBOX.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ANS_MBOX.md",
+      "original_blob": "c39d6362820ad5d7c1267a0a1132e0c6f6188b80",
+      "export_blob": "c39d6362820ad5d7c1267a0a1132e0c6f6188b80",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ANS_PCI.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ANS_PCI.md",
+      "original_blob": "6902255e54147498b2aefdf65de7a7092c55755d",
+      "export_blob": "6902255e54147498b2aefdf65de7a7092c55755d",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/APPLE_UART.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/APPLE_UART.md",
+      "original_blob": "ea6f662eba118278ad73b83366d94895a1af39f9",
+      "export_blob": "ea6f662eba118278ad73b83366d94895a1af39f9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ASCWRAP.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ASCWRAP.md",
+      "original_blob": "2280d2386379a16a0c96c08200ca8415374ce35f",
+      "export_blob": "2280d2386379a16a0c96c08200ca8415374ce35f",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/DART.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/DART.md",
+      "original_blob": "8d4f12c928305ae832712aa82accd025fc8fed65",
+      "export_blob": "8d4f12c928305ae832712aa82accd025fc8fed65",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/GPIO.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/GPIO.md",
+      "original_blob": "b69542bc59f4c6e403e5518fed421333d3cdd499",
+      "export_blob": "b69542bc59f4c6e403e5518fed421333d3cdd499",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/GXF.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/GXF.md",
+      "original_blob": "7574b1af5c085537dade313b0b7428559df73b8b",
+      "export_blob": "7574b1af5c085537dade313b0b7428559df73b8b",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/NVRAM.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/NVRAM.md",
+      "original_blob": "13dd386cac6987f0a37e7175bb32d31332636028",
+      "export_blob": "13dd386cac6987f0a37e7175bb32d31332636028",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/RECOVERY.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/RECOVERY.md",
+      "original_blob": "e883690e919992eb9885aa5d5bcdece46fadac61",
+      "export_blob": "e883690e919992eb9885aa5d5bcdece46fadac61",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/SART.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/SART.md",
+      "original_blob": "88165aed94f077a21a2725c6505387a2f8f659d7",
+      "export_blob": "88165aed94f077a21a2725c6505387a2f8f659d7",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/SEP.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/SEP.md",
+      "original_blob": "9e580259ee05ed22fb9b10a02451377776a2ea3e",
+      "export_blob": "9e580259ee05ed22fb9b10a02451377776a2ea3e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/SMC.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/SMC.md",
+      "original_blob": "275488d3bc4a09b23dcd18e5a2599d281b505421",
+      "export_blob": "275488d3bc4a09b23dcd18e5a2599d281b505421",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/STORAGE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/STORAGE.md",
+      "original_blob": "f61b3400da082216e1de5c39df7f73c69c14ed75",
+      "export_blob": "f61b3400da082216e1de5c39df7f73c69c14ed75",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/TIMER.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/TIMER.md",
+      "original_blob": "660aa6b26c8060156facd3ec60c6bb777db9ebe4",
+      "export_blob": "660aa6b26c8060156facd3ec60c6bb777db9ebe4",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/adp_display_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/adp_display_v1.c",
+      "original_blob": "1e6cc5d6a80b863d5a440e002fee37866c03794e",
+      "export_blob": "1e6cc5d6a80b863d5a440e002fee37866c03794e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/adp_display_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/adp_display_v1.h",
+      "original_blob": "6a49662d79690331d6caca7b42bfca1d33e877c8",
+      "export_blob": "6a49662d79690331d6caca7b42bfca1d33e877c8",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/aic_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/aic_v1.c",
+      "original_blob": "bd6400d31a823ddf6384743b220b54b4fab50010",
+      "export_blob": "bd6400d31a823ddf6384743b220b54b4fab50010",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/aic_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/aic_v1.h",
+      "original_blob": "97530e9311cdc1c35647cb79e938d960ee6e06da",
+      "export_blob": "97530e9311cdc1c35647cb79e938d960ee6e06da",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ans_autoboot_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ans_autoboot_v1.c",
+      "original_blob": "3c8e57afaed5912fc6a9add741da5e664e75fbf3",
+      "export_blob": "3c8e57afaed5912fc6a9add741da5e664e75fbf3",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ans_autoboot_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ans_autoboot_v1.h",
+      "original_blob": "3f6fbf31b92e97116995f26a16e644c85525a7ba",
+      "export_blob": "3f6fbf31b92e97116995f26a16e644c85525a7ba",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ans_mbox_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ans_mbox_v1.c",
+      "original_blob": "4bb162c0428401175667c0bd542a3f6c3a45612a",
+      "export_blob": "4bb162c0428401175667c0bd542a3f6c3a45612a",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ans_mbox_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ans_mbox_v1.h",
+      "original_blob": "9926a365eb67773b34a9ff75b1751fcf87529df2",
+      "export_blob": "9926a365eb67773b34a9ff75b1751fcf87529df2",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ans_pci_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ans_pci_v1.c",
+      "original_blob": "f2cd600ad2ac1c30048064d368678aa3011eca41",
+      "export_blob": "f2cd600ad2ac1c30048064d368678aa3011eca41",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ans_pci_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ans_pci_v1.h",
+      "original_blob": "de4c28a6aeb18828511501704dd97acd7fc7d50b",
+      "export_blob": "de4c28a6aeb18828511501704dd97acd7fc7d50b",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ans_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ans_v1.c",
+      "original_blob": "15d0dc722a448366db6972ef15a63676807723db",
+      "export_blob": "15d0dc722a448366db6972ef15a63676807723db",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ans_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ans_v1.h",
+      "original_blob": "5fa81997994941063bf0d62719838976d0a29c34",
+      "export_blob": "5fa81997994941063bf0d62719838976d0a29c34",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/apple_gpio_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/apple_gpio_v1.c",
+      "original_blob": "63531f5270eba8a7fef7934c537f765632c1ea3e",
+      "export_blob": "63531f5270eba8a7fef7934c537f765632c1ea3e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/apple_gpio_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/apple_gpio_v1.h",
+      "original_blob": "75bf79bc647a9d8b7b2cf45815ac624c3cd78a43",
+      "export_blob": "75bf79bc647a9d8b7b2cf45815ac624c3cd78a43",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/apple_gxf_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/apple_gxf_v1.c",
+      "original_blob": "890e5bef10c013bbb4d145b916bd11a413f5bdbb",
+      "export_blob": "890e5bef10c013bbb4d145b916bd11a413f5bdbb",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/apple_gxf_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/apple_gxf_v1.h",
+      "original_blob": "bf54c3b74f0fb00919b1b5356351dc45274b16bc",
+      "export_blob": "bf54c3b74f0fb00919b1b5356351dc45274b16bc",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/apple_smc_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/apple_smc_v1.c",
+      "original_blob": "969a548f719aa72ed5a9abe9f511ac1b0c8f0a2e",
+      "export_blob": "969a548f719aa72ed5a9abe9f511ac1b0c8f0a2e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/apple_smc_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/apple_smc_v1.h",
+      "original_blob": "3f4edc88c77f447c550e7ad473e6a02561449c07",
+      "export_blob": "3f4edc88c77f447c550e7ad473e6a02561449c07",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/apple_uart_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/apple_uart_v1.c",
+      "original_blob": "7253086907c95026b0066c1be530846126e186ca",
+      "export_blob": "7253086907c95026b0066c1be530846126e186ca",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/apple_uart_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/apple_uart_v1.h",
+      "original_blob": "a9988d000bb1eba12607ff1835267016a320cc65",
+      "export_blob": "a9988d000bb1eba12607ff1835267016a320cc65",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ascwrap_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ascwrap_v1.c",
+      "original_blob": "96ea8746c3d40c1e25dd7bd817d64db4e2fd856a",
+      "export_blob": "96ea8746c3d40c1e25dd7bd817d64db4e2fd856a",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/ascwrap_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/ascwrap_v1.h",
+      "original_blob": "ca24c12179d64ca76d78d8165d74d569245c5304",
+      "export_blob": "ca24c12179d64ca76d78d8165d74d569245c5304",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/dart_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/dart_v1.c",
+      "original_blob": "b8ae7f85c97c4ce9a41706845ec343345a837bfe",
+      "export_blob": "b8ae7f85c97c4ce9a41706845ec343345a837bfe",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/dart_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/dart_v1.h",
+      "original_blob": "a7078754ecbb82464d3286d6cf9a06dc347d6b52",
+      "export_blob": "a7078754ecbb82464d3286d6cf9a06dc347d6b52",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/nvram_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/nvram_v1.c",
+      "original_blob": "038fd667f49da05178ba5180c6c1bd9fd7282169",
+      "export_blob": "038fd667f49da05178ba5180c6c1bd9fd7282169",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/nvram_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/nvram_v1.h",
+      "original_blob": "32a4c89652c3bc7d7c8d7a642266e5fb3403e358",
+      "export_blob": "32a4c89652c3bc7d7c8d7a642266e5fb3403e358",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/recovery_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/recovery_v1.c",
+      "original_blob": "1a2af1db3373c2f80b64022f31a70d50b3b3038f",
+      "export_blob": "1a2af1db3373c2f80b64022f31a70d50b3b3038f",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/recovery_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/recovery_v1.h",
+      "original_blob": "9a07ab083ced9f3458c48fdd4cb9b27ade512aeb",
+      "export_blob": "9a07ab083ced9f3458c48fdd4cb9b27ade512aeb",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/sart_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/sart_v1.c",
+      "original_blob": "60f5bc2ff4d5536ddaa15c7361344009487d7a00",
+      "export_blob": "60f5bc2ff4d5536ddaa15c7361344009487d7a00",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/sart_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/sart_v1.h",
+      "original_blob": "9fc34ad2beb21d06da768da0580154051a7f0950",
+      "export_blob": "9fc34ad2beb21d06da768da0580154051a7f0950",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/sep_mailbox_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/sep_mailbox_v1.c",
+      "original_blob": "376ba774b6cb00a7c1eec64ce00db0cfb63f289b",
+      "export_blob": "376ba774b6cb00a7c1eec64ce00db0cfb63f289b",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/sep_mailbox_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/sep_mailbox_v1.h",
+      "original_blob": "7910fd523bab58c4a27256d25c83ae4594d13f18",
+      "export_blob": "7910fd523bab58c4a27256d25c83ae4594d13f18",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/storage_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/storage_v1.c",
+      "original_blob": "45a1fcd3bc745990d3b3ab98c2ddc792338fe2ae",
+      "export_blob": "45a1fcd3bc745990d3b3ab98c2ddc792338fe2ae",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/storage_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/storage_v1.h",
+      "original_blob": "45e43d54a54cb092b30192648ea9cb840b05624d",
+      "export_blob": "45e43d54a54cb092b30192648ea9cb840b05624d",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_adp_display.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_adp_display.c",
+      "original_blob": "d03b5d80e38ce5d8b98a4cf481654172e977bdac",
+      "export_blob": "d03b5d80e38ce5d8b98a4cf481654172e977bdac",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_aic.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_aic.c",
+      "original_blob": "191afef3b8cd53b00f94cb2631123a250358e252",
+      "export_blob": "191afef3b8cd53b00f94cb2631123a250358e252",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_ans.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_ans.c",
+      "original_blob": "2ef8dd44635941a1aaedfe09f4200ff1c0fc8094",
+      "export_blob": "2ef8dd44635941a1aaedfe09f4200ff1c0fc8094",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_ans_autoboot.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_ans_autoboot.c",
+      "original_blob": "9b111ad4f45818c58dbdd242841c373a84e32cc0",
+      "export_blob": "9b111ad4f45818c58dbdd242841c373a84e32cc0",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_ans_mbox.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_ans_mbox.c",
+      "original_blob": "9da77d137d06a2bc2c4b385583b06eefc26a98ce",
+      "export_blob": "9da77d137d06a2bc2c4b385583b06eefc26a98ce",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_ans_pci.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_ans_pci.c",
+      "original_blob": "f7e2b30623fe5577db7659ee84940430816995eb",
+      "export_blob": "f7e2b30623fe5577db7659ee84940430816995eb",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_apple_gpio.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_apple_gpio.c",
+      "original_blob": "a67a7d4f4c12c7a2460ee5bb28b8a93b9069d46c",
+      "export_blob": "a67a7d4f4c12c7a2460ee5bb28b8a93b9069d46c",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_apple_gxf.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_apple_gxf.c",
+      "original_blob": "830dad04fbe7a702b7b911279657a25601ee1bf9",
+      "export_blob": "830dad04fbe7a702b7b911279657a25601ee1bf9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_apple_smc.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_apple_smc.c",
+      "original_blob": "1aefd7b44e97cad12cb8e7cca2c4a62b1dcc17ab",
+      "export_blob": "1aefd7b44e97cad12cb8e7cca2c4a62b1dcc17ab",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_apple_uart.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_apple_uart.c",
+      "original_blob": "497de87504131940cc0005ff994186a270851335",
+      "export_blob": "497de87504131940cc0005ff994186a270851335",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_ascwrap.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_ascwrap.c",
+      "original_blob": "0e7c2efe9aea4e62b7fc35ae6d2e2afd4d0e5cbe",
+      "export_blob": "0e7c2efe9aea4e62b7fc35ae6d2e2afd4d0e5cbe",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_dart.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_dart.c",
+      "original_blob": "3688398bb4b3cf190320cf943d49a5264cfce5a7",
+      "export_blob": "3688398bb4b3cf190320cf943d49a5264cfce5a7",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_nvram.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_nvram.c",
+      "original_blob": "1571fad616ca30ddba0114e13fec8b4faa8f883f",
+      "export_blob": "1571fad616ca30ddba0114e13fec8b4faa8f883f",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_recovery.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_recovery.c",
+      "original_blob": "4a9c0e8141697f1017760802754aa283af6884f6",
+      "export_blob": "4a9c0e8141697f1017760802754aa283af6884f6",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_sart.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_sart.c",
+      "original_blob": "2ea7bcecae097f95327a8d66470a0e32bad1fc61",
+      "export_blob": "2ea7bcecae097f95327a8d66470a0e32bad1fc61",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_sep_mailbox.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_sep_mailbox.c",
+      "original_blob": "5b5c6ad2c265655eda9dfa8f610f85a60562abb7",
+      "export_blob": "5b5c6ad2c265655eda9dfa8f610f85a60562abb7",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_storage.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_storage.c",
+      "original_blob": "babbce20f073ecd9623d3d801b99a27a22f125e8",
+      "export_blob": "babbce20f073ecd9623d3d801b99a27a22f125e8",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/test_timer.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/test_timer.c",
+      "original_blob": "c5cc2cf4e5585966dae760fddf61a73010fa10fc",
+      "export_blob": "c5cc2cf4e5585966dae760fddf61a73010fa10fc",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/timer_v1.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/timer_v1.c",
+      "original_blob": "2fa99af5de655f12f6f219b1b5e5c0709183e94d",
+      "export_blob": "2fa99af5de655f12f6f219b1b5e5c0709183e94d",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "devices/timer_v1.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/devices/timer_v1.h",
+      "original_blob": "d59070d045614b46bd80d2812a1b82a83a6e1b6e",
+      "export_blob": "d59070d045614b46bd80d2812a1b82a83a6e1b6e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_BITFIELD_MOVE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_BITFIELD_MOVE.md",
+      "original_blob": "603c49ebcf195da170115ad3e73e7830dcc389bc",
+      "export_blob": "603c49ebcf195da170115ad3e73e7830dcc389bc",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_CONDITIONAL_SELECT.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_CONDITIONAL_SELECT.md",
+      "original_blob": "70af936424f18fc33044af5038e9f9f9f4351eb4",
+      "export_blob": "70af936424f18fc33044af5038e9f9f9f4351eb4",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_EXTENDED_ARITHMETIC.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_EXTENDED_ARITHMETIC.md",
+      "original_blob": "33775c579db7dd3354fe12afcb58a823d61b8138",
+      "export_blob": "33775c579db7dd3354fe12afcb58a823d61b8138",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_LOGICAL_IMMEDIATE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_LOGICAL_IMMEDIATE.md",
+      "original_blob": "3fb049324c1825c6919829643db3d3b917892494",
+      "export_blob": "3fb049324c1825c6919829643db3d3b917892494",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_MULTIPLY_ADD.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_MULTIPLY_ADD.md",
+      "original_blob": "cb035afddc829be6a4d39b6c9b75d8d48341aa20",
+      "export_blob": "cb035afddc829be6a4d39b6c9b75d8d48341aa20",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_PAIR_MEMORY.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_PAIR_MEMORY.md",
+      "original_blob": "7be3d5aeb224ddaa12906fe764a878f6fc568cc4",
+      "export_blob": "7be3d5aeb224ddaa12906fe764a878f6fc568cc4",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_REFERENCE_BRANCH_PROFILE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_REFERENCE_BRANCH_PROFILE.md",
+      "original_blob": "b01eaab6bf2154f91859389baf1be7436297f559",
+      "export_blob": "b01eaab6bf2154f91859389baf1be7436297f559",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_REGISTER_OFFSET_MEMORY.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_REGISTER_OFFSET_MEMORY.md",
+      "original_blob": "35855aaadacbde2fcf8c3a38a0b8d95700fd6b73",
+      "export_blob": "35855aaadacbde2fcf8c3a38a0b8d95700fd6b73",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_SCALAR_MEMORY.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_SCALAR_MEMORY.md",
+      "original_blob": "320107514d9081929c3d123dc7fc1a6464e5af95",
+      "export_blob": "320107514d9081929c3d123dc7fc1a6464e5af95",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/AARCH64_TEST_BIT_BRANCH.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/AARCH64_TEST_BIT_BRANCH.md",
+      "original_blob": "ef3f5ab275ec0263024e300d5dba8c01555efd36",
+      "export_blob": "ef3f5ab275ec0263024e300d5dba8c01555efd36",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/CONDITIONAL_COMPARE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/CONDITIONAL_COMPARE.md",
+      "original_blob": "5061fb9ae049b36cca6fb1680a666f51d7613910",
+      "export_blob": "5061fb9ae049b36cca6fb1680a666f51d7613910",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/DYNAMIC_MEMORY_CONTROL_V1.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/DYNAMIC_MEMORY_CONTROL_V1.md",
+      "original_blob": "f83f5b7ac778024f2a63a3a8dbfa62a5d7e79e23",
+      "export_blob": "f83f5b7ac778024f2a63a3a8dbfa62a5d7e79e23",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/EFI_PLATFORM_IRQ_V2.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/EFI_PLATFORM_IRQ_V2.md",
+      "original_blob": "3778fd2a315fb9439843d48fcd845a8a2bfb2ced",
+      "export_blob": "3778fd2a315fb9439843d48fcd845a8a2bfb2ced",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/EFI_THREAD_REGISTERS.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/EFI_THREAD_REGISTERS.md",
+      "original_blob": "9948f8d192750bd94e33272437a3e678deaa66e0",
+      "export_blob": "9948f8d192750bd94e33272437a3e678deaa66e0",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/ISAR0_SCALAR_PROFILE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/ISAR0_SCALAR_PROFILE.md",
+      "original_blob": "0831b89d05df082a58305d78b3def263b25fd3fd",
+      "export_blob": "0831b89d05df082a58305d78b3def263b25fd3fd",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/ISAR2_SCALAR_PROFILE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/ISAR2_SCALAR_PROFILE.md",
+      "original_blob": "4b768cd9c7a84bd3dc5df4a38d5165018a5b601a",
+      "export_blob": "4b768cd9c7a84bd3dc5df4a38d5165018a5b601a",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/LOGICAL_SHIFTED_REGISTER.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/LOGICAL_SHIFTED_REGISTER.md",
+      "original_blob": "b724c53fedcec63ea173c1c34ff2b5ca92d0935e",
+      "export_blob": "b724c53fedcec63ea173c1c34ff2b5ca92d0935e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/MAPPED_PAUTH_V2.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/MAPPED_PAUTH_V2.md",
+      "original_blob": "8c8a0b22aacc941676cfa60e4c71f2c277fbf5bf",
+      "export_blob": "8c8a0b22aacc941676cfa60e4c71f2c277fbf5bf",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/MMFR0_ASID8_PROFILE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/MMFR0_ASID8_PROFILE.md",
+      "original_blob": "32f1cf072e3104b776bb465b8ffecb1b9955d33e",
+      "export_blob": "32f1cf072e3104b776bb465b8ffecb1b9955d33e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/MMU_FAULT_METADATA.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/MMU_FAULT_METADATA.md",
+      "original_blob": "ef5f1bd9ff5bd7dff0cb6bec7b53dcb92693a41d",
+      "export_blob": "ef5f1bd9ff5bd7dff0cb6bec7b53dcb92693a41d",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/MMU_OUTPUT_WIDTH.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/MMU_OUTPUT_WIDTH.md",
+      "original_blob": "1c96fde15a4275571e2d75ada1e5ab7b284daf4e",
+      "export_blob": "1c96fde15a4275571e2d75ada1e5ab7b284daf4e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/NATIVE_MEMORY_PROVIDER_V1.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/NATIVE_MEMORY_PROVIDER_V1.md",
+      "original_blob": "593d761a59e0facdbf70c82867c20d1dd7435a5b",
+      "export_blob": "593d761a59e0facdbf70c82867c20d1dd7435a5b",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/NATIVE_MMU_PROVIDER_V2.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/NATIVE_MMU_PROVIDER_V2.md",
+      "original_blob": "c42b082d65bfb28de5bd4fd3dcde15fe797d950e",
+      "export_blob": "c42b082d65bfb28de5bd4fd3dcde15fe797d950e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/PROVIDER_NATIVE_CACHE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/PROVIDER_NATIVE_CACHE.md",
+      "original_blob": "f237a634dd7497d817353287b266bfc5a26a3561",
+      "export_blob": "f237a634dd7497d817353287b266bfc5a26a3561",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/SCALAR_IMMEDIATE_WRITEBACK.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/SCALAR_IMMEDIATE_WRITEBACK.md",
+      "original_blob": "4fcbf0f38c2c862aaee516f3630e94c14a4f529e",
+      "export_blob": "4fcbf0f38c2c862aaee516f3630e94c14a4f529e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/UNDEFINED_A64_SYNDROME.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/UNDEFINED_A64_SYNDROME.md",
+      "original_blob": "37f056cca3e9e18db29990738f546e62665056e5",
+      "export_blob": "37f056cca3e9e18db29990738f546e62665056e5",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/UNSCALED_SCALAR_MEMORY.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/UNSCALED_SCALAR_MEMORY.md",
+      "original_blob": "1656b64dbf2379cab4ea2614f832574ddd872893",
+      "export_blob": "1656b64dbf2379cab4ea2614f832574ddd872893",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/UNSIGNED_BITFIELD_MOVE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/UNSIGNED_BITFIELD_MOVE.md",
+      "original_blob": "6ed5279ee944690acb577990afeffcfbbc147cc9",
+      "export_blob": "6ed5279ee944690acb577990afeffcfbbc147cc9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/VARIABLE_REGISTER_SHIFTS.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/VARIABLE_REGISTER_SHIFTS.md",
+      "original_blob": "0ba5b8357af920e9a34aed5c1480659c483853aa",
+      "export_blob": "0ba5b8357af920e9a34aed5c1480659c483853aa",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "docs/ZFR0_SCALAR_PROFILE.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/docs/ZFR0_SCALAR_PROFILE.md",
+      "original_blob": "6f36dd4411818ed979c9bdcc9b8d424c37d2cf30",
+      "export_blob": "6f36dd4411818ed979c9bdcc9b8d424c37d2cf30",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "repository-files.json",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/repository-files.json",
+      "original_blob": "0bf2e2ac64a26ad434c9f4487e9efeffb8a5e9cd",
+      "export_blob": "95b011c8a3eeb97d122a83c1c1099fe9f13aeeba",
+      "exact_original_public_source_blob": false
+    },
+    {
+      "export_path": "repository.json",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/repository.json",
+      "original_blob": "3694af11e2244ca5cbf7ef94e46c6a0743387570",
+      "export_blob": "d893fc8bdaaf6eced7be7b654ffc64c00af75db9",
+      "exact_original_public_source_blob": false
+    },
+    {
+      "export_path": "runtime/abi_layout.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/abi_layout.c",
+      "original_blob": "49e0a0bcb5ccc5b7656175251b3dd086c1b3a473",
+      "export_blob": "49e0a0bcb5ccc5b7656175251b3dd086c1b3a473",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/arch.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/arch.c",
+      "original_blob": "e8ad1b332852252cdbd05054cf5716ff99adc706",
+      "export_blob": "e8ad1b332852252cdbd05054cf5716ff99adc706",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/bfm_cases.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/bfm_cases.rs",
+      "original_blob": "d70f36c20d3c1e98e1914770cdb78de3a06db72c",
+      "export_blob": "d70f36c20d3c1e98e1914770cdb78de3a06db72c",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/boot_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/boot_jit.c",
+      "original_blob": "c6be730a988731c3ca86a78a58134bf3e01757b1",
+      "export_blob": "c6be730a988731c3ca86a78a58134bf3e01757b1",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/boot_jit.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/boot_jit.h",
+      "original_blob": "9747a72b5cdeabf93983eb2fa8611eb2a2f1ad20",
+      "export_blob": "9747a72b5cdeabf93983eb2fa8611eb2a2f1ad20",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/gop_scanout.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/gop_scanout.c",
+      "original_blob": "f9735a1271fe59d8c242a4fa291de2050fd9ae80",
+      "export_blob": "f9735a1271fe59d8c242a4fa291de2050fd9ae80",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/gop_scanout.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/gop_scanout.h",
+      "original_blob": "d02613be49aec3e6ebb6635817092f3a312bc8f5",
+      "export_blob": "d02613be49aec3e6ebb6635817092f3a312bc8f5",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/handoff.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/handoff.h",
+      "original_blob": "b0ca794992f5793e80b5b481a9d1c4f6fd73d139",
+      "export_blob": "b0ca794992f5793e80b5b481a9d1c4f6fd73d139",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/jit.c",
+      "original_blob": "c5421ae905466cdae1dc4cf9229013b85c8c1664",
+      "export_blob": "c5421ae905466cdae1dc4cf9229013b85c8c1664",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/jit.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/jit.h",
+      "original_blob": "a1511f547a4f9d673ec5643686ccc0c40860acdd",
+      "export_blob": "a1511f547a4f9d673ec5643686ccc0c40860acdd",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/jit_protection.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/jit_protection.c",
+      "original_blob": "2e4547adb206e024024cb3dd7e61929307cd04ce",
+      "export_blob": "2e4547adb206e024024cb3dd7e61929307cd04ce",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/main.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/main.c",
+      "original_blob": "23d03a6882a0cbd3df11040c4989d464cd9c49c4",
+      "export_blob": "23d03a6882a0cbd3df11040c4989d464cd9c49c4",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory-service/Cargo.toml",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory-service/Cargo.toml",
+      "original_blob": "da5b13bc72ae011b0b4ada342c6193f83f630cc1",
+      "export_blob": "da5b13bc72ae011b0b4ada342c6193f83f630cc1",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory-service/src/abi.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory-service/src/abi.rs",
+      "original_blob": "83fc3993ed49da929f975b9d7e887bda39f1bf55",
+      "export_blob": "83fc3993ed49da929f975b9d7e887bda39f1bf55",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory-service/src/abi_v2.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory-service/src/abi_v2.rs",
+      "original_blob": "dfa44eee8fc8d03d4fed153d348c13e45c7693f2",
+      "export_blob": "dfa44eee8fc8d03d4fed153d348c13e45c7693f2",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory-service/src/dynamic.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory-service/src/dynamic.rs",
+      "original_blob": "afbec1712f8df420b3dad292d940f2e578070dc0",
+      "export_blob": "afbec1712f8df420b3dad292d940f2e578070dc0",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory-service/src/dynamic_abi.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory-service/src/dynamic_abi.rs",
+      "original_blob": "0143c21d06367a2e9a499cfe8a2b535af695d999",
+      "export_blob": "0143c21d06367a2e9a499cfe8a2b535af695d999",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory-service/src/dynamic_tests.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory-service/src/dynamic_tests.rs",
+      "original_blob": "3f3bdb1acca5a20833c8c74340e9d46d0b761b2c",
+      "export_blob": "3f3bdb1acca5a20833c8c74340e9d46d0b761b2c",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory-service/src/lib.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory-service/src/lib.rs",
+      "original_blob": "2f18b8139cf62eb11833a3c932ba0314b22c15ad",
+      "export_blob": "2f18b8139cf62eb11833a3c932ba0314b22c15ad",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory-service/src/stage1.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory-service/src/stage1.rs",
+      "original_blob": "167b50e391b7992b53008037ddffda9eddf96cb9",
+      "export_blob": "167b50e391b7992b53008037ddffda9eddf96cb9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory-service/src/stage1_tests.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory-service/src/stage1_tests.rs",
+      "original_blob": "97ebcab6525a9b9c02f139faf8bbdb2b788b672c",
+      "export_blob": "97ebcab6525a9b9c02f139faf8bbdb2b788b672c",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_abi.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_abi.h",
+      "original_blob": "f576a6536c41a62b5111e59118a65fbc1315d23b",
+      "export_blob": "f576a6536c41a62b5111e59118a65fbc1315d23b",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_abi_v2.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_abi_v2.h",
+      "original_blob": "bebe68aa7565af0d3342017f3160b6037726a92a",
+      "export_blob": "bebe68aa7565af0d3342017f3160b6037726a92a",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_boot.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_boot.c",
+      "original_blob": "bf88d8c4483f0bdbe5769a99e74d5d048fba6162",
+      "export_blob": "bf88d8c4483f0bdbe5769a99e74d5d048fba6162",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_boot.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_boot.h",
+      "original_blob": "c403d572c006eac5816d8b11ab1b792865c0763a",
+      "export_blob": "c403d572c006eac5816d8b11ab1b792865c0763a",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_boot.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_boot.rs",
+      "original_blob": "14692a7975786b00c765379aaba57989ae96255d",
+      "export_blob": "14692a7975786b00c765379aaba57989ae96255d",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_boot_v2.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_boot_v2.c",
+      "original_blob": "cca2db67a2d07d1b0df59f229ac80aa34a68da27",
+      "export_blob": "cca2db67a2d07d1b0df59f229ac80aa34a68da27",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_boot_v2.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_boot_v2.h",
+      "original_blob": "f71a96f8fb515fe379b35e982a94b3f6e4a7d29f",
+      "export_blob": "f71a96f8fb515fe379b35e982a94b3f6e4a7d29f",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_boot_v2.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_boot_v2.rs",
+      "original_blob": "5e8d46d5c50f72a9296b479fc36de7dbfb54c51c",
+      "export_blob": "5e8d46d5c50f72a9296b479fc36de7dbfb54c51c",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_dynamic.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_dynamic.c",
+      "original_blob": "83f9a8dd432bd551009c78ac54122dd41f5c1e65",
+      "export_blob": "83f9a8dd432bd551009c78ac54122dd41f5c1e65",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_dynamic.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_dynamic.h",
+      "original_blob": "dffd40fffb520395eb544b31ce08fc57744445eb",
+      "export_blob": "dffd40fffb520395eb544b31ce08fc57744445eb",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_dynamic.inc",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_dynamic.inc",
+      "original_blob": "d45aaa7c4604a8c45c3cb042794f57b1529f1c92",
+      "export_blob": "d45aaa7c4604a8c45c3cb042794f57b1529f1c92",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_dynamic.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_dynamic.rs",
+      "original_blob": "6cd564015e44fdd491be75a3106e2827daf6d46b",
+      "export_blob": "6cd564015e44fdd491be75a3106e2827daf6d46b",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_dynamic_layout.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_dynamic_layout.c",
+      "original_blob": "cab7bd548d1edfcec299c6ca927bf7c4f41d87c7",
+      "export_blob": "cab7bd548d1edfcec299c6ca927bf7c4f41d87c7",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_layout.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_layout.c",
+      "original_blob": "bd48e0301cc68681a525dd78922cd48d70f12662",
+      "export_blob": "bd48e0301cc68681a525dd78922cd48d70f12662",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_layout_v2.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_layout_v2.c",
+      "original_blob": "73fdf27a7dfc0bdee5825a9b6841d055623a04d6",
+      "export_blob": "73fdf27a7dfc0bdee5825a9b6841d055623a04d6",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/memory_stage1.inc",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/memory_stage1.inc",
+      "original_blob": "e5e3fae4e86cf365abb7886151d7c75b829ce7e7",
+      "export_blob": "e5e3fae4e86cf365abb7886151d7c75b829ce7e7",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/multiply_add_cases.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/multiply_add_cases.rs",
+      "original_blob": "6cdf04cb5aaea32729752e164f63e25a4f266b74",
+      "export_blob": "6cdf04cb5aaea32729752e164f63e25a4f266b74",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/platform_abi.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/platform_abi.h",
+      "original_blob": "46c04adb32a861ffbfbe58b8b8fea2550ab41de3",
+      "export_blob": "46c04adb32a861ffbfbe58b8b8fea2550ab41de3",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/platform_layout.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/platform_layout.c",
+      "original_blob": "ac70eb2bbb7ae778d3601b175fd9252fe51eeb70",
+      "export_blob": "ac70eb2bbb7ae778d3601b175fd9252fe51eeb70",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/Cargo.toml",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/Cargo.toml",
+      "original_blob": "6ab673beab4b0e9f780d469af0f07de0401e9348",
+      "export_blob": "6ab673beab4b0e9f780d469af0f07de0401e9348",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/src/arch.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/src/arch.rs",
+      "original_blob": "d046edbfc0009d95b4f5ea1aef75c2708c5450cc",
+      "export_blob": "d046edbfc0009d95b4f5ea1aef75c2708c5450cc",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/src/exception_level.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/src/exception_level.rs",
+      "original_blob": "2a235fdc395e1bbbd5f1e5ac34b16bfe5bc5d27f",
+      "export_blob": "2a235fdc395e1bbbd5f1e5ac34b16bfe5bc5d27f",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/src/lib.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/src/lib.rs",
+      "original_blob": "2da6f84f277904061a521b66bb7456b655aa4ff9",
+      "export_blob": "2da6f84f277904061a521b66bb7456b655aa4ff9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/src/m1.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/src/m1.rs",
+      "original_blob": "c416e4ca8c5c17ca6234c3786ee752aaf2ecde40",
+      "export_blob": "c416e4ca8c5c17ca6234c3786ee752aaf2ecde40",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/src/machine.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/src/machine.rs",
+      "original_blob": "82915f8fcf907f27389e93033b0344000757fc2f",
+      "export_blob": "82915f8fcf907f27389e93033b0344000757fc2f",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/src/mmu.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/src/mmu.rs",
+      "original_blob": "3252ff0746a36566ff5465478db3b5082f3f5ab5",
+      "export_blob": "3252ff0746a36566ff5465478db3b5082f3f5ab5",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/src/pauth.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/src/pauth.rs",
+      "original_blob": "0dd8f0468449c17d459802087b6bd4853a055e76",
+      "export_blob": "0dd8f0468449c17d459802087b6bd4853a055e76",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/src/platform.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/src/platform.rs",
+      "original_blob": "0c081e2fed8c569e12d7655a9693828a4aa89f74",
+      "export_blob": "0c081e2fed8c569e12d7655a9693828a4aa89f74",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos/src/vmapple.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos/src/vmapple.rs",
+      "original_blob": "d2427e86cc564b980f2afda999c8d4c49064cdd0",
+      "export_blob": "d2427e86cc564b980f2afda999c8d4c49064cdd0",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos_abi.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos_abi.h",
+      "original_blob": "755e7b2712b42a9f9b0a0e1945d86c787e9c1285",
+      "export_blob": "755e7b2712b42a9f9b0a0e1945d86c787e9c1285",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos_bridge.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos_bridge.c",
+      "original_blob": "171c6c80e39a90aa95da85c05117a15565b93ee4",
+      "export_blob": "171c6c80e39a90aa95da85c05117a15565b93ee4",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos_bridge.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos_bridge.h",
+      "original_blob": "ef38dfad3a909b93bab05d72d290a4e739aedc39",
+      "export_blob": "ef38dfad3a909b93bab05d72d290a4e739aedc39",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/preos_host_test.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/preos_host_test.c",
+      "original_blob": "b9e6517679ba078206f547630f4398e91f551cb7",
+      "export_blob": "b9e6517679ba078206f547630f4398e91f551cb7",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/register_offset_provider_cases.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/register_offset_provider_cases.rs",
+      "original_blob": "35ada1b3553bcfe37fe0c21650daf7aafcd25527",
+      "export_blob": "35ada1b3553bcfe37fe0c21650daf7aafcd25527",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_asid8_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_asid8_provider.rs",
+      "original_blob": "8fae15f667676a27acf3432dec2a12fc6bc3a4c6",
+      "export_blob": "8fae15f667676a27acf3432dec2a12fc6bc3a4c6",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_asid8_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_asid8_reference.rs",
+      "original_blob": "fdc550a267b82cd29cf7c66438b1eef36679db4b",
+      "export_blob": "fdc550a267b82cd29cf7c66438b1eef36679db4b",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_asid8_validator.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_asid8_validator.c",
+      "original_blob": "0dda7fb66f2ceda67c36938355693d05997c08a4",
+      "export_blob": "0dda7fb66f2ceda67c36938355693d05997c08a4",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_bfm_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_bfm_jit.c",
+      "original_blob": "ac3638f524e4d504dbe9e731d439d90a567785df",
+      "export_blob": "ac3638f524e4d504dbe9e731d439d90a567785df",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_boot_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_boot_jit.c",
+      "original_blob": "e5242ed62f57d24e4260c2185e9547ce8a822e06",
+      "export_blob": "e5242ed62f57d24e4260c2185e9547ce8a822e06",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_conditional_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_conditional_jit.c",
+      "original_blob": "fa885daecb78bd619c90766696a25c7c35366dc8",
+      "export_blob": "fa885daecb78bd619c90766696a25c7c35366dc8",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_conditional_select_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_conditional_select_jit.c",
+      "original_blob": "2f49528a9edd9ec00320eb9fe420c1c6910c5d11",
+      "export_blob": "2f49528a9edd9ec00320eb9fe420c1c6910c5d11",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_dynamic_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_dynamic_provider.rs",
+      "original_blob": "16946d82b96167e8b3129eb57253e1cd2e64753f",
+      "export_blob": "16946d82b96167e8b3129eb57253e1cd2e64753f",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_extended_arithmetic_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_extended_arithmetic_jit.c",
+      "original_blob": "b01fc0a933f7fd21e434129cbb5d3f890f6de0cd",
+      "export_blob": "b01fc0a933f7fd21e434129cbb5d3f890f6de0cd",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_flags_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_flags_jit.c",
+      "original_blob": "e0997056c6e88fca41366e2e8fe55594fd7093e3",
+      "export_blob": "e0997056c6e88fca41366e2e8fe55594fd7093e3",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_gop_scanout.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_gop_scanout.c",
+      "original_blob": "70b672fe118b65ad5b0a3e6d95cf14f6414b0808",
+      "export_blob": "70b672fe118b65ad5b0a3e6d95cf14f6414b0808",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_hierarchy_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_hierarchy_provider.rs",
+      "original_blob": "3ddd3f83af17f7192e593118598b6a6936136a56",
+      "export_blob": "3ddd3f83af17f7192e593118598b6a6936136a56",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_hierarchy_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_hierarchy_reference.rs",
+      "original_blob": "0b74fe19dccca02079775ea00b83e9f29bd91ec8",
+      "export_blob": "0b74fe19dccca02079775ea00b83e9f29bd91ec8",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_indexed_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_indexed_jit.c",
+      "original_blob": "d5f78270f26db4bad6dba005507ee8e27117cca3",
+      "export_blob": "d5f78270f26db4bad6dba005507ee8e27117cca3",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_indexed_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_indexed_provider.rs",
+      "original_blob": "ea532bc4ccb7fde0c9c4c7f3a39d23b01ea76a26",
+      "export_blob": "ea532bc4ccb7fde0c9c4c7f3a39d23b01ea76a26",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_indexed_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_indexed_reference.rs",
+      "original_blob": "f40a80cd11c4e03da421b9d00222a388978d4bc1",
+      "export_blob": "f40a80cd11c4e03da421b9d00222a388978d4bc1",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_irq_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_irq_jit.c",
+      "original_blob": "d1545ec70e052471b3ea58375ef34fcad6200b83",
+      "export_blob": "d1545ec70e052471b3ea58375ef34fcad6200b83",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_isar0_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_isar0_jit.c",
+      "original_blob": "7be0739d6c4ae6a5245fd3584c17951ef1b14fc2",
+      "export_blob": "7be0739d6c4ae6a5245fd3584c17951ef1b14fc2",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_isar0_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_isar0_provider.rs",
+      "original_blob": "30ebb4bb18853053262ba11163ecd614599489b8",
+      "export_blob": "30ebb4bb18853053262ba11163ecd614599489b8",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_isar0_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_isar0_reference.rs",
+      "original_blob": "515436e5c0d97c5c56c6c57fb35593b2fcf6c5bd",
+      "export_blob": "515436e5c0d97c5c56c6c57fb35593b2fcf6c5bd",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_isar2_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_isar2_jit.c",
+      "original_blob": "eb278aa321d44a4b0c85303d86ed545ab289d0bd",
+      "export_blob": "eb278aa321d44a4b0c85303d86ed545ab289d0bd",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_isar2_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_isar2_provider.rs",
+      "original_blob": "de0c865bbd448e45b0ca0e5f2722a43ffdcae310",
+      "export_blob": "de0c865bbd448e45b0ca0e5f2722a43ffdcae310",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_isar2_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_isar2_reference.rs",
+      "original_blob": "c32fca0cd25358d626bf5ab89fd62412fdb1d418",
+      "export_blob": "c32fca0cd25358d626bf5ab89fd62412fdb1d418",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_jit.c",
+      "original_blob": "b8579dfadd4b1232a35198669e038b36f29130ac",
+      "export_blob": "b8579dfadd4b1232a35198669e038b36f29130ac",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_logical_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_logical_jit.c",
+      "original_blob": "b0dab5cc533914b774690c526e6bdec4771561fe",
+      "export_blob": "b0dab5cc533914b774690c526e6bdec4771561fe",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_logical_shifted_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_logical_shifted_jit.c",
+      "original_blob": "c795d2734afe69495d7974b04d9abd0a3c705d60",
+      "export_blob": "c795d2734afe69495d7974b04d9abd0a3c705d60",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_logical_shifted_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_logical_shifted_provider.rs",
+      "original_blob": "86e0ed159e74e6bf1c92d70be23466fe706e3d70",
+      "export_blob": "86e0ed159e74e6bf1c92d70be23466fe706e3d70",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_logical_shifted_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_logical_shifted_reference.rs",
+      "original_blob": "e8662b546fc1bf84c6ff6db467802fcc5e6d59f3",
+      "export_blob": "e8662b546fc1bf84c6ff6db467802fcc5e6d59f3",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_mapped_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_mapped_provider.rs",
+      "original_blob": "0089f4370b7fdecfee8d49b21372bd019ff7aafd",
+      "export_blob": "0089f4370b7fdecfee8d49b21372bd019ff7aafd",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_mapped_snapshot.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_mapped_snapshot.c",
+      "original_blob": "a96652f01ed29272a912730253edc16ef7005664",
+      "export_blob": "a96652f01ed29272a912730253edc16ef7005664",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_memory_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_memory_provider.rs",
+      "original_blob": "70ab31c29f0a87fd48126260890ca5ed6717bd22",
+      "export_blob": "70ab31c29f0a87fd48126260890ca5ed6717bd22",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_mmfr0_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_mmfr0_jit.c",
+      "original_blob": "cbfbed12b92c451f2f436c993d0cc6bb55a18445",
+      "export_blob": "cbfbed12b92c451f2f436c993d0cc6bb55a18445",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_mmfr0_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_mmfr0_provider.rs",
+      "original_blob": "e870e99cedd3a6bcc15a2f326a428f06d9b9127d",
+      "export_blob": "e870e99cedd3a6bcc15a2f326a428f06d9b9127d",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_mmfr0_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_mmfr0_reference.rs",
+      "original_blob": "cc931d889cc80b032e0158b360b8269c077ad880",
+      "export_blob": "cc931d889cc80b032e0158b360b8269c077ad880",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_multiply_add_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_multiply_add_jit.c",
+      "original_blob": "abba0c8994f5ce99c42e8bf77d0927bc1f51f80a",
+      "export_blob": "abba0c8994f5ce99c42e8bf77d0927bc1f51f80a",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_optional_tcr.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_optional_tcr.c",
+      "original_blob": "08f75d7f7e3a3b4fe8a7d8ef3b170f2aa1894c95",
+      "export_blob": "08f75d7f7e3a3b4fe8a7d8ef3b170f2aa1894c95",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_optional_tcr.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_optional_tcr.rs",
+      "original_blob": "8bac097aa535430dcd28d2bd8627cd3aeb0b1ecc",
+      "export_blob": "8bac097aa535430dcd28d2bd8627cd3aeb0b1ecc",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_pac_address_selection.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_pac_address_selection.rs",
+      "original_blob": "b55c24c52dfcc967a6de9012dad1ae7f97556cd0",
+      "export_blob": "b55c24c52dfcc967a6de9012dad1ae7f97556cd0",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_pair_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_pair_jit.c",
+      "original_blob": "d27391d10f4a4183065f80d9eddada74bac8890f",
+      "export_blob": "d27391d10f4a4183065f80d9eddada74bac8890f",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_pauth_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_pauth_jit.c",
+      "original_blob": "5d5145fc036abe89441ef5cceb5da739a9f70238",
+      "export_blob": "5d5145fc036abe89441ef5cceb5da739a9f70238",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_provider_cache.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_provider_cache.c",
+      "original_blob": "18c7efa087e314bbbe2f064a14d3379dc17d62b2",
+      "export_blob": "18c7efa087e314bbbe2f064a14d3379dc17d62b2",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_register_offset_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_register_offset_jit.c",
+      "original_blob": "fa232693373135f1a09a2a656c4b08368d2a380b",
+      "export_blob": "fa232693373135f1a09a2a656c4b08368d2a380b",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_scalar_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_scalar_jit.c",
+      "original_blob": "b0d3f45016dc07fea189fee57ea67b36beaea534",
+      "export_blob": "b0d3f45016dc07fea189fee57ea67b36beaea534",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_shift_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_shift_jit.c",
+      "original_blob": "e262c32b45a99f97961e32bc498610a26751bf52",
+      "export_blob": "e262c32b45a99f97961e32bc498610a26751bf52",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_stage1_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_stage1_provider.rs",
+      "original_blob": "142d36df0ac8e722de66d3edbf6879e49746d494",
+      "export_blob": "142d36df0ac8e722de66d3edbf6879e49746d494",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_test_bit_branch_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_test_bit_branch_jit.c",
+      "original_blob": "9955d500416be5f7246f3f075e0cd37165e82f26",
+      "export_blob": "9955d500416be5f7246f3f075e0cd37165e82f26",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_thread_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_thread_jit.c",
+      "original_blob": "376229a2e00adce7d02d7b3bb5f73263915186e2",
+      "export_blob": "376229a2e00adce7d02d7b3bb5f73263915186e2",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_ubfm_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_ubfm_jit.c",
+      "original_blob": "343c016ca2f9144ca56acef9f9085ef33428ffaf",
+      "export_blob": "343c016ca2f9144ca56acef9f9085ef33428ffaf",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_unaligned_profile.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_unaligned_profile.rs",
+      "original_blob": "57ac71ccd0f33d93bb7261ec2286525b9ed7dcab",
+      "export_blob": "57ac71ccd0f33d93bb7261ec2286525b9ed7dcab",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_unscaled_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_unscaled_jit.c",
+      "original_blob": "8dbbe831c19ce9ff3d46a97782a79fe28e7ddd28",
+      "export_blob": "8dbbe831c19ce9ff3d46a97782a79fe28e7ddd28",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_unscaled_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_unscaled_provider.rs",
+      "original_blob": "e31e089043fc9367b4a45dbd0a4add34cc51a436",
+      "export_blob": "e31e089043fc9367b4a45dbd0a4add34cc51a436",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_unscaled_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_unscaled_reference.rs",
+      "original_blob": "f9e6b2a452ddc2dd0a3779f8990e114b446237b8",
+      "export_blob": "f9e6b2a452ddc2dd0a3779f8990e114b446237b8",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_variable_shift_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_variable_shift_jit.c",
+      "original_blob": "ecd2a9a74c66d0bd31daf86239757da9d12931ce",
+      "export_blob": "ecd2a9a74c66d0bd31daf86239757da9d12931ce",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_variable_shift_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_variable_shift_provider.rs",
+      "original_blob": "316963ff7bf4c8a194f8582064603deabe22b981",
+      "export_blob": "316963ff7bf4c8a194f8582064603deabe22b981",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_variable_shift_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_variable_shift_reference.rs",
+      "original_blob": "2f2eacf51b63c43113da9ed5ac17bd9c9a638ed2",
+      "export_blob": "2f2eacf51b63c43113da9ed5ac17bd9c9a638ed2",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_wx.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_wx.c",
+      "original_blob": "d8804e490301a119b7a38250977a81d70dbdb57d",
+      "export_blob": "d8804e490301a119b7a38250977a81d70dbdb57d",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_zfr0_jit.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_zfr0_jit.c",
+      "original_blob": "28953357b2b112bb1e26a953a3fbf00452c9ad38",
+      "export_blob": "28953357b2b112bb1e26a953a3fbf00452c9ad38",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_zfr0_provider.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_zfr0_provider.rs",
+      "original_blob": "6e71a3bcd25d0f7c20f63cd4a7930beca8f1e6c3",
+      "export_blob": "6e71a3bcd25d0f7c20f63cd4a7930beca8f1e6c3",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/test_zfr0_reference.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/test_zfr0_reference.rs",
+      "original_blob": "44e4cfdfa39a17b5b677f9178f43b6e07b975b31",
+      "export_blob": "44e4cfdfa39a17b5b677f9178f43b6e07b975b31",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/capture_pauth_width_oracle.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/capture_pauth_width_oracle.py",
+      "original_blob": "d8fc19ce2054056ab6f8b596fef46db78bfd6b61",
+      "export_blob": "d8fc19ce2054056ab6f8b596fef46db78bfd6b61",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/hierarchy_oracle/CONTRACT.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/hierarchy_oracle/CONTRACT.md",
+      "original_blob": "2d9d778f4d8af7cfb596866ff5db30726840dd2e",
+      "export_blob": "2d9d778f4d8af7cfb596866ff5db30726840dd2e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/hierarchy_oracle/link.ld",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/hierarchy_oracle/link.ld",
+      "original_blob": "8023a7479966fc2549b374966dbeaf0ca9d32feb",
+      "export_blob": "8023a7479966fc2549b374966dbeaf0ca9d32feb",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/hierarchy_oracle/oracle.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/hierarchy_oracle/oracle.c",
+      "original_blob": "9d7ebc6d0bee92ef714214238e06a4ba9d1a420c",
+      "export_blob": "9d7ebc6d0bee92ef714214238e06a4ba9d1a420c",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/hierarchy_oracle/run.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/hierarchy_oracle/run.py",
+      "original_blob": "e1e6709e8cd5c1ecfcce7db9167686f7ee016fc5",
+      "export_blob": "e1e6709e8cd5c1ecfcce7db9167686f7ee016fc5",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/hierarchy_oracle/start.S",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/hierarchy_oracle/start.S",
+      "original_blob": "135d512c0970f2f2a2076fd9511f79eb9805c939",
+      "export_blob": "135d512c0970f2f2a2076fd9511f79eb9805c939",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/pauth_width_oracle.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/pauth_width_oracle.h",
+      "original_blob": "eae3704abf35ecfe8c90e4c1783d953dbc93e753",
+      "export_blob": "eae3704abf35ecfe8c90e4c1783d953dbc93e753",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/pauth_width_oracle.json",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/pauth_width_oracle.json",
+      "original_blob": "fec3c22c29cefa84d971717c0f57c336cafdb4f1",
+      "export_blob": "fec3c22c29cefa84d971717c0f57c336cafdb4f1",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_asid8_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_asid8_native.py",
+      "original_blob": "ecf6f21df37e6d60057f01d04b02ddae41b5ee7f",
+      "export_blob": "ecf6f21df37e6d60057f01d04b02ddae41b5ee7f",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_hierarchy_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_hierarchy_native.py",
+      "original_blob": "39577e152e358175170e8cdc5966401fa0249dd5",
+      "export_blob": "39577e152e358175170e8cdc5966401fa0249dd5",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_indexed_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_indexed_native.py",
+      "original_blob": "e556f049c69c81b23e1357229f835d5347f6b5e2",
+      "export_blob": "e556f049c69c81b23e1357229f835d5347f6b5e2",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_isar0_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_isar0_native.py",
+      "original_blob": "c82e5b8813bdadc7a000b1c99c8552d6087cbe30",
+      "export_blob": "c82e5b8813bdadc7a000b1c99c8552d6087cbe30",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_isar2_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_isar2_native.py",
+      "original_blob": "c988d011761077d8aa33b7fbe2aa2075b8beeaa9",
+      "export_blob": "c988d011761077d8aa33b7fbe2aa2075b8beeaa9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_logical_shifted_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_logical_shifted_native.py",
+      "original_blob": "72204e7e4f776a60a298ae2805a785d812f93d7a",
+      "export_blob": "72204e7e4f776a60a298ae2805a785d812f93d7a",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_mapped_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_mapped_native.py",
+      "original_blob": "35362ac9bd41d701dbd4a6dc897d1f7ec1725fd0",
+      "export_blob": "35362ac9bd41d701dbd4a6dc897d1f7ec1725fd0",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_mmfr0_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_mmfr0_native.py",
+      "original_blob": "ca2da2f66333517aceb77375944fc9215a81c175",
+      "export_blob": "ca2da2f66333517aceb77375944fc9215a81c175",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_optional_tcr.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_optional_tcr.py",
+      "original_blob": "dac040db8865ca7e54ff11c35958942958acf8d3",
+      "export_blob": "dac040db8865ca7e54ff11c35958942958acf8d3",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_pac_address_selection.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_pac_address_selection.py",
+      "original_blob": "613127b8de76ae19a0603b985a92062fd1f592ad",
+      "export_blob": "613127b8de76ae19a0603b985a92062fd1f592ad",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_provider_cache.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_provider_cache.py",
+      "original_blob": "8f01df100d53b50f70c64fa6f7fd8214b68e372e",
+      "export_blob": "8f01df100d53b50f70c64fa6f7fd8214b68e372e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_unscaled_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_unscaled_native.py",
+      "original_blob": "4e7db687c199d40aafb99daa488792893afd6122",
+      "export_blob": "4e7db687c199d40aafb99daa488792893afd6122",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_variable_shift_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_variable_shift_native.py",
+      "original_blob": "9abcc04722ee7b20ce271f80521353822f53ecfb",
+      "export_blob": "9abcc04722ee7b20ce271f80521353822f53ecfb",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/tests/verify_zfr0_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/tests/verify_zfr0_native.py",
+      "original_blob": "813d12b6e6f66d9739c71d6f5ffce41f7214db32",
+      "export_blob": "813d12b6e6f66d9739c71d6f5ffce41f7214db32",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/ubfm_provider_cases.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/ubfm_provider_cases.rs",
+      "original_blob": "47278c144b57de116b202ed0f8c8f1bebeb041a9",
+      "export_blob": "47278c144b57de116b202ed0f8c8f1bebeb041a9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "runtime/uefi.h",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/runtime/uefi.h",
+      "original_blob": "8f0a78da0b7ece9c6453f739ba2397b9c44a6414",
+      "export_blob": "8f0a78da0b7ece9c6453f739ba2397b9c44a6414",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "src/cpu_features.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/src/cpu_features.rs",
+      "original_blob": "5b7044678155c704c73534e4f8d5c936c37cfbc6",
+      "export_blob": "5b7044678155c704c73534e4f8d5c936c37cfbc6",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "src/decoder.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/src/decoder.rs",
+      "original_blob": "b126032cceb5e420ef32c09ca53503a7eaacb6b1",
+      "export_blob": "b126032cceb5e420ef32c09ca53503a7eaacb6b1",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "src/emulator.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/src/emulator.rs",
+      "original_blob": "6b11cb49c0f8a9a162b3bb98bc01db99f85dc8a5",
+      "export_blob": "6b11cb49c0f8a9a162b3bb98bc01db99f85dc8a5",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "src/lib.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/src/lib.rs",
+      "original_blob": "f23083b9e6a3e19d5b4bbaf86c896214a954e006",
+      "export_blob": "f23083b9e6a3e19d5b4bbaf86c896214a954e006",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "src/trap.rs",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/src/trap.rs",
+      "original_blob": "7125a30d49b7c8a78bc1e4d29f54de3f6eb0ab48",
+      "export_blob": "7125a30d49b7c8a78bc1e4d29f54de3f6eb0ab48",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/README.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/README.md",
+      "original_blob": "9adb5163c44976265abf83ef48bd00cfc863c7d2",
+      "export_blob": "9adb5163c44976265abf83ef48bd00cfc863c7d2",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/abort_oracle.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/abort_oracle.c",
+      "original_blob": "a0eae96dc641f82dfd3f1ed2a9c7f39c44a07bda",
+      "export_blob": "a0eae96dc641f82dfd3f1ed2a9c7f39c44a07bda",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/abort_start.S",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/abort_start.S",
+      "original_blob": "f4f2bb56bde22c8c546540a2f781995f901b7849",
+      "export_blob": "f4f2bb56bde22c8c546540a2f781995f901b7849",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/captured-abort/report.json",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/captured-abort/report.json",
+      "original_blob": "2a076fb82307567e66075e3b24d2f91bbf03b94e",
+      "export_blob": "2a076fb82307567e66075e3b24d2f91bbf03b94e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/captured-at/report.json",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/captured-at/report.json",
+      "original_blob": "e7b90dee01695d4c13c67714da34abea384f8247",
+      "export_blob": "e7b90dee01695d4c13c67714da34abea384f8247",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/compare_current_walker.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/compare_current_walker.py",
+      "original_blob": "4bd2024834ce496d4054c78c7e7dec33e6915399",
+      "export_blob": "4bd2024834ce496d4054c78c7e7dec33e6915399",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/compare_walker.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/compare_walker.py",
+      "original_blob": "fac7554fb4074ddf81a18667c8cd7ff1f0611e55",
+      "export_blob": "fac7554fb4074ddf81a18667c8cd7ff1f0611e55",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/contract.md",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/contract.md",
+      "original_blob": "600c06669673b412595cbcf98b346851d0fe40b9",
+      "export_blob": "600c06669673b412595cbcf98b346851d0fe40b9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/differential-final/report.json",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/differential-final/report.json",
+      "original_blob": "660808b1b43b399a3f3fac1936a902bb42d1df30",
+      "export_blob": "660808b1b43b399a3f3fac1936a902bb42d1df30",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/differential-r1/report.json",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/differential-r1/report.json",
+      "original_blob": "886d7f3d4bff8e8e70f5e6b30d1e8f4b76339f02",
+      "export_blob": "886d7f3d4bff8e8e70f5e6b30d1e8f4b76339f02",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/oracle.c",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/oracle.c",
+      "original_blob": "bd97ddb5ae851220ea366ab03931e07ee30c8e03",
+      "export_blob": "bd97ddb5ae851220ea366ab03931e07ee30c8e03",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/oracle.ld",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/oracle.ld",
+      "original_blob": "4981f4bee7e3f478fe9ceb433a48102ff1204c3d",
+      "export_blob": "4981f4bee7e3f478fe9ceb433a48102ff1204c3d",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/oracle_start.S",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/oracle_start.S",
+      "original_blob": "9c003f74ef1fad1128809078fed1c64940c542b5",
+      "export_blob": "9c003f74ef1fad1128809078fed1c64940c542b5",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/probe_abort_levels.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/probe_abort_levels.py",
+      "original_blob": "bf27db21a7879a11cf709543ba8ecaf76c34452a",
+      "export_blob": "bf27db21a7879a11cf709543ba8ecaf76c34452a",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/probe_fault_levels.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/probe_fault_levels.py",
+      "original_blob": "74d715f394002cd3d0e6e40988be6d3db48e5bef",
+      "export_blob": "74d715f394002cd3d0e6e40988be6d3db48e5bef",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_fault_levels/results.json",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_fault_levels/results.json",
+      "original_blob": "963baa842817e8f065cc4461374f4e77ae652eb3",
+      "export_blob": "963baa842817e8f065cc4461374f4e77ae652eb3",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_granule_probe.S",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_granule_probe.S",
+      "original_blob": "19d0c9dd170b100f2d782f365a80e427f8cfacda",
+      "export_blob": "19d0c9dd170b100f2d782f365a80e427f8cfacda",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/mmu_physical_probe.S",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/mmu_physical_probe.S",
+      "original_blob": "f197f6e9ba39defe418af6a081980501e2cf67b0",
+      "export_blob": "f197f6e9ba39defe418af6a081980501e2cf67b0",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/pair_memory_probe.S",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/pair_memory_probe.S",
+      "original_blob": "5f8675776bc0c018a533fb617d69993ce5ee2349",
+      "export_blob": "5f8675776bc0c018a533fb617d69993ce5ee2349",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/pc_alignment_probe.S",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/pc_alignment_probe.S",
+      "original_blob": "80fb816dba8feb88b9adb6e7bedec2333193a80a",
+      "export_blob": "80fb816dba8feb88b9adb6e7bedec2333193a80a",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_bfm_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_bfm_native.py",
+      "original_blob": "00105c4b4e46b4774903bfd4e8dee2c42779aae3",
+      "export_blob": "00105c4b4e46b4774903bfd4e8dee2c42779aae3",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_conditional_compare.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_conditional_compare.py",
+      "original_blob": "63f1be27ca97610aaac402f403252d479b40f1b9",
+      "export_blob": "63f1be27ca97610aaac402f403252d479b40f1b9",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_conditional_select_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_conditional_select_native.py",
+      "original_blob": "3fbd97fd80cc7eafee4f9849696ece0298ed4fd7",
+      "export_blob": "3fbd97fd80cc7eafee4f9849696ece0298ed4fd7",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_dynamic_memory.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_dynamic_memory.py",
+      "original_blob": "172d2d1e3368395ba6684de3f0db3d09301538f0",
+      "export_blob": "172d2d1e3368395ba6684de3f0db3d09301538f0",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_efi_memory_provider.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_efi_memory_provider.py",
+      "original_blob": "5e11f632498e6767f5b15e2bea0830bf5388f7b2",
+      "export_blob": "5e11f632498e6767f5b15e2bea0830bf5388f7b2",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_efi_native_pauth.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_efi_native_pauth.py",
+      "original_blob": "80d22d2990bbf75d5170f2ecd97d628312aaa811",
+      "export_blob": "80d22d2990bbf75d5170f2ecd97d628312aaa811",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_efi_stage1_provider.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_efi_stage1_provider.py",
+      "original_blob": "8cc61554ead1c47a3670e61a6c1cb9534e9fa480",
+      "export_blob": "8cc61554ead1c47a3670e61a6c1cb9534e9fa480",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_extended_arithmetic_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_extended_arithmetic_native.py",
+      "original_blob": "758d66790cc50d387a24fb5eb5b72126b33fde9e",
+      "export_blob": "758d66790cc50d387a24fb5eb5b72126b33fde9e",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_mmu_granules.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_mmu_granules.py",
+      "original_blob": "05d8dd7c63ae14f4dedd7eb0b4324e5eacf9e482",
+      "export_blob": "05d8dd7c63ae14f4dedd7eb0b4324e5eacf9e482",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_mmu_physical.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_mmu_physical.py",
+      "original_blob": "6349c98e84fadb0ad59166b0537ebfca00f07bb8",
+      "export_blob": "6349c98e84fadb0ad59166b0537ebfca00f07bb8",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_multiply_add_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_multiply_add_native.py",
+      "original_blob": "2c5c3d5f3b7de483b9b3a16c087c4ec70750c674",
+      "export_blob": "2c5c3d5f3b7de483b9b3a16c087c4ec70750c674",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_pair_memory.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_pair_memory.py",
+      "original_blob": "4d2a7cb5b4c85f0aa5cc6c12ff1c017bb4af1723",
+      "export_blob": "4d2a7cb5b4c85f0aa5cc6c12ff1c017bb4af1723",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_pc_alignment.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_pc_alignment.py",
+      "original_blob": "3ff22f262086c8b94b83975bceaf9c502e546736",
+      "export_blob": "3ff22f262086c8b94b83975bceaf9c502e546736",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_register_offset_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_register_offset_native.py",
+      "original_blob": "792ed3d62696291949a54288b4b3897f159a3a5c",
+      "export_blob": "792ed3d62696291949a54288b4b3897f159a3a5c",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_scalar_memory.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_scalar_memory.py",
+      "original_blob": "6049ac7b1084e6fefb205582a1efb504181c7e49",
+      "export_blob": "6049ac7b1084e6fefb205582a1efb504181c7e49",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_test_bit_branch_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_test_bit_branch_native.py",
+      "original_blob": "62ea8198e6368fb5ae61e7a96bf16b11ed59b724",
+      "export_blob": "62ea8198e6368fb5ae61e7a96bf16b11ed59b724",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/probe_ubfm_native.py",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/probe_ubfm_native.py",
+      "original_blob": "373ef3c9aecffc1f04fd4bdaa20a09a13f7c9b9d",
+      "export_blob": "373ef3c9aecffc1f04fd4bdaa20a09a13f7c9b9d",
+      "exact_original_public_source_blob": true
+    },
+    {
+      "export_path": "tools/scalar_memory_probe.S",
+      "original_public_source_path": "nextcore/crates/nextcore-ise/tools/scalar_memory_probe.S",
+      "original_blob": "93bd47cf6895916b741508c254d4191e4528d732",
+      "export_blob": "93bd47cf6895916b741508c254d4191e4528d732",
+      "exact_original_public_source_blob": true
+    }
+  ],
+  "files": [
+    {
+      "original_relative_path": ".gitattributes",
+      "archive_relative_path": "metadata/original-gitattributes.txt",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "5dabb2b27b17fb46a94713256fba0372eaa68784",
+      "sha256": "4b0f1fc438f30f25abe421b7542e9f3803b8b5c15ca3695614222e2bc547a9fe",
+      "bytes": 28,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": ".github/workflows/ci.yml",
+      "archive_relative_path": ".github/workflows/ci.yml",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "f7579ec46a9f3d8f6efbaeff1805d0341a863f6a",
+      "sha256": "20df417d7471928121d281fbcb0badb56a267a00ff45a16988709f6448cf7fc3",
+      "bytes": 270,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": ".gitignore",
+      "archive_relative_path": "metadata/original-gitignore.txt",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "ca98cd96efdc228b0c0d0e264bfc0ce9ddadfdd7",
+      "sha256": "9cc2c8cc102e0b2a0a177c8f594abc9b9776300a04473c24b45d52c1007a4119",
+      "bytes": 20,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "README.md",
+      "archive_relative_path": "README.md",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "9556f09394f19b4dda4ffd4cee291eda0145b343",
+      "sha256": "b2cc2207fbb7e98e478ebc1f9d6c2eaf706d0e2e71954f4cc3837d8a7848cef8",
+      "bytes": 312,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "devices/ans_pci_v1.c",
+      "archive_relative_path": "devices/ans_pci_v1.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "f2cd600ad2ac1c30048064d368678aa3011eca41",
+      "sha256": "0fa24eec284ce64c165e2cac43fd535a5beb4a13ff1eabc3fac3db39ec6d7ab2",
+      "bytes": 14018,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "repository-files.json",
+      "archive_relative_path": "repository-files.json",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "95b011c8a3eeb97d122a83c1c1099fe9f13aeeba",
+      "sha256": "fa701553a53ebe763e3a786754c8b338d40182df6f84255de5908f3631b474f1",
+      "bytes": 46938,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "repository.json",
+      "archive_relative_path": "repository.json",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "d893fc8bdaaf6eced7be7b654ffc64c00af75db9",
+      "sha256": "f5b3b146530be513f8ac39ea50fef2efdd6d9fa5dcafd3d27ec2ba34ad50be8e",
+      "bytes": 461,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/arch.c",
+      "archive_relative_path": "runtime/arch.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "e8ad1b332852252cdbd05054cf5716ff99adc706",
+      "sha256": "736ac0c107f551bdab7679002d1dcd044f2241760eaf836edc8a8b1d1b117fc4",
+      "bytes": 22443,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/boot_jit.c",
+      "archive_relative_path": "runtime/boot_jit.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "c6be730a988731c3ca86a78a58134bf3e01757b1",
+      "sha256": "4885d29d7f6d7954a816b00d55600acf47992cf8ada469175b2d6130af62c8de",
+      "bytes": 4485,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/jit.c",
+      "archive_relative_path": "runtime/jit.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "c5421ae905466cdae1dc4cf9229013b85c8c1664",
+      "sha256": "dce9e73650e1fda92542298494e8a45ec8e5419e826b308f745ed797ab9186ee",
+      "bytes": 51630,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/jit.h",
+      "archive_relative_path": "runtime/jit.h",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "a1511f547a4f9d673ec5643686ccc0c40860acdd",
+      "sha256": "82ec08a23294a0d02dc95de0b98cc3c6b0d29f2de0656cbdcc4801f7c3161ce9",
+      "bytes": 9050,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/memory-service/src/stage1.rs",
+      "archive_relative_path": "runtime/memory-service/src/stage1.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "167b50e391b7992b53008037ddffda9eddf96cb9",
+      "sha256": "704ce1970055d67df2623a5394343bfdf9734900e5c1ff44c6153ddd83a9ff1c",
+      "bytes": 10209,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/memory-service/src/stage1_tests.rs",
+      "archive_relative_path": "runtime/memory-service/src/stage1_tests.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "97ebcab6525a9b9c02f139faf8bbdb2b788b672c",
+      "sha256": "26e055b15193057208a938067a50edaeb90e81c67c3e8a45bdaf978b0c3a420b",
+      "bytes": 6683,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/memory_boot_v2.c",
+      "archive_relative_path": "runtime/memory_boot_v2.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "cca2db67a2d07d1b0df59f229ac80aa34a68da27",
+      "sha256": "9c84f287e8f89d05777806f2c0c6b117add7ccc875ab6cf9f0e605c73d1a41d4",
+      "bytes": 5122,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/memory_boot_v2.h",
+      "archive_relative_path": "runtime/memory_boot_v2.h",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "f71a96f8fb515fe379b35e982a94b3f6e4a7d29f",
+      "sha256": "c7a078ed587b0e0665c253f8eb66a4f55ba880c83eefe51567851894c088c1e0",
+      "bytes": 2721,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/memory_dynamic.c",
+      "archive_relative_path": "runtime/memory_dynamic.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "83f9a8dd432bd551009c78ac54122dd41f5c1e65",
+      "sha256": "e45b3475c83d20f00f903052a89496644f2059c6196d85ca81519a57e997e1b2",
+      "bytes": 4183,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/memory_dynamic.h",
+      "archive_relative_path": "runtime/memory_dynamic.h",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "dffd40fffb520395eb544b31ce08fc57744445eb",
+      "sha256": "abd722eb6cc7078a9210ac2d5d6c7fd4ce38d427ad4f804a85859c7f9e9bfbee",
+      "bytes": 3403,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/memory_dynamic.inc",
+      "archive_relative_path": "runtime/memory_dynamic.inc",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "d45aaa7c4604a8c45c3cb042794f57b1529f1c92",
+      "sha256": "c6c4c9af889e33919da59246532bf8cc0168259109c834f786ae54a9bb094615",
+      "bytes": 10473,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/memory_stage1.inc",
+      "archive_relative_path": "runtime/memory_stage1.inc",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "e5e3fae4e86cf365abb7886151d7c75b829ce7e7",
+      "sha256": "dbab953c5f00cccf4bc95538d20446da6f76de9cd7805756d00a2439f315e434",
+      "bytes": 18142,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/preos/src/arch.rs",
+      "archive_relative_path": "runtime/preos/src/arch.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "d046edbfc0009d95b4f5ea1aef75c2708c5450cc",
+      "sha256": "9c2ba32f571edadac7c7385a8845f40e46341be744c60c6eebd2e689e3f20f6d",
+      "bytes": 183600,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/preos/src/lib.rs",
+      "archive_relative_path": "runtime/preos/src/lib.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "2da6f84f277904061a521b66bb7456b655aa4ff9",
+      "sha256": "cc801ea77734acaecedf8721982b2f697efabb56ed2c61c91fb6b73e5d8e136d",
+      "bytes": 33834,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/preos_abi.h",
+      "archive_relative_path": "runtime/preos_abi.h",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "755e7b2712b42a9f9b0a0e1945d86c787e9c1285",
+      "sha256": "f355c3ab92457c569c3a4833b91ec8ad51ccdef6d0e8142d3ba236db5f37d5dc",
+      "bytes": 7801,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/preos_bridge.c",
+      "archive_relative_path": "runtime/preos_bridge.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "171c6c80e39a90aa95da85c05117a15565b93ee4",
+      "sha256": "f1903081e6ad6e0a4f7be884dd9df679ba906a0f7288d16996990cf27409f8b6",
+      "bytes": 45171,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/preos_host_test.c",
+      "archive_relative_path": "runtime/preos_host_test.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "b9e6517679ba078206f547630f4398e91f551cb7",
+      "sha256": "41ca33d0c35c50b8b9fbb22323429c2c785670883d7ac99e368f8cafcefc283c",
+      "bytes": 16805,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_dynamic_provider.rs",
+      "archive_relative_path": "runtime/test_dynamic_provider.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "16946d82b96167e8b3129eb57253e1cd2e64753f",
+      "sha256": "37d505c79a01c7b98132213f455f31477cab21ad495b87b41e0be9c4fdbf0938",
+      "bytes": 31075,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_flags_jit.c",
+      "archive_relative_path": "runtime/test_flags_jit.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "e0997056c6e88fca41366e2e8fe55594fd7093e3",
+      "sha256": "5c8c5bd854fd73577b72b81e0d8fd50d02ea601ecae27d1343ab98df59f3a777",
+      "bytes": 7690,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_irq_jit.c",
+      "archive_relative_path": "runtime/test_irq_jit.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "d1545ec70e052471b3ea58375ef34fcad6200b83",
+      "sha256": "0b129c5403c17a650fe280572fa86c75afbb1a6f78d39420c7e2c0ce985cc3d5",
+      "bytes": 7762,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_isar2_jit.c",
+      "archive_relative_path": "runtime/test_isar2_jit.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "eb278aa321d44a4b0c85303d86ed545ab289d0bd",
+      "sha256": "a2097b673e466d94eb2963b4afa3d676425c548c99bc12e80781593b0a66260f",
+      "bytes": 3658,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_isar2_provider.rs",
+      "archive_relative_path": "runtime/test_isar2_provider.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "de0c865bbd448e45b0ca0e5f2722a43ffdcae310",
+      "sha256": "e6b1ce1d90715fae381c409f1ccc61579d84807ca0823796a57c11f8cac872bd",
+      "bytes": 2604,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_isar2_reference.rs",
+      "archive_relative_path": "runtime/test_isar2_reference.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "c32fca0cd25358d626bf5ab89fd62412fdb1d418",
+      "sha256": "1e490bc807ebe7ac0924b385aca7a6f9a3975e51a28f6c2682a353d22bb71f78",
+      "bytes": 1954,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_jit.c",
+      "archive_relative_path": "runtime/test_jit.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "b8579dfadd4b1232a35198669e038b36f29130ac",
+      "sha256": "a216d96076607fbe6bc9f40b89f00b16dd215c7380185dfac76ca3857fd2209a",
+      "bytes": 7894,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_mmfr0_jit.c",
+      "archive_relative_path": "runtime/test_mmfr0_jit.c",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "cbfbed12b92c451f2f436c993d0cc6bb55a18445",
+      "sha256": "019af85cba835305ef099e98e3ebfc0a48fa2115a10c348b7b8cc0007dd10c91",
+      "bytes": 3106,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_mmfr0_provider.rs",
+      "archive_relative_path": "runtime/test_mmfr0_provider.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "e870e99cedd3a6bcc15a2f326a428f06d9b9127d",
+      "sha256": "82db179317adc8ba87b572803af70e74e66403faa0d6f09ca6c9c994ac776fd1",
+      "bytes": 2200,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_mmfr0_reference.rs",
+      "archive_relative_path": "runtime/test_mmfr0_reference.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "cc931d889cc80b032e0158b360b8269c077ad880",
+      "sha256": "1f53ce8506103fed18590f6526a4c7a6a65a1194fc1905692480b53787c54981",
+      "bytes": 1458,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/test_stage1_provider.rs",
+      "archive_relative_path": "runtime/test_stage1_provider.rs",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "142d36df0ac8e722de66d3edbf6879e49746d494",
+      "sha256": "e71ce27f0afe570766b03698c22af0add0da252a1591e293638330a1e281a22c",
+      "bytes": 26721,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/tests/verify_isar2_native.py",
+      "archive_relative_path": "runtime/tests/verify_isar2_native.py",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "c988d011761077d8aa33b7fbe2aa2075b8beeaa9",
+      "sha256": "c81aa580cb11ecda31ef8918645bab047ed26136870ebca1e35551b052553baf",
+      "bytes": 9352,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "runtime/tests/verify_mmfr0_native.py",
+      "archive_relative_path": "runtime/tests/verify_mmfr0_native.py",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "ca2da2f66333517aceb77375944fc9215a81c175",
+      "sha256": "0dcbf37bd93c760ce56a1c52b5468652bedb1c77b296e6f4139c8f4ff2a5ee91",
+      "bytes": 8686,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "tools/probe_dynamic_memory.py",
+      "archive_relative_path": "tools/probe_dynamic_memory.py",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "172d2d1e3368395ba6684de3f0db3d09301538f0",
+      "sha256": "8432f7140f0b13aca6a149c74bb5605af406f9824367e68a7a28ad853f57420e",
+      "bytes": 7465,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "tools/probe_efi_stage1_provider.py",
+      "archive_relative_path": "tools/probe_efi_stage1_provider.py",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "8cc61554ead1c47a3670e61a6c1cb9534e9fa480",
+      "sha256": "c1e178ce982a53ac4d82ad50f4d22b9ca7a1e067b96722d816b07628272b5708",
+      "bytes": 9215,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    },
+    {
+      "original_relative_path": "LICENSE.txt",
+      "archive_relative_path": "LICENSE.txt",
+      "source_revision": "3afdeb929df46877f049d8f8ef90c5383025565e",
+      "git_blob_sha1": "f7389913f3fd1cb41276bb098a352b0e27e7e879",
+      "sha256": "77c458ccb6116400cf960f8951630bc3b8b34731b56ffbd736b95c2b78449104",
+      "bytes": 1851,
+      "original_git_mode": "100644",
+      "archive_git_mode": "100644",
+      "license_path": "LICENSE.txt"
+    }
+  ]
+}
